@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0E2A3F">
+<meta name="description" content="Табло для волейбольних матчів: сети, подача, тайм-аути, протокол. Працює офлайн на телефоні, планшеті та великому екрані.">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Табло — волейбол</title>
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="apple-touch-icon" href="./icons/icon-192.png">
+<link rel="icon" href="./icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --court:#0E2A3F; --court-deep:#0A1F30; --chalk:#F2EFE6; --slate:#8FA6B8;
+    --team-a:#1668C9; --team-b:#F5A310;      /* колір половини */
+    --ink-a:#FFFFFF; --ink-b:#0A1F30;        /* текст на цій половині */
+    --tape:#EDE9DE; --danger:#D8574C; --net:3px;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;margin:0}
+  body{
+    background:var(--court);color:var(--chalk);
+    font-family:"Barlow Condensed","Roboto Condensed","Arial Narrow",system-ui,sans-serif;
+    overflow:hidden;overscroll-behavior:none;user-select:none;
+  }
+  #app{
+    height:100dvh;display:flex;flex-direction:column;
+    padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+
+  .head{
+    flex:0 0 auto;display:flex;align-items:center;gap:12px;padding:6px 10px 6px 16px;min-height:38px;
+    font-size:clamp(14px,1.6vmin + 11px,20px);letter-spacing:.04em;color:var(--slate);
+  }
+  .head .clock{flex:0 0 auto;font-variant-numeric:tabular-nums;color:var(--chalk)}
+  .head .sets-log{flex:1 1 auto;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
+  .head .match-fmt{flex:0 0 auto;font-variant-numeric:tabular-nums}
+  .head .match-fmt b{font-weight:600}
+  .head .match-fmt .ca{color:var(--team-a)}
+  .head .match-fmt .cb{color:var(--team-b)}
+  .iconbtn{
+    flex:0 0 auto;width:38px;height:38px;border-radius:50%;border:0;cursor:pointer;
+    background:transparent;color:var(--slate);font:inherit;font-size:22px;line-height:1;
+  }
+  .iconbtn:active{background:rgba(143,166,184,.18);color:var(--chalk)}
+
+  .court{flex:1 1 auto;display:flex;flex-direction:column;min-height:0}
+  .side{
+    flex:1 1 0;position:relative;min-height:0;min-width:0;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.4vmin;
+    border:0;background:transparent;color:inherit;font:inherit;width:100%;
+    cursor:pointer;transition:background-color .12s ease;
+  }
+  .side.a{background-color:var(--team-a);color:var(--ink-a);
+    background-image:linear-gradient(180deg,rgba(255,255,255,.12),rgba(0,0,0,.22))}
+  .side.b{background-color:var(--team-b);color:var(--ink-b);flex-direction:column-reverse;
+    background-image:linear-gradient(0deg,rgba(255,255,255,.12),rgba(0,0,0,.22))}
+  .side:active{filter:brightness(.9)}
+  .side:focus-visible{outline:3px solid var(--chalk);outline-offset:-6px}
+
+  .name{display:flex;align-items:center;gap:10px;max-width:86%;font-size:clamp(17px,2.6vmin + 9px,40px);font-weight:600;letter-spacing:.06em}
+  .name .label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .name{opacity:.92}
+  .score{font-size:min(30vmin,42vh);font-weight:800;line-height:.82;letter-spacing:-.02em;font-variant-numeric:tabular-nums;color:currentColor;text-shadow:0 2px 12px rgba(0,0,0,.22)}
+  .pips{display:flex;gap:.9vmin;align-items:center;height:1.6vmin;min-height:11px}
+  .pip{width:1.6vmin;height:1.6vmin;min-width:11px;min-height:11px;border-radius:50%;border:1.5px solid currentColor;opacity:.45}
+  .pip{opacity:.5}
+  .pip.won{opacity:1;background:currentColor}
+  .serve{font-size:clamp(11px,1vmin + 8px,17px);letter-spacing:.14em;font-weight:600;padding:2px 9px;border-radius:99px;border:1px solid currentColor;opacity:0;transition:opacity .15s ease}
+  .serve.on{opacity:.9}
+  .rotate{position:absolute;left:50%;transform:translateX(-50%);top:12px;font-size:clamp(12px,1vmin + 9px,18px);letter-spacing:.12em;color:currentColor;opacity:0;transition:opacity .2s ease;pointer-events:none}
+  .b .rotate{top:auto;bottom:12px}
+  .rotate.on{opacity:.75}
+
+  .minus{
+    position:absolute;top:10px;right:10px;
+    width:clamp(44px,6vmin,64px);height:clamp(44px,6vmin,64px);border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    font-size:clamp(24px,3vmin,34px);font-weight:600;line-height:1;
+    background:transparent;color:currentColor;opacity:.6;
+    border:1.5px solid currentColor;cursor:pointer;
+  }
+  .b .minus{top:auto;bottom:10px}
+  .minus:active{opacity:1}
+
+  .to{
+    position:absolute;top:14px;left:12px;
+    height:clamp(34px,4.4vmin,46px);padding:0 12px;border-radius:99px;
+    background:transparent;border:1.5px solid currentColor;color:currentColor;opacity:.72;
+    font:inherit;font-size:clamp(13px,1.2vmin + 9px,18px);letter-spacing:.06em;cursor:pointer;
+  }
+  .b .to{top:auto;bottom:14px}
+  .to:active{opacity:1}
+  .to.off{opacity:.3;cursor:default}
+
+  .net{
+    flex:0 0 auto;position:relative;display:flex;align-items:center;justify-content:space-between;gap:10px;
+    height:clamp(60px,9vmin,86px);padding:0 12px;
+    border-top:var(--net) solid var(--tape);border-bottom:var(--net) solid var(--tape);
+    background-color:var(--court-deep);
+    background-image:
+      repeating-linear-gradient(45deg,rgba(237,233,222,.16) 0 1px,transparent 1px 11px),
+      repeating-linear-gradient(-45deg,rgba(237,233,222,.16) 0 1px,transparent 1px 11px);
+  }
+  .net-info{flex:1 1 auto;text-align:center;font-size:clamp(15px,1.6vmin + 11px,24px);letter-spacing:.08em;color:var(--chalk);text-shadow:0 1px 6px var(--court-deep)}
+  .net-info small{display:block;font-size:.72em;letter-spacing:.1em;color:var(--team-b);margin-top:2px}
+  .netbtn{
+    flex:0 0 auto;width:clamp(44px,6vmin,62px);height:clamp(44px,6vmin,62px);border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    background:rgba(14,42,63,.9);color:var(--chalk);border:1px solid rgba(242,239,230,.28);
+    font:inherit;font-size:clamp(20px,2.4vmin,28px);cursor:pointer;
+  }
+  .netbtn:active{background:rgba(242,239,230,.16)}
+  .netbtn[disabled]{opacity:.3;cursor:default}
+
+  @media (min-aspect-ratio:1/1){
+    .court{flex-direction:row}
+    .side,.side.b{flex-direction:column}
+    .side.a{background-image:linear-gradient(90deg,rgba(255,255,255,.12),rgba(0,0,0,.22))}
+    .side.b{background-image:linear-gradient(270deg,rgba(255,255,255,.12),rgba(0,0,0,.22))}
+    .a .minus{top:auto;bottom:14px;right:auto;left:14px}
+    .b .minus{top:auto;bottom:14px;right:14px}
+    .a .to{top:14px;left:14px}
+    .b .to{top:14px;bottom:auto;left:auto;right:14px}
+    .rotate,.b .rotate{top:auto;bottom:16px}
+    .score{font-size:min(34vmin,52vh)}
+    .net{
+      flex-direction:column;height:auto;width:clamp(74px,10vmin,128px);padding:14px 6px;
+      border-top:0;border-bottom:0;border-left:var(--net) solid var(--tape);border-right:var(--net) solid var(--tape);
+    }
+    .net-info{display:flex;flex-direction:column;justify-content:center;line-height:1.15}
+  }
+
+  .final{position:fixed;inset:0;z-index:20;display:none;flex-direction:column;align-items:center;justify-content:center;gap:20px;background:rgba(10,31,48,.95);padding:24px;text-align:center}
+  .final.show{display:flex}
+  .final .who{font-size:clamp(30px,6vmin,72px);font-weight:800;letter-spacing:.02em;max-width:90vw}
+  .final .who.ca{color:var(--team-a)}
+  .final .who.cb{color:var(--team-b)}
+  .final .tally{font-size:clamp(16px,2.2vmin,26px);color:var(--slate);letter-spacing:.06em;font-variant-numeric:tabular-nums;max-width:92vw}
+  .final .row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+
+  .primary{height:clamp(48px,6vmin,62px);padding:0 28px;border-radius:99px;border:0;cursor:pointer;background:var(--chalk);color:var(--court);font:inherit;font-weight:600;font-size:clamp(17px,2vmin,23px);letter-spacing:.05em}
+  .ghost{height:clamp(48px,6vmin,62px);padding:0 24px;border-radius:99px;cursor:pointer;background:transparent;color:var(--chalk);border:1px solid rgba(242,239,230,.4);font:inherit;font-size:clamp(17px,2vmin,23px);letter-spacing:.05em}
+
+  .to-overlay{position:fixed;inset:0;z-index:25;display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:rgba(10,31,48,.96)}
+  .to-overlay.show{display:flex}
+  .to-overlay .who{font-size:clamp(20px,3vmin,32px);letter-spacing:.08em;color:var(--slate)}
+  .to-overlay .count{font-size:min(38vmin,46vh);font-weight:800;line-height:.85;font-variant-numeric:tabular-nums}
+
+  .sheet{position:fixed;inset:0;z-index:30;display:none;background:rgba(10,31,48,.72);align-items:flex-end;justify-content:center}
+  .sheet.show{display:flex}
+  .sheet-inner{width:100%;max-width:640px;max-height:88dvh;overflow:auto;background:var(--court);border-top:var(--net) solid var(--tape);border-radius:18px 18px 0 0;padding:18px 18px calc(18px + env(safe-area-inset-bottom))}
+  .sheet h2{margin:0 0 14px;font-size:clamp(22px,2.6vmin,30px);font-weight:600;letter-spacing:.04em}
+  .sheet .row{display:flex;gap:10px;margin-top:18px}
+  .sheet .row button{flex:1}
+
+  .menu-list{display:flex;flex-direction:column;gap:8px}
+  .menu-list button{
+    height:54px;border-radius:12px;cursor:pointer;text-align:left;padding:0 16px;
+    background:var(--court-deep);color:var(--chalk);border:1px solid rgba(143,166,184,.25);
+    font:inherit;font-size:19px;letter-spacing:.04em;
+  }
+  .menu-list button:active{background:rgba(242,239,230,.12)}
+  .menu-list .danger{color:var(--danger);border-color:rgba(216,87,76,.45)}
+
+  .field{margin-bottom:14px}
+  .field span{display:block;font-size:15px;color:var(--slate);letter-spacing:.06em;margin-bottom:6px}
+  .field input[type=text],.field input[type=number]{
+    width:100%;height:48px;padding:0 12px;border-radius:10px;background:var(--court-deep);color:var(--chalk);
+    border:1px solid rgba(143,166,184,.3);font:inherit;font-size:19px;
+  }
+  .field input:focus{outline:2px solid var(--team-a);outline-offset:1px}
+  .check{display:flex;align-items:center;gap:10px;font-size:18px;color:var(--chalk);margin:4px 0 2px}
+  .check input{width:24px;height:24px;accent-color:var(--team-a)}
+  .seg{display:flex;gap:8px}
+  .seg button{flex:1;height:48px;border-radius:10px;cursor:pointer;background:var(--court-deep);color:var(--slate);border:1px solid rgba(143,166,184,.3);font:inherit;font-size:17px}
+  .seg button[aria-pressed="true"]{background:var(--chalk);color:var(--court);border-color:var(--chalk);font-weight:600}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .palettes{display:flex;gap:10px;flex-wrap:wrap}
+  .pal{
+    width:72px;height:48px;border-radius:10px;cursor:pointer;padding:0;overflow:hidden;
+    border:2px solid transparent;background:none;display:flex;
+  }
+  .pal i{flex:1;display:block}
+  .pal[aria-pressed="true"]{border-color:var(--chalk)}
+  .reset{color:var(--danger);border-color:rgba(216,87,76,.5)}
+  .hint{margin:16px 0 0;font-size:14px;color:var(--slate);letter-spacing:.04em;line-height:1.55}
+
+  table.proto{width:100%;border-collapse:collapse;margin-bottom:16px;font-variant-numeric:tabular-nums}
+  table.proto th,table.proto td{padding:8px 6px;text-align:left;font-weight:400;font-size:17px;border-bottom:1px solid rgba(143,166,184,.18)}
+  table.proto th{color:var(--slate);font-size:15px;letter-spacing:.05em}
+  table.proto th.ca,table.proto td.ca{color:var(--team-a)}
+  table.proto th.cb,table.proto td.cb{color:var(--team-b)}
+  table.proto th.ca,table.proto th.cb{font-weight:600;font-size:16px}
+  table.proto td.ca,table.proto td.cb{font-weight:600}
+  table.proto td:not(:first-child){text-align:right}
+  table.proto tr.live td{color:var(--team-b)}
+  .proto-head{font-size:20px;margin-bottom:12px;letter-spacing:.04em}
+  .trail{font-size:15px;color:var(--slate);line-height:1.8;word-spacing:2px;max-height:24vh;overflow:auto;font-variant-numeric:tabular-nums}
+
+  .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="head">
+    <div class="clock" id="clock">0:00</div>
+    <div class="sets-log" id="setsLog">матч ще не почався</div>
+    <div class="match-fmt" id="matchFmt"></div>
+    <button class="iconbtn" id="menuBtn" aria-label="Меню матчу">⋯</button>
+  </div>
+
+  <div class="court">
+    <button class="side a" id="sideA" aria-label="Додати очко команді зверху">
+      <span class="rotate" id="rotA">ротація</span>
+      <span class="name"><span class="label" id="nameA">Команда А</span><span class="serve" id="serveA">подає</span></span>
+      <span class="score" id="scoreA">0</span>
+      <span class="pips" id="pipsA"></span>
+      <span class="to" id="toA" role="button">тайм-аут ●●</span>
+      <span class="minus" id="minusA" role="button" aria-label="Зняти очко">−</span>
+    </button>
+
+    <div class="net">
+      <button class="netbtn" id="undoBtn" disabled aria-label="Скасувати" title="Скасувати">⟲</button>
+      <div class="net-info" id="netInfo"></div>
+      <button class="netbtn" id="redoBtn" disabled aria-label="Повторити" title="Повторити">⟳</button>
+    </div>
+
+    <button class="side b" id="sideB" aria-label="Додати очко команді знизу">
+      <span class="rotate" id="rotB">ротація</span>
+      <span class="name"><span class="label" id="nameB">Команда Б</span><span class="serve" id="serveB">подає</span></span>
+      <span class="score" id="scoreB">0</span>
+      <span class="pips" id="pipsB"></span>
+      <span class="to" id="toB" role="button">тайм-аут ●●</span>
+      <span class="minus" id="minusB" role="button" aria-label="Зняти очко">−</span>
+    </button>
+  </div>
+</div>
+
+<div class="to-overlay" id="toOverlay">
+  <div class="who" id="toWho"></div>
+  <div class="count" id="toClock">30</div>
+  <button class="ghost" id="toStop">Завершити</button>
+</div>
+
+<div class="final" id="final">
+  <div class="who" id="finalWho"></div>
+  <div class="tally" id="finalTally"></div>
+  <div class="row">
+    <button class="primary" id="finalNew">Новий матч</button>
+    <button class="ghost" id="finalProto">Протокол</button>
+    <button class="ghost" id="finalUndo">Скасувати очко</button>
+  </div>
+</div>
+
+<div class="sheet" id="menu">
+  <div class="sheet-inner">
+    <h2>Матч</h2>
+    <div class="menu-list">
+      <button id="mProto">Протокол і статистика</button>
+      <button id="mServe">Хто подає першим</button>
+      <button id="mSwap">Поміняти сторони</button>
+      <button id="mFullscreen">На весь екран</button>
+      <button id="mSettings">Налаштування</button>
+      <button id="mNew" class="danger">Новий матч</button>
+    </div>
+    <p class="hint">Тап по половині — очко. З клавіатури: 1 і 2 — очко, Q і P — тайм-аут, Backspace — скасувати, Shift+Backspace — повторити.</p>
+  </div>
+</div>
+
+<div class="sheet" id="serveAsk">
+  <div class="sheet-inner">
+    <h2>Хто подає першим</h2>
+    <div class="menu-list">
+      <button id="serveA_btn">Команда А</button>
+      <button id="serveB_btn">Команда Б</button>
+    </div>
+    <p class="hint">Діє, поки в сеті ще немає жодного розіграшу. Далі подача переходить сама.</p>
+  </div>
+</div>
+
+<div class="sheet" id="proto">
+  <div class="sheet-inner">
+    <h2>Протокол</h2>
+    <div class="proto-head" id="protoHead"></div>
+    <table class="proto" id="protoSets"></table>
+    <table class="proto" id="protoStats"></table>
+    <div class="trail" id="protoTrail"></div>
+    <div class="row">
+      <button class="primary" id="protoCSV">Завантажити CSV</button>
+      <button class="ghost" id="protoCopy">Копіювати JSON</button>
+    </div>
+  </div>
+</div>
+
+<div class="sheet" id="sheet">
+  <div class="sheet-inner">
+    <h2>Налаштування</h2>
+    <div class="grid2">
+      <label class="field"><span>Перша команда</span><input id="inNameA" type="text" maxlength="18" autocomplete="off"></label>
+      <label class="field"><span>Друга команда</span><input id="inNameB" type="text" maxlength="18" autocomplete="off"></label>
+    </div>
+    <div class="field">
+      <span>Формат</span>
+      <div class="seg" id="segFmt">
+        <button data-bo="1">1 сет</button>
+        <button data-bo="3">до 2 перемог</button>
+        <button data-bo="5">до 3 перемог</button>
+      </div>
+    </div>
+    <div class="grid2">
+      <label class="field"><span>Очок у сеті</span><input id="inTarget" type="number" inputmode="numeric" min="3" max="99"></label>
+      <label class="field"><span>Очок у вирішальному</span><input id="inDecider" type="number" inputmode="numeric" min="3" max="99"></label>
+    </div>
+    <div class="grid2">
+      <label class="field"><span>Стеля очок</span><input id="inCap" type="number" inputmode="numeric" min="0" max="199" placeholder="без стелі"></label>
+      <label class="field"><span>Тайм-аутів на сет</span><input id="inTimeouts" type="number" inputmode="numeric" min="0" max="5"></label>
+    </div>
+    <div class="field">
+      <span>Кольори команд</span>
+      <div class="palettes" id="palettes"></div>
+    </div>
+    <label class="check"><input id="inVibrate" type="checkbox"> Вібрація на очко</label>
+    <div class="row">
+      <button class="primary" id="sheetSave">Зберегти</button>
+      <button class="ghost reset" id="sheetReset">Обнулити рахунок</button>
+    </div>
+    <p class="hint">Стеля закриває нескінченний сет: при 27 рахунок 27:26 уже дає перемогу. Зміна формату починає матч наново.</p>
+  </div>
+</div>
+
+<div class="sr" id="live" aria-live="polite"></div>
+
+<script src="./match.js"></script>
+<script src="./app.js"></script>
+</body>
+</html>
