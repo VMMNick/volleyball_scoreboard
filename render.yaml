@@ -1,0 +1,11 @@
+# Render Blueprint: статичний сайт табло.
+services:
+  - type: web
+    name: volleyball-scoreboard
+    runtime: static
+    buildCommand: npm run build
+    staticPublishPath: ./_site
+    headers:
+      - path: /sw.js
+        name: Cache-Control
+        value: no-cache

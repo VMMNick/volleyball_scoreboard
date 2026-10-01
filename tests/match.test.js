@@ -370,3 +370,158 @@ test("зняття очка в команди без очок нічого не 
   const m = run(M.createMatch(), 0, 3);
   assert.equal(M.removeLastPoint(m, 1), m);
 });
+
+test("назва турніру зберігається, переживає новий матч і йде в протокол", () => {
+  let m = M.createMatch();
+  assert.equal(M.reduce(m).title, "", "за замовчуванням порожня");
+  m = M.setTitle(m, "  Кубок міста  ");
+  assert.equal(M.reduce(m).title, "Кубок міста", "пробіли обрізано");
+  m = M.addPoint(m, 0, 1000);
+
+  const back = M.deserialize(M.serialize(m));
+  assert.equal(back.title, "Кубок міста");
+  assert.equal(M.restart(back).title, "Кубок міста", "новий матч того ж турніру");
+  assert.equal(M.protocol(back, 2000).title, "Кубок міста");
+});
+
+test("старі збереження без назви читаються", () => {
+  const old = JSON.stringify({ v: 1, names: ["А", "Б"], rules: M.DEFAULT_RULES, events: [], undone: [] });
+  assert.equal(M.deserialize(old).title, "");
+});
+
+test("пресети: пляж міняє сторони кожні 7 очок, у вирішальному — кожні 5", () => {
+  const beach = M.presetById("beach").rules;
+  let m = M.createMatch({ rules: beach });
+  const due = () => M.sideSwapDue(M.reduce(m));
+
+  for (let i = 0; i < 4; i++) m = M.addPoint(m, 0, 1000);
+  for (let i = 0; i < 3; i++) m = M.addPoint(m, 1, 1000);
+  assert.equal(due(), true, "7 очок у сумі");
+  m = M.swapSides(m);
+  assert.equal(due(), false, "після зміни нагадування зникає");
+  m = M.addPoint(m, 0, 1000);
+  assert.equal(due(), false);
+  for (let i = 0; i < 6; i++) m = M.addPoint(m, 1, 1000);
+  assert.equal(due(), true, "14 очок у сумі — знову");
+  m = M.undo(m);
+  assert.equal(due(), false, "13 — ні");
+});
+
+test("пресети: пляжний вирішальний сет до 15 зі зміною кожні 5", () => {
+  let m = M.createMatch({ rules: M.presetById("beach").rules });
+  const win = (team, n) => { for (let i = 0; i < n; i++) m = M.addPoint(m, team, 1000); };
+  win(0, 21); win(1, 21);
+  const s = M.reduce(m);
+  assert.equal(s.isDecider, true);
+  assert.equal(s.target, 15);
+  win(0, 3); win(1, 2);
+  assert.equal(M.sideSwapDue(M.reduce(m)), true);
+  assert.equal(M.reduce(m).timeouts[0], 1, "один тайм-аут на пляжі");
+});
+
+test("presetOf впізнає пресет і повертає null для своїх правил", () => {
+  assert.equal(M.presetOf(M.createMatch().rules), "indoor", "за замовчуванням — зала");
+  assert.equal(M.presetOf(M.presetById("beach").rules), "beach");
+  assert.equal(M.presetOf(M.setRules(M.createMatch(), { target: 30 }).rules), null);
+});
+
+test("старі збереження без нових полів отримують правила зали", () => {
+  const old = { bestOf: 5, target: 25, decider: 15, winBy: 2, cap: 0, capDecider: 0, timeouts: 2 };
+  const m = M.deserialize(JSON.stringify({ v: 1, names: ["А", "Б"], rules: old, events: [], undone: [] }));
+  assert.equal(m.rules.deciderSwapAt, 8);
+  assert.equal(m.rules.swapEvery, 0);
+});
+
+/* ---------- заміни й картки ---------- */
+
+test("заміни: ліміт на сет, скидання в новому сеті, журнал", () => {
+  let m = M.createMatch();
+  for (let i = 0; i < 6; i++) m = M.substitute(m, 0, String(i + 1), String(i + 10), 1000 + i);
+  assert.equal(M.reduce(m).subsUsed[0], 6);
+  const full = m;
+  m = M.substitute(m, 0, "7", "17");
+  assert.equal(m, full, "сьома заміна не приймається");
+  assert.equal(M.substitute(m, 1, "3", "3"), m, "однакові номери — не заміна");
+  assert.equal(M.substitute(m, 1, "", "4"), m, "без номера — не заміна");
+
+  for (let i = 0; i < 25; i++) m = M.addPoint(m, 0, 2000);
+  const s = M.reduce(m);
+  assert.deepEqual(s.subsUsed, [0, 0], "новий сет — нові заміни");
+  assert.equal(s.subLog.length, 6, "журнал матчу зберігся");
+  assert.deepEqual(s.subLog[0], { team: 0, out: "1", in: "10", set: 1, score: [0, 0], ts: 1000 });
+});
+
+test("червона картка — очко й подача суперникові; жовта — без наслідків", () => {
+  let m = M.createMatch();
+  m = M.addPoint(m, 0, 1000);                 // подає А
+  m = M.giveCard(m, 0, "yellow", "7", 1001);
+  let s = M.reduce(m);
+  assert.deepEqual(s.points, [1, 0]);
+  m = M.giveCard(m, 0, "red", "7", 1002);
+  s = M.reduce(m);
+  assert.deepEqual(s.points, [1, 1], "очко Б");
+  assert.equal(s.serving, 1, "подача до Б");
+  assert.equal(s.cards.length, 2);
+  assert.equal(s.lastCard.kind, "red");
+  assert.equal(M.giveCard(m, 0, "purple"), m, "невідома картка ігнорується");
+
+  m = M.undo(m);
+  assert.deepEqual(M.reduce(m).points, [1, 0], "скасування знімає і штрафне очко");
+});
+
+test("червона картка може закрити сет, а перебіг сету її враховує", () => {
+  let m = M.createMatch();
+  for (let i = 0; i < 24; i++) m = M.addPoint(m, 1, 1000);
+  for (let i = 0; i < 23; i++) m = M.addPoint(m, 0, 1000);
+  m = M.giveCard(m, 0, "red", "", 2000);       // 23:25 — сет Б
+  const s = M.reduce(m);
+  assert.equal(s.sets[1], 1);
+  assert.deepEqual(s.setLog[0].points, [23, 25]);
+  const trail = M.rallyTrail(m, 0);
+  assert.deepEqual(trail[trail.length - 1], [23, 25]);
+});
+
+test("протокол і CSV містять заміни й картки", () => {
+  let m = M.createMatch({ names: ["Імідж", "Ліцей"] });
+  m = M.substitute(m, 1, "4", "9", 1000);
+  m = M.giveCard(m, 0, "expulsion", "11", 1001);
+  const p = M.protocol(m, 2000);
+  assert.equal(p.subs.length, 1);
+  assert.equal(p.cards[0].kind, "expulsion");
+  const csv = M.toCSV(m);
+  assert.match(csv, /заміна,Ліцей,4 → 9/);
+  assert.match(csv, /картка: вилучення,Імідж,11/);
+});
+
+test("на пляжі замін немає", () => {
+  const m = M.createMatch({ rules: M.presetById("beach").rules });
+  assert.equal(M.substitute(m, 0, "1", "2"), m);
+});
+
+/* ---------- технічний тайм-аут ---------- */
+
+test("пляж: технічний тайм-аут на 21 сумарному очку, раз на сет, не у вирішальному", () => {
+  let m = M.createMatch({ rules: M.presetById("beach").rules });
+  const add = (t, n) => { for (let i = 0; i < n; i++) m = M.addPoint(m, t, 1000); };
+  add(0, 11); add(1, 9);
+  assert.equal(M.techTimeoutDue(M.reduce(m)), false, "20 — ще ні");
+  add(1, 1);
+  assert.equal(M.techTimeoutDue(M.reduce(m)), true, "21 — так");
+  m = M.takeTechTimeout(m, 5000);
+  let s = M.reduce(m);
+  assert.equal(M.techTimeoutDue(s), false);
+  assert.deepEqual(s.lastTimeout, { team: -1, tech: true, ts: 5000 });
+  assert.deepEqual(s.timeouts, [1, 1], "командні тайм-аути не витрачено");
+  assert.equal(M.takeTechTimeout(m), m, "вдруге — ні");
+
+  add(0, 10);                                   // 21:10 — сет А
+  add(1, 21);                                   // 1:1 — вирішальний
+  add(0, 11); add(1, 10);
+  assert.equal(M.techTimeoutDue(M.reduce(m)), false, "у вирішальному технічного немає");
+});
+
+test("у залі технічного тайм-ауту немає", () => {
+  let m = M.createMatch();
+  for (let i = 0; i < 21; i++) m = M.addPoint(m, i % 2, 1000);
+  assert.equal(M.techTimeoutDue(M.reduce(m)), false);
+});

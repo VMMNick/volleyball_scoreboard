@@ -3,34 +3,33 @@
   "use strict";
 
   var M = window.Match;
+  var U = window.UI;
   var KEY = "volleyball:match";
   var PREF = "volleyball:prefs";
   var TIMEOUT_SEC = 30;
 
-  /* Кольори половин. ink — колір тексту, що читається на цьому фоні. */
-  var PALETTES = [
-    { id: "classic", label: "синій / бурштин",  a: "#1668C9", b: "#F5A310", inkA: "#FFFFFF", inkB: "#0A1F30" },
-    { id: "court",   label: "червоний / бірюза", a: "#E03127", b: "#17B0A6", inkA: "#FFFFFF", inkB: "#04221F" },
-    { id: "neon",    label: "фіолет / лайм",     a: "#7B3FE4", b: "#BEF224", inkA: "#FFFFFF", inkB: "#1A2405" },
-    { id: "kit",     label: "малина / трава",    a: "#D61C6B", b: "#3FA82B", inkA: "#FFFFFF", inkB: "#FFFFFF" }
-  ];
-
-  function paletteById(id) {
-    for (var i = 0; i < PALETTES.length; i++) if (PALETTES[i].id === id) return PALETTES[i];
-    return PALETTES[0];
-  }
+  /* Кольори половин — спільні з табло для глядачів, див. palettes.js. */
+  var PALETTES = window.Palettes.list;
+  var paletteById = window.Palettes.byId;
 
   function applyPalette(id) {
-    var p = paletteById(id);
-    var root = document.documentElement.style;
-    root.setProperty("--team-a", p.a);
-    root.setProperty("--team-b", p.b);
-    root.setProperty("--ink-a", p.inkA);
-    root.setProperty("--ink-b", p.inkB);
+    window.Palettes.apply(document.documentElement, id);
+  }
+
+  /*
+   * Звʼязок із табло для глядачів (display.html) на цьому ж пристрої.
+   * Основний канал — сам localStorage: інші вікна отримують подію storage.
+   * BroadcastChannel додає те, чого в сховищі немає, і відповідає вікну,
+   * яке щойно відкрилось.
+   */
+  var channel = typeof BroadcastChannel === "function" ? new BroadcastChannel("volleyball") : null;
+  function post(msg) {
+    if (!channel) return;
+    try { channel.postMessage(msg); } catch (e) {}
   }
 
   var match = M.createMatch();
-  var prefs = { vibrate: true, timeoutSec: TIMEOUT_SEC, palette: PALETTES[0].id };
+  var prefs = { vibrate: true, timeoutSec: TIMEOUT_SEC, palette: PALETTES[0].id, showServe: true, sound: true };
   var rotTimer = null, toTimer = null, toEndsAt = 0;
 
   function $(id) { return document.getElementById(id); }
@@ -42,6 +41,7 @@
       var raw = M.serialize(match);
       if (window.storage) window.storage.set(KEY, raw, false);
       else localStorage.setItem(KEY, raw);
+      post({ type: "state", match: raw });
     } catch (e) {}
   }
 
@@ -50,6 +50,7 @@
       var raw = JSON.stringify(prefs);
       if (window.storage) window.storage.set(PREF, raw, false);
       else localStorage.setItem(PREF, raw);
+      post({ type: "prefs", prefs: prefs });
     } catch (e) {}
   }
 
@@ -65,6 +66,8 @@
         var p = JSON.parse(raw);
         if (p && typeof p === "object") {
           if (typeof p.vibrate === "boolean") prefs.vibrate = p.vibrate;
+          if (typeof p.showServe === "boolean") prefs.showServe = p.showServe;
+          if (typeof p.sound === "boolean") prefs.sound = p.sound;
           if (typeof p.timeoutSec === "number") prefs.timeoutSec = p.timeoutSec;
           if (typeof p.palette === "string") prefs.palette = paletteById(p.palette).id;
         }
@@ -120,7 +123,7 @@
     var team = M.teamOnSide(s, side);
     if (s.done || s.timeouts[team] <= 0) return;
     commit(M.callTimeout(match, team));
-    startTimeoutClock(s.names[team]);
+    startTimeoutClock("Тайм-аут · " + s.names[team]);
   }
 
   function feedback(before, after) {
@@ -144,9 +147,9 @@
 
   /* ---------- годинник тайм-ауту ---------- */
 
-  function startTimeoutClock(name) {
+  function startTimeoutClock(label) {
     toEndsAt = Date.now() + prefs.timeoutSec * 1000;
-    $("toWho").textContent = "Тайм-аут · " + name;
+    $("toWho").textContent = label;
     $("toOverlay").classList.add("show");
     tickTimeout();
   }
@@ -165,25 +168,14 @@
 
   function stopTimeoutClock() {
     clearTimeout(toTimer);
+    if ($("toOverlay").classList.contains("show")) {
+      var lt = M.reduce(match).lastTimeout;
+      post({ type: "timeout-end", ts: lt ? lt.ts : null });
+    }
     $("toOverlay").classList.remove("show");
   }
 
   /* ---------- малювання ---------- */
-
-  function fmtClock(ms) {
-    var total = Math.max(0, Math.round(ms / 1000));
-    var m = Math.floor(total / 60), sec = total % 60;
-    return m + ":" + (sec < 10 ? "0" : "") + sec;
-  }
-
-  function pips(node, won, total) {
-    node.innerHTML = "";
-    for (var k = 0; k < total; k++) {
-      var d = document.createElement("span");
-      d.className = "pip" + (k < won ? " won" : "");
-      node.appendChild(d);
-    }
-  }
 
   function dots(n, of) {
     var out = "";
@@ -191,10 +183,11 @@
     return out;
   }
 
-  function esc(str) {
-    return String(str).replace(/[&<>"]/g, function (c) {
-      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c];
-    });
+  /* «N-й сет · до M» → неподільні частини; в альбомі кожна стає окремим рядком. */
+  function lines(text) {
+    return text.split(" · ").map(function (part) {
+      return '<span class="ln">' + U.esc(part) + "</span>";
+    }).join('<span class="sep"> · </span>');
   }
 
   function render() {
@@ -208,7 +201,7 @@
       $("score" + t).textContent = s.points[team];
       $("serve" + t).className = "serve" + (s.serving === team ? " on" : "");
 
-      if (s.rules.bestOf > 1) pips($("pips" + t), s.sets[team], s.setsNeeded);
+      if (s.rules.bestOf > 1) U.pips($("pips" + t), s.sets[team], s.setsNeeded);
       else $("pips" + t).innerHTML = "";
 
       var to = $("to" + t);
@@ -219,7 +212,7 @@
       $("minus" + t).style.visibility = s.points[team] > 0 && !s.done ? "visible" : "hidden";
     }
 
-    $("clock").textContent = s.startedAt === null ? "0:00" : fmtClock(M.durationMs(s));
+    $("clock").textContent = s.startedAt === null ? "0:00" : U.fmtClock(M.durationMs(s));
     $("setsLog").textContent = s.setLog.length
       ? s.setLog.map(function (set) {
           return s.flipped ? set.points[1] + "–" + set.points[0] : set.points[0] + "–" + set.points[1];
@@ -237,8 +230,10 @@
     var mp = M.matchPointFor(s), sp = M.setPointFor(s);
     if (mp !== null) hint = "матчбол · " + s.names[mp];
     else if (sp !== null) hint = "сетбол · " + s.names[sp];
-    $("netInfo").innerHTML = esc(info) + (hint ? "<small>" + esc(hint) + "</small>" : "");
+    // « · » в альбомі стає переносом: сітка там вузька, і рядок інакше ламається будь-де.
+    $("netInfo").innerHTML = lines(info) + (hint ? "<small>" + lines(hint) + "</small>" : "");
 
+    $("techBtn").classList.toggle("on", M.techTimeoutDue(s));
     $("undoBtn").disabled = !M.canUndo(match);
     $("redoBtn").disabled = !M.canRedo(match);
 
@@ -247,7 +242,7 @@
       $("finalWho").className = "who " + (M.teamOnSide(s, 0) === s.winner ? "ca" : "cb");
       $("finalTally").textContent = s.sets[0] + ":" + s.sets[1] + "  ·  " +
         s.setLog.map(function (set) { return set.points[0] + "–" + set.points[1]; }).join("  ·  ") +
-        "  ·  " + fmtClock(M.durationMs(s));
+        "  ·  " + U.fmtClock(M.durationMs(s));
       $("final").classList.add("show");
     } else {
       $("final").classList.remove("show");
@@ -259,7 +254,7 @@
   /* Годинник матчу цокає окремо від дій. */
   setInterval(function () {
     var s = M.reduce(match);
-    if (!s.done && s.startedAt !== null) $("clock").textContent = fmtClock(M.durationMs(s));
+    if (!s.done && s.startedAt !== null) $("clock").textContent = U.fmtClock(M.durationMs(s));
   }, 1000);
 
   /* ---------- вікна ---------- */
@@ -273,11 +268,119 @@
       applyPalette(prefs.palette);   // закрили без збереження — вертаємо колір
       pendingPalette = prefs.palette;
     }
-    ["menu", "sheet", "proto", "serveAsk"].forEach(function (id) { $(id).classList.remove("show"); });
+    ["menu", "sheet", "proto", "serveAsk", "subsSheet"].forEach(function (id) { $(id).classList.remove("show"); });
   }
   Array.prototype.forEach.call(document.querySelectorAll(".sheet"), function (el) {
     el.addEventListener("click", function (e) { if (e.target === el) closeSheets(); });
   });
+
+  /* ---------- табло для глядачів ---------- */
+
+  var DISPLAY_URL = "./display.html";
+  var DISPLAY_LABEL = "Табло для глядачів";
+
+  /*
+   * Відкриває табло окремим вікном. Якщо підключено другий екран (проєктор,
+   * ТБ) і браузер уміє Window Management API, вікно одразу стає на нього
+   * на весь робочий простір. Інакше — звичайне вікно 1280×720.
+   */
+  function displayFeatures(screens, current) {
+    var other = null;
+    for (var i = 0; screens && i < screens.length; i++) {
+      if (screens[i] !== current && !screens[i].isPrimary) { other = screens[i]; break; }
+    }
+    if (!other && screens) for (var k = 0; k < screens.length; k++) if (screens[k] !== current) { other = screens[k]; break; }
+    if (!other) return "popup,width=1280,height=720";
+    return "popup,left=" + other.availLeft + ",top=" + other.availTop +
+      ",width=" + other.availWidth + ",height=" + other.availHeight;
+  }
+
+  function openDisplay() {
+    var btn = $("mDisplay");
+    function open(features) {
+      var w = window.open(DISPLAY_URL, "volley-display", features);
+      if (w) { closeSheets(); return; }
+      // Спливні вікна заблоковані — не йдемо з пульта, а підказуємо.
+      btn.textContent = "Дозвольте спливні вікна для цього сайту";
+      setTimeout(function () { btn.textContent = displayLabel(); }, 3200);
+    }
+    if (window.screen && window.screen.isExtended && typeof window.getScreenDetails === "function") {
+      window.getScreenDetails()
+        .then(function (d) { open(displayFeatures(d.screens, d.currentScreen)); })
+        .catch(function () { open(displayFeatures(null)); });
+    } else {
+      open(displayFeatures(null));
+    }
+  }
+
+  function displayLabel() {
+    return window.screen && window.screen.isExtended ? DISPLAY_LABEL + " → на другий екран" : DISPLAY_LABEL;
+  }
+
+  /* ---------- заміни й картки ---------- */
+
+  var CARD_LABEL = { yellow: "жовта", red: "червона", expulsion: "вилучення", disqualification: "дискваліфікація" };
+  var subsTeam = 0;
+
+  /* Журнал замін і карток, новіші зверху. */
+  function eventLines(s) {
+    var all = s.subLog.map(function (x) { return { x: x, sub: true }; })
+      .concat(s.cards.map(function (c) { return { x: c, sub: false }; }))
+      .sort(function (a, b) { return b.x.ts - a.x.ts; });
+    if (!all.length) return '<span class="muted">Замін і карток ще не було</span>';
+    return all.map(function (e) {
+      var x = e.x;
+      var what = e.sub
+        ? "заміна " + U.esc(x.out) + " → " + U.esc(x["in"])
+        : "картка: " + CARD_LABEL[x.kind] + (x.player ? " · №" + U.esc(x.player) : "");
+      return '<div><span class="muted">' + x.set + "-й сет " + x.score[0] + ":" + x.score[1] + "</span> · " +
+        '<b class="' + (x.team === 0 ? "ca" : "cb") + '">' + U.esc(s.names[x.team]) + "</b> · " + what + "</div>";
+    }).join("");
+  }
+
+  function paintSubs() {
+    var s = M.reduce(match);
+    $("teamBtnA").textContent = s.names[0];
+    $("teamBtnB").textContent = s.names[1];
+    Array.prototype.forEach.call($("segTeam").children, function (b) {
+      b.setAttribute("aria-pressed", String(Number(b.dataset.team) === subsTeam));
+    });
+    var limit = s.rules.subs || 0;
+    $("subBox").style.display = limit ? "" : "none";       // на пляжі замін немає
+    $("subCount").textContent = "замін у сеті: " + s.subsUsed[subsTeam] + " з " + limit;
+    $("subBtn").disabled = s.done || s.subsUsed[subsTeam] >= limit;
+    $("evLog").innerHTML = eventLines(s);
+  }
+
+  function openSubs() {
+    var s = M.reduce(match);
+    // За замовчуванням — команда, що зараз на першій половині.
+    subsTeam = M.teamOnSide(s, 0);
+    $("inSubOut").value = $("inSubIn").value = $("inCardPlayer").value = "";
+    paintSubs();
+    openSheet("subsSheet");
+  }
+
+  function doSub() {
+    var next = M.substitute(match, subsTeam, $("inSubOut").value, $("inSubIn").value);
+    if (next === match) {
+      $("subCount").textContent = "вкажіть два різні номери";
+      return;
+    }
+    commit(next);
+    $("inSubOut").value = $("inSubIn").value = "";
+    paintSubs();
+  }
+
+  function doCard(kind) {
+    var before = M.reduce(match);
+    var next = M.giveCard(match, subsTeam, kind, $("inCardPlayer").value);
+    if (next === match) return;
+    commit(next, { feedback: kind === "red" });
+    $("inCardPlayer").value = "";
+    if (M.reduce(match).done && !before.done) closeSheets();
+    else paintSubs();
+  }
 
   /* ---------- протокол ---------- */
 
@@ -299,11 +402,11 @@
     }
     if (!rows) rows = "<tr><td colspan=\"5\">Ще жодного розіграшу</td></tr>";
 
-    $("protoHead").textContent = esc(p.names[0]) + " — " + esc(p.names[1]) + "  ·  " +
-      p.sets[0] + ":" + p.sets[1] + "  ·  " + fmtClock(p.durationMs);
+    $("protoHead").textContent = (p.title ? p.title + "  ·  " : "") + p.names[0] + " — " + p.names[1] + "  ·  " +
+      p.sets[0] + ":" + p.sets[1] + "  ·  " + U.fmtClock(p.durationMs);
     $("protoSets").innerHTML =
       "<tr><th>сет</th>" +
-      "<th class=\"ca\">" + esc(p.names[0]) + "</th><th class=\"cb\">" + esc(p.names[1]) + "</th>" +
+      "<th class=\"ca\">" + U.esc(p.names[0]) + "</th><th class=\"cb\">" + U.esc(p.names[1]) + "</th>" +
       "<th>розіграшів</th><th>час</th></tr>" + rows;
 
     $("protoStats").innerHTML = [
@@ -313,14 +416,17 @@
       statRow("Тайм-аутів узято", p.stats.timeoutsUsed)
     ].join("");
 
-    var trail = M.rallyTrail(match, Math.max(0, p.setLog.length));
+    // Після кінця матчу показуємо перебіг останнього сету, а не порожній наступний.
+    var trailSet = p.done ? p.setLog.length - 1 : p.setLog.length;
+    var trail = M.rallyTrail(match, Math.max(0, trailSet));
     $("protoTrail").textContent = trail.length
       ? trail.map(function (x) { return x[0] + ":" + x[1]; }).join("  ")
       : "—";
+    $("protoEvents").innerHTML = eventLines(s);
   }
 
   function statRow(label, pair) {
-    return "<tr><th>" + esc(label) + "</th>" +
+    return "<tr><th>" + U.esc(label) + "</th>" +
       cell(pair[0], "ca", pair[0] > pair[1]) + cell(pair[1], "cb", pair[1] > pair[0]) + "</tr>";
   }
 
@@ -329,13 +435,21 @@
     return "<td class=\"" + cls + "\">" + (strong ? "<b>" + value + "</b>" : value) + "</td>";
   }
 
+  /* «протокол-Кубок міста-Імідж-Ліцей», без символів, заборонених у Windows. */
+  function fileName(s) {
+    var parts = ["протокол"];
+    if (s.title) parts.push(s.title);
+    parts.push(s.names[0], s.names[1]);
+    return parts.join("-").replace(/[\\/:*?"<>|]+/g, " ").replace(/\s+/g, " ").trim();
+  }
+
   function downloadCSV() {
     var s = M.reduce(match);
     var blob = new Blob(["\uFEFF" + M.toCSV(match)], { type: "text/csv;charset=utf-8" });
     var url = URL.createObjectURL(blob);
     var a = document.createElement("a");
     a.href = url;
-    a.download = "протокол-" + s.names[0] + "-" + s.names[1] + ".csv";
+    a.download = fileName(s) + ".csv";
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -357,9 +471,36 @@
   /* ---------- налаштування ---------- */
 
   var pendingBestOf = null;
+  var pendingPreset = null;      // id пресета, чиї правила зміни сторін візьмемо
+
+  /* Підказка під пресетом — з самих правил, щоб числа жили лише в match.js. */
+  function presetHint(pr) {
+    if (!pr) return "Свої правила.";
+    var r = pr.rules;
+    var swap = r.swapEvery
+      ? "сторони міняють щоразу, коли сума очок кратна " + r.swapEvery +
+        (r.swapEveryDecider ? ", у вирішальному — " + r.swapEveryDecider : "")
+      : "сторони міняють між сетами" + (r.deciderSwapAt ? " і на " + r.deciderSwapAt + " очках у вирішальному" : "");
+    return pr.label + ": сети до " + r.target + ", вирішальний до " + r.decider +
+      ", тайм-аутів " + r.timeouts + "; " + swap + ".";
+  }
+
+  /* Пресет заповнює поля форми; числа потім можна змінити вручну. */
+  function choosePreset(id) {
+    var pr = M.presetById(id);
+    if (!pr) return;
+    pendingPreset = id;
+    pendingBestOf = pr.rules.bestOf;
+    $("inTarget").value = pr.rules.target;
+    $("inDecider").value = pr.rules.decider;
+    $("inCap").value = pr.rules.cap || "";
+    $("inTimeouts").value = pr.rules.timeouts;
+    paintSeg();
+  }
 
   function openSettings() {
     var s = M.reduce(match);
+    $("inTitle").value = s.title;
     $("inNameA").value = s.names[0];
     $("inNameB").value = s.names[1];
     $("inTarget").value = s.rules.target;
@@ -367,8 +508,11 @@
     $("inCap").value = s.rules.cap || "";
     $("inTimeouts").value = s.rules.timeouts;
     $("inVibrate").checked = prefs.vibrate;
+    $("inShowServe").checked = prefs.showServe;
+    $("inSound").checked = prefs.sound;
     paintPalettes();
     pendingBestOf = s.rules.bestOf;
+    pendingPreset = M.presetOf(s.rules);
     paintSeg();
     openSheet("sheet");
   }
@@ -398,6 +542,21 @@
   }
 
   function paintSeg() {
+    var box = $("segPreset");
+    if (!box.children.length) {
+      M.PRESETS.forEach(function (pr) {
+        var b = document.createElement("button");
+        b.type = "button";
+        b.dataset.preset = pr.id;
+        b.textContent = pr.label;
+        box.appendChild(b);
+      });
+    }
+    Array.prototype.forEach.call(box.children, function (b) {
+      b.setAttribute("aria-pressed", String(b.dataset.preset === pendingPreset));
+    });
+    $("presetHint").textContent = presetHint(M.presetById(pendingPreset));
+
     Array.prototype.forEach.call($("segFmt").children, function (b) {
       b.setAttribute("aria-pressed", String(Number(b.dataset.bo) === pendingBestOf));
     });
@@ -413,9 +572,13 @@
     var next = match;
     next = M.rename(next, 0, $("inNameA").value.trim() || "Команда А");
     next = M.rename(next, 1, $("inNameB").value.trim() || "Команда Б");
+    next = M.setTitle(next, $("inTitle").value);
 
     var cap = $("inCap").value.trim() === "" ? 0 : num($("inCap"), 0, 199, 0);
     var D = M.DEFAULT_RULES;
+    var cur = M.reduce(match).rules;
+    var pr = M.presetById(pendingPreset);
+    var swap = pr ? pr.rules : cur;     // правила, яких немає у формі (сторони, заміни, техн. тайм-аут), — від пресета або як були
     var target = num($("inTarget"), 3, 99, D.target);
     var decider = num($("inDecider"), 3, 99, D.decider);
     next = M.setRules(next, {
@@ -424,13 +587,20 @@
       cap: cap,
       capDecider: cap ? Math.max(0, cap - (target - decider)) : 0,
       timeouts: num($("inTimeouts"), 0, 5, D.timeouts),
-      bestOf: pendingBestOf
+      bestOf: pendingBestOf,
+      deciderSwapAt: swap.deciderSwapAt,
+      swapEvery: swap.swapEvery,
+      swapEveryDecider: swap.swapEveryDecider,
+      subs: swap.subs,
+      techTimeoutAt: swap.techTimeoutAt
     });
 
     // Зміна формату перекроює сітку сетів — починаємо матч наново.
     if (pendingBestOf !== M.reduce(match).rules.bestOf) next = M.restart(next);
 
     prefs.vibrate = $("inVibrate").checked;
+    prefs.showServe = $("inShowServe").checked;
+    prefs.sound = $("inSound").checked;
     if (pendingPalette) prefs.palette = pendingPalette;
     applyPalette(prefs.palette);
     savePrefs();
@@ -454,6 +624,24 @@
   $("toStop").addEventListener("click", stopTimeoutClock);
 
   $("mProto").addEventListener("click", function () { renderProtocol(); openSheet("proto"); });
+  $("mSubs").addEventListener("click", openSubs);
+  $("segTeam").addEventListener("click", function (e) {
+    var b = e.target.closest("button");
+    if (!b) return;
+    subsTeam = Number(b.dataset.team);
+    paintSubs();
+  });
+  $("subBtn").addEventListener("click", doSub);
+  Array.prototype.forEach.call(document.querySelectorAll(".card[data-card]"), function (b) {
+    b.addEventListener("click", function () { doCard(b.dataset.card); });
+  });
+  $("techBtn").addEventListener("click", function () {
+    var next = M.takeTechTimeout(match);
+    if (next === match) return;
+    commit(next);
+    startTimeoutClock("Технічний тайм-аут");
+  });
+  $("mDisplay").addEventListener("click", openDisplay);
   $("mSettings").addEventListener("click", openSettings);
   $("mSwap").addEventListener("click", function () { closeSheets(); commit(M.swapSides(match)); });
   $("mServe").addEventListener("click", function () {
@@ -480,6 +668,10 @@
     if (!confirm("Обнулити рахунок матчу?")) return;
     closeSheets();
     commit(M.restart(match));
+  });
+  $("segPreset").addEventListener("click", function (e) {
+    var b = e.target.closest("button");
+    if (b) choosePreset(b.dataset.preset);
   });
   $("segFmt").addEventListener("click", function (e) {
     var b = e.target.closest("button");
@@ -518,28 +710,23 @@
     fsBtn.style.display = "none";
   }
 
-  /* екран не гасне */
-  var lock = null;
-  function keepAwake() {
-    try {
-      if ("wakeLock" in navigator) {
-        navigator.wakeLock.request("screen").then(function (l) {
-          lock = l;
-          l.addEventListener("release", function () { lock = null; });
-        }).catch(function () {});
-      }
-    } catch (e) {}
-  }
-  document.addEventListener("visibilitychange", function () {
-    if (document.visibilityState === "visible" && !lock) keepAwake();
-  });
-  keepAwake();
+  U.keepAwake();
 
-  /* офлайн */
-  if ("serviceWorker" in navigator && location.protocol.indexOf("http") === 0) {
-    window.addEventListener("load", function () {
-      navigator.serviceWorker.register("./sw.js").catch(function () {});
-    });
+  U.registerSW();
+
+  /* Табло щойно відкрилось і просить поточний стан. */
+  if (channel) {
+    channel.onmessage = function (e) {
+      if (e.data && e.data.type === "hello") {
+        post({ type: "state", match: M.serialize(match) });
+        post({ type: "prefs", prefs: prefs });
+      }
+    };
+  }
+
+  $("mDisplay").textContent = displayLabel();
+  if (window.screen && "onchange" in window.screen) {
+    window.screen.addEventListener("change", function () { $("mDisplay").textContent = displayLabel(); });
   }
 
   load();

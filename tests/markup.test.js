@@ -15,6 +15,8 @@ const read = (f) => fs.readFileSync(path.join(root, f), "utf8");
 
 const html = read("index.html");
 const app = read("app.js");
+const palettesJs = read("palettes.js");
+const theme = read("theme.css");
 const sw = read("sw.js");
 const manifest = JSON.parse(read("manifest.webmanifest"));
 
@@ -40,7 +42,9 @@ test("обидві половини й сітка на місці", () => {
 
 test("розмітка підключає ядро раніше за інтерфейс", () => {
   const core = html.indexOf("match.js");
+  const pal = html.indexOf("palettes.js");
   const ui = html.indexOf("app.js");
+  assert.ok(pal > -1 && pal < ui, "palettes.js має йти раніше за app.js");
   assert.ok(core > -1 && ui > -1, "обидва скрипти підключені");
   assert.ok(core < ui, "match.js має йти першим, інакше window.Match ще не існує");
 });
@@ -55,7 +59,7 @@ test("service worker кешує всі файли оболонки", () => {
   shell.forEach((f) => {
     assert.ok(fs.existsSync(path.join(root, f)), "у кеші вказано неіснуючий файл: " + f);
   });
-  ["index.html", "match.js", "app.js", "manifest.webmanifest"].forEach((f) => {
+  ["index.html", "theme.css", "match.js", "palettes.js", "ui-common.js", "app.js", "display.html", "display.js", "manifest.webmanifest"].forEach((f) => {
     assert.ok(shell.includes(f), "файл не потрапив в офлайн-кеш: " + f);
   });
 });
@@ -95,18 +99,56 @@ test("неактивні стани мають стилі", () => {
 });
 
 test("половини фарбуються змінними команд", () => {
-  assert.match(html, /--team-a:#[0-9A-Fa-f]{6}/);
-  assert.match(html, /--ink-a:#[0-9A-Fa-f]{6}/, "потрібен колір тексту на кольоровій половині");
+  assert.match(theme, /--team-a:#[0-9A-Fa-f]{6}/);
+  assert.match(theme, /--ink-a:#[0-9A-Fa-f]{6}/, "потрібен колір тексту на кольоровій половині");
   assert.match(html, /\.side\.a\{background-color:var\(--team-a\)/);
   assert.match(html, /\.side\.b\{background-color:var\(--team-b\)/);
   assert.ok(htmlIds.has("palettes"), "немає місця для зразків палітри");
 });
 
 test("палітри мають колір тексту під кожен фон", () => {
-  const block = app.match(/var PALETTES = \[[\s\S]*?\];/);
-  assert.ok(block, "палітри оголошені в app.js");
+  const block = palettesJs.match(/var PALETTES = \[[\s\S]*?\];/);
+  assert.ok(block, "палітри оголошені в palettes.js");
   const entries = [...block[0].matchAll(/id: "(\w+)"/g)];
   assert.ok(entries.length >= 3, "щонайменше три варіанти");
   const inks = [...block[0].matchAll(/inkA: "(#[0-9A-Fa-f]{6})", inkB: "(#[0-9A-Fa-f]{6})"/g)];
   assert.equal(inks.length, entries.length, "у кожної палітри заданий колір тексту");
+});
+
+test("шрифти лежать у проєкті й покривають кирилицю", () => {
+  assert.equal(/fonts\.googleapis/.test(html), false, "без зовнішніх шрифтів — табло має працювати офлайн");
+  assert.match(html, /href="\.\/theme\.css"/);
+  const files = [...theme.matchAll(/url\("\.\/([^"]+)"\)/g)].map((m) => m[1]);
+  assert.ok(files.length >= 2);
+  files.forEach((f) => {
+    assert.ok(fs.existsSync(path.join(root, f)), "немає файлу шрифту: " + f);
+    assert.ok(sw.includes("./" + f), "шрифт не в офлайн-кеші: " + f);
+  });
+  assert.match(theme, /U\+0400-045F/, "потрібна кирилиця");
+  assert.match(theme, /U\+0490-0491/, "потрібна ґ");
+});
+
+test("збирання для хостингу бере файли з офлайн-кешу", () => {
+  const deploy = read(".github/workflows/deploy.yml");
+  assert.match(deploy, /npm run build/, "GitHub Pages збирається тим самим скриптом");
+  const vercel = JSON.parse(read("vercel.json"));
+  assert.equal(vercel.buildCommand, "npm run build");
+  assert.equal(vercel.outputDirectory, "_site");
+  assert.match(read("render.yaml"), /buildCommand: npm run build/);
+  assert.match(read("render.yaml"), /staticPublishPath: \.\/_site/);
+});
+
+test("ярлики маніфесту ведуть на табло", () => {
+  assert.ok(Array.isArray(manifest.shortcuts) && manifest.shortcuts.length > 0);
+  manifest.shortcuts.forEach((s) => {
+    const file = s.url.replace(/^\.\//, "").split("?")[0];
+    assert.ok(fs.existsSync(path.join(root, file)), "ярлик веде в нікуди: " + s.url);
+    assert.ok(s.name && s.icons && s.icons.length);
+  });
+});
+
+test("назви команд — до 30 символів", () => {
+  ["inNameA", "inNameB"].forEach((id) => {
+    assert.match(html, new RegExp('id="' + id + '"[^>]*maxlength="30"'), id);
+  });
 });

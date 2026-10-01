@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0E2A3F">
+<meta name="description" content="Табло для глядачів: рахунок матчу на проєкторі, другому моніторі чи ТБ. Оновлюється наживо з пульта на цьому ж пристрої.">
+<meta name="robots" content="noindex">
+<title>Табло для глядачів — волейбол</title>
+<link rel="icon" href="./icons/icon-192.png">
+<link rel="preload" href="./fonts/barlow-condensed-latin-800.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="./theme.css">
+<style>
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0}
+  body{
+    background:var(--court);color:var(--chalk);
+    font-family:var(--font);
+    overflow:hidden;user-select:none;cursor:default;
+  }
+  body.idle{cursor:none}
+  body.clear{background:transparent}               /* ?bg=none — для OBS */
+  .num{font-variant-numeric:tabular-nums}
+  .ca{color:var(--team-a)} .cb{color:var(--team-b)}
+
+  .layout{display:none;height:100dvh}
+  body[data-layout="arena"] #arena{display:flex}
+  body[data-layout="strip"] #strip{display:flex}
+
+  /* ---------- Арена: великий рахунок на весь екран ---------- */
+  #arena{
+    flex-direction:column;
+    padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+  .a-head{
+    flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;gap:16px;
+    padding:1.4vmin 2.4vmin;font-size:clamp(16px,3vmin,40px);letter-spacing:.06em;color:var(--slate);
+  }
+  .a-head .clock{color:var(--chalk)}
+  .a-head > *{flex:1 1 0;min-width:0}
+  .a-head .title{flex:2 1 0;text-align:center;color:var(--chalk);font-weight:600;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .a-head > :last-child{text-align:right}
+  .a-set{display:flex;flex-direction:column;align-items:center;line-height:1.15;color:var(--chalk);white-space:nowrap}
+  .a-set b{font-size:clamp(15px,3vmin,40px);font-weight:600;letter-spacing:.06em}
+  .a-set small{font-size:clamp(12px,2vmin,26px);letter-spacing:.1em;color:var(--slate)}
+
+  .a-court{flex:1 1 auto;display:flex;flex-direction:column;min-height:0}
+  .panel{
+    flex:1 1 0;min-width:0;min-height:0;position:relative;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.2vmin;
+  }
+  .panel.a{background-color:var(--team-a);color:var(--ink-a);
+    background-image:linear-gradient(180deg,rgba(255,255,255,.12),rgba(0,0,0,.22))}
+  .panel.b{background-color:var(--team-b);color:var(--ink-b);
+    background-image:linear-gradient(0deg,rgba(255,255,255,.12),rgba(0,0,0,.22))}
+  /* Довга назва (до 30 символів) переноситься на другий рядок, а не обрізається — у залі її мають прочитати. */
+  .panel .name{max-width:92%;font-size:clamp(20px,5.2vmin,84px);font-weight:600;letter-spacing:.04em;line-height:1.08;
+    text-align:center;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;
+    overflow-wrap:anywhere;opacity:.95}
+  .panel .score{font-size:min(38vmin,50vh);font-weight:800;line-height:.82;letter-spacing:-.02em;
+    text-shadow:0 2px 12px rgba(0,0,0,.22)}
+  .panel .serve{position:absolute;top:2.4vmin;font-size:clamp(12px,2.2vmin,30px);letter-spacing:.14em;font-weight:600;
+    padding:.3vmin 1.4vmin;border-radius:99px;border:1.5px solid currentColor;opacity:0;transition:opacity .2s ease}
+  .panel .serve.on{opacity:.9}
+  .pips{display:flex;gap:1.4vmin;align-items:center;min-height:14px}
+  .pip{width:2.4vmin;height:2.4vmin;min-width:12px;min-height:12px;border-radius:50%;border:2px solid currentColor;opacity:.5}
+  .pip.won{opacity:1;background:currentColor}
+
+  .a-net{
+    flex:0 0 auto;display:flex;align-items:center;justify-content:center;gap:2vmin;
+    padding:1.2vmin 2vmin;
+    border-top:var(--net) solid var(--tape);border-bottom:var(--net) solid var(--tape);
+    background-color:var(--court-deep);
+    background-image:
+      repeating-linear-gradient(45deg,rgba(237,233,222,.16) 0 1px,transparent 1px 11px),
+      repeating-linear-gradient(-45deg,rgba(237,233,222,.16) 0 1px,transparent 1px 11px);
+    text-align:center;
+  }
+  .a-sets{font-size:clamp(28px,9vmin,140px);font-weight:800;line-height:1;letter-spacing:.02em}
+  .a-sets .sep{color:var(--slate);margin:0 .12em}
+  .a-sets-cap{font-size:clamp(11px,1.8vmin,22px);letter-spacing:.16em;color:var(--slate)}
+  .a-hint{font-size:clamp(14px,2.8vmin,36px);letter-spacing:.1em;color:var(--team-b);min-height:1.2em;text-shadow:0 1px 6px var(--court-deep)}
+
+  .history{
+    flex:0 0 auto;display:flex;justify-content:center;gap:1.2vmin;flex-wrap:wrap;
+    padding:1.6vmin 2vmin;font-size:clamp(16px,3.4vmin,46px);
+  }
+  .chip{min-width:9vmin;padding:.4vmin 1.6vmin;border-radius:1vmin;text-align:center;
+    background:var(--court-deep);color:var(--slate);border:1px solid rgba(143,166,184,.22)}
+  .chip b{font-weight:600}
+  .chip.wa{color:var(--chalk);box-shadow:inset 0 -.5vmin 0 var(--team-a)}
+  .chip.wb{color:var(--chalk);box-shadow:inset 0 -.5vmin 0 var(--team-b)}
+  .chip.live{color:var(--chalk);border-color:var(--tape)}
+  .chip.empty{opacity:.45}
+
+  @media (min-aspect-ratio:1/1){
+    .a-court{flex-direction:row}
+    .panel.a{background-image:linear-gradient(90deg,rgba(255,255,255,.12),rgba(0,0,0,.22))}
+    .panel.b{background-image:linear-gradient(270deg,rgba(255,255,255,.12),rgba(0,0,0,.22))}
+    .a-net{flex-direction:column;width:clamp(120px,22vmin,320px);
+      border-top:0;border-bottom:0;border-left:var(--net) solid var(--tape);border-right:var(--net) solid var(--tape)}
+  }
+
+  /* ---------- Смуга: компактний рядок для стріму чи кута проєктора ---------- */
+  #strip{align-items:flex-start;justify-content:flex-start;padding:3vmin}
+  .bug{
+    display:grid;grid-auto-rows:auto;border-radius:1.2vmin;overflow:hidden;
+    border:var(--net) solid var(--tape);background:var(--court-deep);
+    font-size:clamp(18px,4.2vmin,64px);box-shadow:0 1vmin 4vmin rgba(0,0,0,.35);
+  }
+  .bug-row{display:flex;align-items:stretch}
+  .bug-row + .bug-row{border-top:1px solid rgba(143,166,184,.25)}
+  .bug-bar{width:1.1vmin;min-width:6px}
+  .bug-bar.a{background:var(--team-a)} .bug-bar.b{background:var(--team-b)}
+  .bug-name{display:flex;align-items:center;gap:1vmin;padding:.6vmin 1.8vmin;min-width:32vmin;max-width:56vmin;font-weight:600;letter-spacing:.05em}
+  .bug-name .label{flex:1 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .bug-serve{flex:0 0 auto;width:1.6vmin;height:1.6vmin;min-width:9px;min-height:9px;border-radius:50%;background:var(--chalk);opacity:0;transition:opacity .2s ease}
+  .bug-serve.on{opacity:1}
+  .bug-past{display:flex}
+  .bug-past span{width:6.4vmin;display:flex;align-items:center;justify-content:center;color:var(--slate);font-size:.78em}
+  .bug-past span.won{color:var(--chalk);font-weight:600}
+  .bug-sets{width:6.4vmin;display:flex;align-items:center;justify-content:center;background:var(--court);font-weight:600;border-left:1px solid rgba(143,166,184,.25)}
+  .bug-pts{width:9vmin;display:flex;align-items:center;justify-content:center;font-weight:800}
+  .bug-pts.a{background:var(--team-a);color:var(--ink-a)}
+  .bug-pts.b{background:var(--team-b);color:var(--ink-b)}
+  .bug-foot{display:flex;justify-content:space-between;gap:2vmin;padding:.4vmin 1.8vmin;font-size:.5em;letter-spacing:.12em;color:var(--slate);
+    border-top:1px solid rgba(143,166,184,.25)}
+  .bug-foot .hl{color:var(--team-b)}
+  .bug-title{color:var(--chalk);font-weight:600}
+  .bug-title:not(:empty)::after{content:"  ·  ";color:var(--slate);font-weight:400;white-space:pre}
+
+  /* ---------- Повноекранні стани ---------- */
+  .overlay{position:fixed;inset:0;z-index:20;display:none;flex-direction:column;align-items:center;justify-content:center;gap:2vmin;
+    background:rgba(10,31,48,.95);text-align:center;padding:4vmin}
+  .overlay.show{display:flex}
+  .overlay .cap{font-size:clamp(20px,4.4vmin,60px);letter-spacing:.1em;color:var(--slate)}
+  .overlay .big{font-size:min(42vmin,50vh);font-weight:800;line-height:.85}
+  .overlay .who{font-size:clamp(34px,9vmin,140px);font-weight:800;letter-spacing:.02em;max-width:92vw}
+  .overlay .tally{font-size:clamp(18px,3.6vmin,48px);color:var(--slate);letter-spacing:.06em}
+
+  .tip{position:fixed;left:50%;bottom:12vmin;transform:translateX(-50%);z-index:30;
+    padding:.8vmin 2vmin;border-radius:99px;background:rgba(10,31,48,.9);border:1px solid rgba(242,239,230,.25);
+    font-size:clamp(13px,1.8vmin,20px);letter-spacing:.06em;color:var(--slate);max-width:92vw;text-align:center;
+    opacity:0;transition:opacity .4s ease;pointer-events:none}
+  .tip.show{opacity:1}
+  .tip b{color:var(--chalk);font-weight:600}
+
+  /* ---------- Ефекти: ротація, спалах очка, банер сету ---------- */
+  .panel .rot{position:absolute;bottom:2.4vmin;font-size:clamp(12px,2.2vmin,30px);letter-spacing:.14em;
+    opacity:0;transition:opacity .25s ease;pointer-events:none}
+  .panel .rot.on{opacity:.8}
+
+  .banner{position:fixed;inset:0;z-index:15;display:none;align-items:center;justify-content:center;pointer-events:none}
+  .banner.show{display:flex}
+  .banner-inner{padding:3vmin 7vmin;border-radius:2vmin;text-align:center;
+    background:rgba(10,31,48,.95);border:var(--net) solid var(--tape);box-shadow:0 2vmin 8vmin rgba(0,0,0,.45)}
+  .banner .cap{font-size:clamp(16px,3.4vmin,46px);letter-spacing:.14em;color:var(--slate)}
+  .banner .who{font-size:clamp(28px,8vmin,120px);font-weight:800;line-height:1.05;max-width:86vw}
+  .banner .pts{font-size:clamp(22px,6vmin,90px);font-weight:600;color:var(--chalk)}
+  .banner.card-yellow .banner-inner{border-color:#F2C230}
+  .banner.card-red .banner-inner,.banner.card-disqualification .banner-inner{border-color:#D8574C}
+  .banner.card-expulsion .banner-inner{border-image:linear-gradient(90deg,#F2C230,#D8574C) 1}
+  .banner.card-yellow .cap{color:#F2C230}
+  .banner.card-red .cap,.banner.card-disqualification .cap{color:#D8574C}
+
+  .sound-hint{position:fixed;bottom:1.4vmin;right:1.4vmin;z-index:30;display:none;
+    padding:.6vmin 1.6vmin;border-radius:99px;font-size:clamp(12px,1.6vmin,18px);letter-spacing:.06em;
+    color:var(--court);background:var(--chalk)}
+  .sound-hint.show{display:block}
+  body.idle .sound-hint{opacity:.55}
+
+  @media (prefers-reduced-motion:no-preference){
+    .panel.flash .score{animation:pop .5s ease}
+    .panel.flash::after{content:"";position:absolute;inset:0;background:#fff;pointer-events:none;animation:glow .6s ease-out forwards}
+    .bug-pts.flash{animation:glow-cell .6s ease-out}
+    .banner.show .banner-inner{animation:rise .45s cubic-bezier(.2,.9,.3,1.2)}
+  }
+  @keyframes pop{0%{transform:scale(1)}30%{transform:scale(1.07)}100%{transform:scale(1)}}
+  @keyframes glow{0%{opacity:.26}100%{opacity:0}}
+  @keyframes glow-cell{0%{filter:brightness(1.6)}100%{filter:none}}
+  @keyframes rise{0%{transform:translateY(4vmin) scale(.94);opacity:0}100%{transform:none;opacity:1}}
+
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body data-layout="arena">
+
+<section class="layout" id="arena" aria-label="Табло">
+  <div class="a-head">
+    <span class="clock num" id="aClock">0:00</span>
+    <span class="title" id="aTitle"></span>
+    <span class="num" id="aFmt"></span>
+  </div>
+  <div class="a-court">
+    <div class="panel a" id="aPanelA">
+      <span class="serve" id="aServeA">подає</span>
+      <span class="rot" id="aRotA">ротація</span>
+      <span class="name" id="aNameA">Команда А</span>
+      <span class="score num" id="aScoreA">0</span>
+      <span class="pips" id="aPipsA"></span>
+    </div>
+    <div class="a-net">
+      <div class="a-set" id="aSet">матч ще не почався</div>
+      <div>
+        <div class="a-sets num" id="aSets"></div>
+        <div class="a-sets-cap" id="aSetsCap">сети</div>
+      </div>
+      <div class="a-hint" id="aHint"></div>
+    </div>
+    <div class="panel b" id="aPanelB">
+      <span class="serve" id="aServeB">подає</span>
+      <span class="rot" id="aRotB">ротація</span>
+      <span class="name" id="aNameB">Команда Б</span>
+      <span class="score num" id="aScoreB">0</span>
+      <span class="pips" id="aPipsB"></span>
+    </div>
+  </div>
+  <div class="history num" id="aHistory"></div>
+</section>
+
+<section class="layout" id="strip" aria-label="Смуга рахунку">
+  <div class="bug num">
+    <div class="bug-row">
+      <span class="bug-bar a"></span>
+      <span class="bug-name"><span class="label" id="sNameA">Команда А</span><span class="bug-serve" id="sServeA"></span></span>
+      <span class="bug-past" id="sPastA"></span>
+      <span class="bug-sets" id="sSetsA">0</span>
+      <span class="bug-pts a" id="sPtsA">0</span>
+    </div>
+    <div class="bug-row">
+      <span class="bug-bar b"></span>
+      <span class="bug-name"><span class="label" id="sNameB">Команда Б</span><span class="bug-serve" id="sServeB"></span></span>
+      <span class="bug-past" id="sPastB"></span>
+      <span class="bug-sets" id="sSetsB">0</span>
+      <span class="bug-pts b" id="sPtsB">0</span>
+    </div>
+    <div class="bug-foot"><span><b class="bug-title" id="sTitle"></b><span id="sInfo"></span></span><span class="hl" id="sHint"></span></div>
+  </div>
+</section>
+
+<div class="overlay" id="toOverlay">
+  <div class="cap" id="toWho"></div>
+  <div class="big num" id="toClock">30</div>
+</div>
+
+<div class="overlay" id="final">
+  <div class="cap" id="finalCap">Матч завершено</div>
+  <div class="who" id="finalWho"></div>
+  <div class="tally num" id="finalTally"></div>
+</div>
+
+<div class="banner" id="banner" aria-hidden="true">
+  <div class="banner-inner">
+    <div class="cap" id="bannerCap"></div>
+    <div class="who" id="bannerWho"></div>
+    <div class="pts num" id="bannerPts"></div>
+  </div>
+</div>
+
+<div class="sound-hint" id="soundHint">звук вимкнено — клікніть будь-де</div>
+<div class="tip" id="tip">Подвійний клік або <b>F</b> — повний екран · <b>L</b> — макет</div>
+<div id="live" aria-live="polite" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)"></div>
+
+<script src="./match.js"></script>
+<script src="./palettes.js"></script>
+<script src="./ui-common.js"></script>
+<script src="./sounds.js"></script>
+<script src="./display.js"></script>
+</body>
+</html>

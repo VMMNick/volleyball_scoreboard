@@ -5,3 +5,5 @@ Thumbs.db
 *.log
 .idea/
 .vscode/
+_site/
+Claude outputs/

@@ -39,11 +39,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Зібрати те, що справді їде на хостинг
-        run: |
-          mkdir -p _site
-          cp index.html match.js app.js sw.js manifest.webmanifest _site/
-          cp -r icons _site/
-          cp README.md LICENSE _site/
+        run: npm run build
 
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3

@@ -18,8 +18,48 @@
     winBy: 2,         // мінімальна різниця
     cap: 0,           // стеля очок у звичайному сеті (0 — без стелі)
     capDecider: 0,    // стеля у вирішальному
-    timeouts: 2       // тайм-аутів на команду в сеті
+    timeouts: 2,      // тайм-аутів на команду в сеті
+    deciderSwapAt: 8, // зала: одна зміна сторін у вирішальному, коли хтось набрав стільки
+    swapEvery: 0,     // пляж: зміна сторін кожні N очок у сумі (0 — ні)
+    swapEveryDecider: 0, // те саме у вирішальному сеті
+    subs: 6,          // замін на команду в сеті (0 — заміни вимкнено)
+    techTimeoutAt: 0  // пляж: технічний тайм-аут, коли сума очок сету досягла N (0 — ні)
   };
+
+  /* Санкції за правилами FIVB. Червона — штраф: очко й подача суперникові. */
+  var CARDS = ["yellow", "red", "expulsion", "disqualification"];
+  var CARD_NAMES = { yellow: "жовта", red: "червона", expulsion: "вилучення", disqualification: "дискваліфікація" };
+
+  /*
+   * Готові набори правил. Обираються в налаштуваннях і заповнюють поля;
+   * числа після цього можна підправити вручну.
+   */
+  var PRESETS = [
+    { id: "indoor", label: "Зал",
+      rules: { bestOf: 5, target: 25, decider: 15, winBy: 2, cap: 0, capDecider: 0, timeouts: 2,
+               deciderSwapAt: 8, swapEvery: 0, swapEveryDecider: 0, subs: 6, techTimeoutAt: 0 } },
+    { id: "beach", label: "Пляж",
+      rules: { bestOf: 3, target: 21, decider: 15, winBy: 2, cap: 0, capDecider: 0, timeouts: 1,
+               deciderSwapAt: 0, swapEvery: 7, swapEveryDecider: 5, subs: 0, techTimeoutAt: 21 } },
+    { id: "school", label: "Шкільний",
+      rules: { bestOf: 3, target: 25, decider: 15, winBy: 2, cap: 0, capDecider: 0, timeouts: 2,
+               deciderSwapAt: 8, swapEvery: 0, swapEveryDecider: 0, subs: 6, techTimeoutAt: 0 } }
+  ];
+
+  function presetById(id) {
+    for (var i = 0; i < PRESETS.length; i++) if (PRESETS[i].id === id) return PRESETS[i];
+    return null;
+  }
+
+  /* Який пресет збігається з правилами повністю (або null — правила свої). */
+  function presetOf(rules) {
+    for (var i = 0; i < PRESETS.length; i++) {
+      var pr = PRESETS[i].rules, same = true;
+      for (var k in pr) if (rules[k] !== pr[k]) { same = false; break; }
+      if (same) return PRESETS[i].id;
+    }
+    return null;
+  }
 
   var DEFAULT_NAMES = ["Команда А", "Команда Б"];
 
@@ -31,6 +71,7 @@
     return {
       v: 1,
       names: (opts.names || DEFAULT_NAMES).slice(),
+      title: typeof opts.title === "string" ? opts.title : "",   // назва турніру чи матчу
       rules: rules,
       events: [],
       undone: []
@@ -41,6 +82,7 @@
     return {
       v: m.v,
       names: m.names.slice(),
+      title: m.title || "",
       rules: m.rules,
       events: m.events.slice(),
       undone: m.undone.slice()
@@ -66,6 +108,26 @@
     var s = reduce(m);
     if (s.done || s.timeouts[team] <= 0) return m;
     return push(m, { type: "timeout", team: team, ts: ts || Date.now() });
+  }
+
+  /*
+   * Заміна: гравець out іде, in заходить. Номери — рядки, як у протоколі
+   * («7», «12»). Понад ліміт сету заміна не приймається.
+   */
+  function substitute(m, team, out, inn, ts) {
+    var s = reduce(m);
+    if (s.done || !s.rules.subs || s.subsUsed[team] >= s.rules.subs) return m;
+    out = String(out == null ? "" : out).trim();
+    inn = String(inn == null ? "" : inn).trim();
+    if (!out || !inn || out === inn) return m;
+    return push(m, { type: "sub", team: team, out: out, "in": inn, ts: ts || Date.now() });
+  }
+
+  /* Картка гравцю (номер) чи команді/тренеру (порожньо). */
+  function giveCard(m, team, kind, player, ts) {
+    if (reduce(m).done || CARDS.indexOf(kind) < 0) return m;
+    return push(m, { type: "card", team: team, kind: kind,
+                     player: String(player == null ? "" : player).trim(), ts: ts || Date.now() });
   }
 
   function swapSides(m, ts) {
@@ -115,12 +177,19 @@
 
   /* Новий матч із тими самими налаштуваннями й назвами. */
   function restart(m) {
-    return createMatch({ names: m.names, rules: m.rules });
+    return createMatch({ names: m.names, rules: m.rules, title: m.title });
   }
 
   function rename(m, team, name) {
     var next = clone(m);
     next.names[team] = name;
+    return next;
+  }
+
+  /* Назва турніру чи матчу — для табло, протоколу й імені файлу. */
+  function setTitle(m, title) {
+    var next = clone(m);
+    next.title = String(title || "").trim();
     return next;
   }
 
@@ -141,6 +210,7 @@
 
     var s = {
       names: m.names.slice(),
+      title: m.title || "",
       rules: r,
       setsNeeded: needed,
       points: [0, 0],
@@ -149,6 +219,12 @@
       serving: null,
       timeouts: [r.timeouts, r.timeouts],
       timeoutsUsed: [0, 0],
+      subsUsed: [0, 0],               // замін у поточному сеті
+      subLog: [],                     // усі заміни матчу: {team, out, in, set, score}
+      cards: [],                      // усі картки матчу: {team, kind, player, set, score}
+      lastSub: null,
+      lastCard: null,
+      techTimeoutTaken: false,
       flipped: false,
       done: false,
       winner: null,
@@ -166,6 +242,7 @@
       lastAt: null,
       setStartedAt: null,
       swappedThisSet: false,
+      swappedAtTotal: null,           // на якій сумі очок сету востаннє міняли сторони
       lastPoint: null,
       lastTimeout: null
     };
@@ -185,6 +262,7 @@
       if (ev.type === "swap") {
         s.flipped = !s.flipped;
         s.swappedThisSet = true;
+        s.swappedAtTotal = s.points[0] + s.points[1];
 
       } else if (ev.type === "serve") {
         if (!s.points[0] && !s.points[1]) s.serving = ev.team;
@@ -198,6 +276,25 @@
 
       } else if (ev.type === "point") {
         applyPoint(ev);
+
+      } else if (ev.type === "sub") {
+        if (r.subs && s.subsUsed[ev.team] < r.subs) {
+          s.subsUsed[ev.team]++;
+          s.lastSub = { team: ev.team, out: ev.out, "in": ev["in"], set: s.setNumber,
+                        score: [s.points[0], s.points[1]], ts: ev.ts };
+          s.subLog.push(s.lastSub);
+        }
+
+      } else if (ev.type === "card") {
+        s.lastCard = { team: ev.team, kind: ev.kind, player: ev.player || "", set: s.setNumber,
+                       score: [s.points[0], s.points[1]], ts: ev.ts };
+        s.cards.push(s.lastCard);
+        // Червона — штраф: суперник отримує розіграш, тобто очко й подачу.
+        if (ev.kind === "red") applyPoint({ type: "point", team: 1 - ev.team, ts: ev.ts, penalty: true });
+
+      } else if (ev.type === "techTimeout") {
+        s.techTimeoutTaken = true;
+        s.lastTimeout = { team: -1, tech: true, ts: ev.ts };
       }
     }
 
@@ -241,10 +338,13 @@
         s.points = [0, 0];
         s.serving = null;
         s.timeouts = [r.timeouts, r.timeouts];
+        s.subsUsed = [0, 0];
+        s.techTimeoutTaken = false;
         s.streak = { team: null, n: 0 };
         s.setRallies = 0;
         s.setStartedAt = null;
         s.swappedThisSet = false;
+        s.swappedAtTotal = null;
 
         if (s.sets[team] >= needed) {
           s.done = true;
@@ -284,10 +384,32 @@
     return s.sets[i] + 1 >= s.setsNeeded ? i : null;
   }
 
-  /* У вирішальному сеті сторони міняють на 8 очках. */
+  /*
+   * Чи час міняти сторони.
+   * Зала: один раз у вирішальному, коли лідер набрав deciderSwapAt (8).
+   * Пляж: щоразу, коли сума очок сету кратна swapEvery (7; у вирішальному — 5).
+   */
   function sideSwapDue(s) {
-    return !s.done && s.isDecider && !s.swappedThisSet &&
-           Math.max(s.points[0], s.points[1]) >= 8;
+    if (s.done) return false;
+    var r = s.rules;
+    var every = s.isDecider ? (r.swapEveryDecider || 0) : (r.swapEvery || 0);
+    if (every > 0) {
+      var total = s.points[0] + s.points[1];
+      return total > 0 && total % every === 0 && s.swappedAtTotal !== total;
+    }
+    var at = r.deciderSwapAt === undefined ? 8 : r.deciderSwapAt;
+    return at > 0 && s.isDecider && !s.swappedThisSet && Math.max(s.points[0], s.points[1]) >= at;
+  }
+
+  /* Пляж: технічний тайм-аут, коли сума очок сету дійшла до techTimeoutAt (не у вирішальному). */
+  function techTimeoutDue(s) {
+    var at = s.rules.techTimeoutAt || 0;
+    return !s.done && at > 0 && !s.isDecider && !s.techTimeoutTaken && s.points[0] + s.points[1] >= at;
+  }
+
+  function takeTechTimeout(m, ts) {
+    if (!techTimeoutDue(reduce(m))) return m;
+    return push(m, { type: "techTimeout", ts: ts || Date.now() });
   }
 
   /* Індекс команди, що грає на стороні side (0 — перша сторона екрана). */
@@ -305,6 +427,7 @@
   function protocol(m, now) {
     var s = reduce(m);
     return {
+      title: s.title,
       names: s.names,
       rules: s.rules,
       sets: s.sets,
@@ -326,7 +449,9 @@
         bestStreak: s.bestStreak,
         biggestLead: s.biggestLead,
         timeoutsUsed: s.timeoutsUsed
-      }
+      },
+      subs: s.subLog,
+      cards: s.cards
     };
   }
 
@@ -337,7 +462,10 @@
 
     for (var i = 0; i < m.events.length && !done; i++) {
       var ev = m.events[i];
-      if (ev.type !== "point") continue;
+      var scorer = ev.type === "point" ? ev.team
+        : ev.type === "card" && ev.kind === "red" ? 1 - ev.team : -1;
+      if (scorer < 0) continue;
+      ev = { team: scorer };
       points[ev.team]++;
       if (idx === setIndex) trail.push([points[0], points[1]]);
 
@@ -365,6 +493,12 @@
       rows.push([s.setNumber + " (триває)", s.points[0], s.points[1], s.setRallies, ""]);
     }
     rows.push(["сети", s.sets[0], s.sets[1], "", ""]);
+    s.subLog.forEach(function (x) {
+      rows.push(["заміна", s.names[x.team], x.out + " → " + x["in"], "сет " + x.set, x.score[0] + ":" + x.score[1]]);
+    });
+    s.cards.forEach(function (c) {
+      rows.push(["картка: " + CARD_NAMES[c.kind], s.names[c.team], c.player || "команда", "сет " + c.set, c.score[0] + ":" + c.score[1]]);
+    });
     return rows.map(function (row) {
       return row.map(function (cell) {
         var v = String(cell);
@@ -376,14 +510,14 @@
   /* ---------- збереження ---------- */
 
   function serialize(m) {
-    return JSON.stringify({ v: 1, names: m.names, rules: m.rules, events: m.events, undone: m.undone });
+    return JSON.stringify({ v: 1, names: m.names, title: m.title || "", rules: m.rules, events: m.events, undone: m.undone });
   }
 
   function deserialize(raw) {
     if (!raw) return null;
     var data = typeof raw === "string" ? JSON.parse(raw) : raw;
     if (!data || !Array.isArray(data.events)) return null;
-    var m = createMatch({ names: data.names, rules: data.rules });
+    var m = createMatch({ names: data.names, rules: data.rules, title: data.title });
     m.events = data.events;
     m.undone = Array.isArray(data.undone) ? data.undone : [];
     return m;
@@ -391,11 +525,19 @@
 
   return {
     DEFAULT_RULES: DEFAULT_RULES,
+    PRESETS: PRESETS,
+    presetById: presetById,
+    presetOf: presetOf,
     createMatch: createMatch,
     addPoint: addPoint,
     removeLastPoint: removeLastPoint,
     callTimeout: callTimeout,
     swapSides: swapSides,
+    substitute: substitute,
+    giveCard: giveCard,
+    CARDS: CARDS,
+    techTimeoutDue: techTimeoutDue,
+    takeTechTimeout: takeTechTimeout,
     setServer: setServer,
     undo: undo,
     redo: redo,
@@ -403,6 +545,7 @@
     canRedo: canRedo,
     restart: restart,
     rename: rename,
+    setTitle: setTitle,
     setRules: setRules,
     reduce: reduce,
     setPointFor: setPointFor,

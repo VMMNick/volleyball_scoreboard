@@ -1,11 +1,23 @@
 /* Табло — волейбол. Офлайн-оболонка. */
-const CACHE = "volley-score-v2";
+const CACHE = "volley-score-v5";
 const SHELL = [
   "./",
   "./index.html",
+  "./display.html",
+  "./theme.css",
   "./match.js",
   "./app.js",
+  "./palettes.js",
+  "./ui-common.js",
+  "./sounds.js",
+  "./display.js",
   "./manifest.webmanifest",
+  "./fonts/barlow-condensed-latin-400.woff2",
+  "./fonts/barlow-condensed-latin-600.woff2",
+  "./fonts/barlow-condensed-latin-800.woff2",
+  "./fonts/roboto-condensed-cyrillic-400.woff2",
+  "./fonts/roboto-condensed-cyrillic-600.woff2",
+  "./fonts/roboto-condensed-cyrillic-800.woff2",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
   "./icons/icon-maskable-512.png"
@@ -32,17 +44,20 @@ self.addEventListener("fetch", (e) => {
   // Навігація: спершу мережа, офлайн — з кешу.
   if (req.mode === "navigate") {
     e.respondWith(
-      fetch(req).catch(() => caches.match("./index.html"))
+      // display.html?layout=strip теж має відкритись офлайн, а не впасти на пульт.
+      fetch(req).catch(() =>
+        caches.match(req, { ignoreSearch: true }).then((hit) => hit || caches.match("./index.html"))
+      )
     );
     return;
   }
 
-  // Решта (зокрема шрифти): кеш, потім мережа з дозаписом.
+  // Решта: кеш, потім мережа з дозаписом.
   e.respondWith(
     caches.match(req).then((hit) => {
       if (hit) return hit;
       return fetch(req).then((res) => {
-        if (res.ok && (req.url.startsWith(self.location.origin) || req.url.indexOf("fonts.g") > -1)) {
+        if (res.ok && req.url.startsWith(self.location.origin)) {
           const copy = res.clone();
           caches.open(CACHE).then((c) => c.put(req, copy));
         }

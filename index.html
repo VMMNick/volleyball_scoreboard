@@ -12,21 +12,14 @@
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="apple-touch-icon" href="./icons/icon-192.png">
 <link rel="icon" href="./icons/icon-192.png">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;800&display=swap" rel="stylesheet">
+<link rel="preload" href="./fonts/barlow-condensed-latin-800.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="./theme.css">
 <style>
-  :root{
-    --court:#0E2A3F; --court-deep:#0A1F30; --chalk:#F2EFE6; --slate:#8FA6B8;
-    --team-a:#1668C9; --team-b:#F5A310;      /* колір половини */
-    --ink-a:#FFFFFF; --ink-b:#0A1F30;        /* текст на цій половині */
-    --tape:#EDE9DE; --danger:#D8574C; --net:3px;
-  }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{height:100%;margin:0}
   body{
     background:var(--court);color:var(--chalk);
-    font-family:"Barlow Condensed","Roboto Condensed","Arial Narrow",system-ui,sans-serif;
+    font-family:var(--font);
     overflow:hidden;overscroll-behavior:none;user-select:none;
   }
   #app{
@@ -135,6 +128,10 @@
       border-top:0;border-bottom:0;border-left:var(--net) solid var(--tape);border-right:var(--net) solid var(--tape);
     }
     .net-info{display:flex;flex-direction:column;justify-content:center;line-height:1.15}
+    .net-info{font-size:clamp(14px,1.2vmin + 10px,22px);letter-spacing:.03em}
+    .net-info .ln{display:block;white-space:nowrap}
+    .net-info small .ln{white-space:normal}
+    .net-info .sep{display:none}
   }
 
   .final{position:fixed;inset:0;z-index:20;display:none;flex-direction:column;align-items:center;justify-content:center;gap:20px;background:rgba(10,31,48,.95);padding:24px;text-align:center}
@@ -204,6 +201,24 @@
   .proto-head{font-size:20px;margin-bottom:12px;letter-spacing:.04em}
   .trail{font-size:15px;color:var(--slate);line-height:1.8;word-spacing:2px;max-height:24vh;overflow:auto;font-variant-numeric:tabular-nums}
 
+  .gap-top{margin-top:14px}
+  .row.tight{display:flex;align-items:center;gap:14px;margin-top:4px}
+  .row.tight .primary{flex:0 0 auto}
+  .counter{color:var(--slate);font-size:17px;letter-spacing:.04em}
+  .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+  .card{height:52px;border-radius:10px;cursor:pointer;font:inherit;font-size:17px;font-weight:600;letter-spacing:.03em;border:0}
+  .card.y{background:#F2C230;color:#1A1400}
+  .card.r{background:#D8574C;color:#fff}
+  .card.x{background:linear-gradient(90deg,#F2C230 50%,#D8574C 50%);color:#1A1400}
+  .card.d{background:#0A1F30;color:#F2EFE6;border:2px solid #D8574C}
+  .card:active{filter:brightness(.9)}
+  .evlog{margin-top:16px;font-size:16px;line-height:1.7;color:var(--chalk);max-height:24vh;overflow:auto;font-variant-numeric:tabular-nums}
+  .evlog .muted{color:var(--slate)}
+  .net .tech{position:absolute;left:50%;transform:translateX(-50%);top:-1px;display:none;
+    padding:2px 10px;border-radius:0 0 8px 8px;border:0;cursor:pointer;
+    background:var(--tape);color:var(--court);font:inherit;font-size:14px;font-weight:600;letter-spacing:.06em}
+  .net .tech.on{display:block}
+  @media (max-width:420px){.cards{grid-template-columns:1fr 1fr}}
   .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
   @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
@@ -230,6 +245,7 @@
     <div class="net">
       <button class="netbtn" id="undoBtn" disabled aria-label="Скасувати" title="Скасувати">⟲</button>
       <div class="net-info" id="netInfo"></div>
+      <button class="tech" id="techBtn">технічний тайм-аут</button>
       <button class="netbtn" id="redoBtn" disabled aria-label="Повторити" title="Повторити">⟳</button>
     </div>
 
@@ -265,6 +281,8 @@
     <h2>Матч</h2>
     <div class="menu-list">
       <button id="mProto">Протокол і статистика</button>
+      <button id="mDisplay">Табло для глядачів</button>
+      <button id="mSubs">Заміни й картки</button>
       <button id="mServe">Хто подає першим</button>
       <button id="mSwap">Поміняти сторони</button>
       <button id="mFullscreen">На весь екран</button>
@@ -272,6 +290,35 @@
       <button id="mNew" class="danger">Новий матч</button>
     </div>
     <p class="hint">Тап по половині — очко. З клавіатури: 1 і 2 — очко, Q і P — тайм-аут, Backspace — скасувати, Shift+Backspace — повторити.</p>
+  </div>
+</div>
+
+<div class="sheet" id="subsSheet">
+  <div class="sheet-inner">
+    <h2>Заміни й картки</h2>
+    <div class="seg" id="segTeam">
+      <button data-team="0" id="teamBtnA">Команда А</button>
+      <button data-team="1" id="teamBtnB">Команда Б</button>
+    </div>
+    <div id="subBox">
+      <div class="grid2 gap-top">
+        <label class="field"><span>Виходить №</span><input id="inSubOut" type="text" inputmode="numeric" maxlength="3" autocomplete="off"></label>
+        <label class="field"><span>Заходить №</span><input id="inSubIn" type="text" inputmode="numeric" maxlength="3" autocomplete="off"></label>
+      </div>
+      <div class="row tight">
+        <button class="primary" id="subBtn">Заміна</button>
+        <span class="counter" id="subCount"></span>
+      </div>
+    </div>
+    <label class="field gap-top"><span>Картка — № гравця (порожньо — команді чи тренеру)</span><input id="inCardPlayer" type="text" maxlength="8" autocomplete="off"></label>
+    <div class="cards">
+      <button class="card y" data-card="yellow">Жовта</button>
+      <button class="card r" data-card="red">Червона</button>
+      <button class="card x" data-card="expulsion">Вилучення</button>
+      <button class="card d" data-card="disqualification">Дискваліфікація</button>
+    </div>
+    <div class="evlog" id="evLog"></div>
+    <p class="hint">Червона картка — штраф: очко й подача суперникові. Помилку скасовує ⟲ на сітці.</p>
   </div>
 </div>
 
@@ -293,6 +340,7 @@
     <table class="proto" id="protoSets"></table>
     <table class="proto" id="protoStats"></table>
     <div class="trail" id="protoTrail"></div>
+    <div class="evlog" id="protoEvents"></div>
     <div class="row">
       <button class="primary" id="protoCSV">Завантажити CSV</button>
       <button class="ghost" id="protoCopy">Копіювати JSON</button>
@@ -303,9 +351,14 @@
 <div class="sheet" id="sheet">
   <div class="sheet-inner">
     <h2>Налаштування</h2>
+    <label class="field"><span>Назва турніру чи матчу</span><input id="inTitle" type="text" maxlength="40" autocomplete="off" placeholder="необовʼязково — видно на табло"></label>
     <div class="grid2">
-      <label class="field"><span>Перша команда</span><input id="inNameA" type="text" maxlength="18" autocomplete="off"></label>
-      <label class="field"><span>Друга команда</span><input id="inNameB" type="text" maxlength="18" autocomplete="off"></label>
+      <label class="field"><span>Перша команда</span><input id="inNameA" type="text" maxlength="30" autocomplete="off"></label>
+      <label class="field"><span>Друга команда</span><input id="inNameB" type="text" maxlength="30" autocomplete="off"></label>
+    </div>
+    <div class="field">
+      <span>Правила</span>
+      <div class="seg" id="segPreset"></div>
     </div>
     <div class="field">
       <span>Формат</span>
@@ -328,10 +381,13 @@
       <div class="palettes" id="palettes"></div>
     </div>
     <label class="check"><input id="inVibrate" type="checkbox"> Вібрація на очко</label>
+    <label class="check"><input id="inShowServe" type="checkbox"> Показувати подачу на табло для глядачів</label>
+    <label class="check"><input id="inSound" type="checkbox"> Звуки на табло: свисток тайм-ауту, кінець сету й матчу</label>
     <div class="row">
       <button class="primary" id="sheetSave">Зберегти</button>
       <button class="ghost reset" id="sheetReset">Обнулити рахунок</button>
     </div>
+    <p class="hint" id="presetHint"></p>
     <p class="hint">Стеля закриває нескінченний сет: при 27 рахунок 27:26 уже дає перемогу. Зміна формату починає матч наново.</p>
   </div>
 </div>
@@ -339,6 +395,8 @@
 <div class="sr" id="live" aria-live="polite"></div>
 
 <script src="./match.js"></script>
+<script src="./palettes.js"></script>
+<script src="./ui-common.js"></script>
 <script src="./app.js"></script>
 </body>
 </html>
