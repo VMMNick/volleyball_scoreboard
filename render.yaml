@@ -1,11 +1,11 @@
-# Render Blueprint: статичний сайт табло.
+# Render Blueprint: табло + сервер трансляції (WebSocket /ws).
+# Один сервіс роздає сайт і тримає кімнати, тож посилання для глядачів і OBS
+# живуть на тому ж домені, що й пульт.
 services:
   - type: web
     name: volleyball-scoreboard
-    runtime: static
-    buildCommand: npm run build
-    staticPublishPath: ./_site
-    headers:
-      - path: /sw.js
-        name: Cache-Control
-        value: no-cache
+    runtime: node
+    plan: free
+    buildCommand: npm ci --omit=dev && npm run build
+    startCommand: node server.js
+    healthCheckPath: /healthz

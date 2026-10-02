@@ -18,6 +18,8 @@ const html = fs.readFileSync(path.join(root, "index.html"), "utf8");
 const core = fs.readFileSync(path.join(root, "match.js"), "utf8");
 const palettes = fs.readFileSync(path.join(root, "palettes.js"), "utf8");
 const common = fs.readFileSync(path.join(root, "ui-common.js"), "utf8");
+const remoteJs = fs.readFileSync(path.join(root, "remote.js"), "utf8");
+const qrJs = fs.readFileSync(path.join(root, "vendor/qrcode.js"), "utf8");
 const app = fs.readFileSync(path.join(root, "app.js"), "utf8");
 
 /* Піднімає застосунок у чистому DOM і повертає зручні хелпери. */
@@ -29,6 +31,8 @@ function boot() {
   win.eval(core);
   win.eval(palettes);
   win.eval(common);
+  win.eval(remoteJs);
+  win.eval(qrJs);
   win.eval(app);
 
   const $ = (id) => win.document.getElementById(id);

@@ -1,11 +1,9 @@
 /*
  * Табло для глядачів. Лише показує — нічого не змінює.
  *
- * Стан бере з того самого сховища, куди пише пульт (localStorage), і
- * оновлюється наживо: подія storage приходить у кожне інше вікно цього ж
- * сайту, а BroadcastChannel додатково передає те, чого в сховищі немає
- * (тайм-аут завершили раніше). Бекенд не потрібен — пульт і табло живуть
- * на одному пристрої: друге вікно, другий монітор, проєктор.
+ * Звідки брати рахунок, вирішує feed.js: з цього ж пристрою (друге вікно,
+ * проєктор — без сервера) або з кімнати трансляції (?room=ABC234 — будь-який
+ * пристрій через server.js).
  */
 (function () {
   "use strict";
@@ -14,9 +12,6 @@
   var P = window.Palettes;
   var U = window.UI;
   var S = window.Sounds.create(window);
-  var KEY = "volleyball:match";
-  var PREF = "volleyball:prefs";
-  var CHANNEL = "volleyball";
   var LAYOUTS = ["arena", "strip"];
   var IDLE_MS = 3000;
 
@@ -27,15 +22,10 @@
   var prev = null;                 // попередній стан — щоб помітити, що саме змінилось
   var timeoutShownTs = null;       // тайм-аут, відлік якого зараз на екрані
   var bannerTimer = null, rotTimer = null;
-  var channel = null;
 
   function $(id) { return document.getElementById(id); }
 
   /* ---------- стан із пульта ---------- */
-
-  function readStorage(key) {
-    try { return localStorage.getItem(key); } catch (e) { return null; }
-  }
 
   function takeMatch(raw) {
     try {
@@ -55,29 +45,33 @@
     } catch (e) {}
   }
 
-  function loadAll() {
-    takeMatch(readStorage(KEY));
-    takePrefs(readStorage(PREF));
+  function applyPrefs(p) {
+    takePrefs(p);
     P.apply(document.documentElement, prefs.palette);
     render();
   }
 
-  window.addEventListener("storage", function (e) {
-    if (e.key === KEY) { takeMatch(e.newValue); render(); }
-    else if (e.key === PREF) { takePrefs(e.newValue); P.apply(document.documentElement, prefs.palette); render(); }
-    else if (e.key === null) loadAll();          // сховище очистили
-  });
+  function startFeed() {
+    render();                                       // одразу щось на екрані, навіть без даних
+    return window.Feed.create({
+      win: window,
+      onMatch: function (raw) { takeMatch(raw); render(); },
+      onPrefs: applyPrefs,
+      onTimeoutEnd: function (ts) { dismissedTimeout = ts || dismissedTimeout; render(); },
+      onStatus: paintLink
+    });
+  }
 
-  if (typeof BroadcastChannel === "function") {
-    channel = new BroadcastChannel(CHANNEL);
-    channel.onmessage = function (e) {
-      var msg = e.data || {};
-      if (msg.type === "state" && msg.match) { takeMatch(msg.match); render(); }
-      else if (msg.type === "prefs" && msg.prefs) { takePrefs(msg.prefs); P.apply(document.documentElement, prefs.palette); render(); }
-      else if (msg.type === "timeout-end") { dismissedTimeout = msg.ts || dismissedTimeout; render(); }
-    };
-    // Пульт міг зберігати не в localStorage — попросимо стан напряму.
-    channel.postMessage({ type: "hello" });
+  /* Стан звʼязку з трансляцією — лише коли табло дивиться в кімнату. */
+  var LINK_TEXT = {
+    connecting: "підключення…", live: "наживо", offline: "немає звʼязку — перепідключаюсь",
+    rejected: "трансляцію не знайдено"
+  };
+  function paintLink(status) {
+    var el = $("linkStatus");
+    if (!el) return;
+    el.className = "link-status " + (status === "local" ? "" : "show " + status);
+    el.textContent = LINK_TEXT[status] || "";
   }
 
   /* ---------- допоміжне ---------- */
@@ -350,7 +344,7 @@
   if (q.get("bg") === "none") document.body.classList.add("clear");
   U.keepAwake();
   wake();
-  loadAll();
+  startFeed();
 
   U.registerSW();
 })();

@@ -5,10 +5,11 @@
   "private": true,
   "type": "commonjs",
   "scripts": {
-    "start": "npx --yes serve .",
+    "start": "npm run build && node server.js",
     "test": "node --test tests/*.test.js",
-    "check": "node --check match.js && node --check palettes.js && node --check ui-common.js && node --check sounds.js && node --check app.js && node --check display.js && node --check sw.js && node --check scripts/build.js",
-    "build": "node scripts/build.js"
+    "check": "node --check match.js && node --check palettes.js && node --check ui-common.js && node --check sounds.js && node --check app.js && node --check display.js && node --check sw.js && node --check scripts/build.js && node --check remote.js && node --check feed.js && node --check live.js && node --check server.js",
+    "build": "node scripts/build.js",
+    "dev": "npx --yes serve ."
   },
   "devDependencies": {
     "jsdom": "^26.0.0"
@@ -19,5 +20,11 @@
     "pwa",
     "offline"
   ],
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "ws": "^8.22.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
 }

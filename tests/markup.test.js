@@ -134,8 +134,10 @@ test("збирання для хостингу бере файли з офлай
   const vercel = JSON.parse(read("vercel.json"));
   assert.equal(vercel.buildCommand, "npm run build");
   assert.equal(vercel.outputDirectory, "_site");
-  assert.match(read("render.yaml"), /buildCommand: npm run build/);
-  assert.match(read("render.yaml"), /staticPublishPath: \.\/_site/);
+  const render = read("render.yaml");
+  assert.match(render, /buildCommand: .*npm run build/);
+  assert.match(render, /startCommand: node server\.js/, "Render — сервер трансляції, а не лише статика");
+  assert.match(render, /healthCheckPath: \/healthz/);
 });
 
 test("ярлики маніфесту ведуть на табло", () => {

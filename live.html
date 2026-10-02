@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0E2A3F">
+<meta name="description" content="Рахунок волейбольного матчу наживо: команди, сети, очки.">
+<title>Рахунок наживо — волейбол</title>
+<link rel="icon" href="./icons/icon-192.png">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="preload" href="./fonts/barlow-condensed-latin-800.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="./theme.css">
+<style>
+  /*
+   * Компактне табло для трансляції: один блок на всю ширину, читається
+   * однаково на телефоні глядача, на ТБ і поверх відео в OBS (?bg=none).
+   * Усі розміри — від --u, яке тягнеться за меншою зі сторін екрана.
+   */
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0}
+  body{
+    --u:clamp(17px,min(6vw,7.5vh),84px);
+    background:var(--court);color:var(--chalk);font-family:var(--font);
+    display:flex;align-items:center;justify-content:center;
+    padding:max(16px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) max(16px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));
+    -webkit-font-smoothing:antialiased;
+  }
+  /*
+   * Накладка для OBS (?bg=none): прозорий фон, компактне табло в куті кадру
+   * 1920×1080. Розмір — від висоти кадру, ширина — за найдовшою назвою.
+   * Кут — ?pos=tl|tr|bl|br (за замовчуванням зліва вгорі).
+   */
+  body.clear{--u:clamp(14px,3.6vh,64px);background:transparent;align-items:flex-start;justify-content:flex-start;padding:3vh 2.5vw}
+  body.clear.pos-tr{justify-content:flex-end}
+  body.clear.pos-bl{align-items:flex-end}
+  body.clear.pos-br{align-items:flex-end;justify-content:flex-end}
+  body.clear .board{width:max-content;min-width:calc(var(--u)*11);max-width:60vw;box-shadow:0 .4vh 1.6vh rgba(0,0,0,.35)}
+  body.clear .cols{display:none}
+  body.clear #rowA{border-top:0}
+  body.clear .empty,body.clear .link-status{display:none!important}   /* у кадрі — лише табло */
+  .num{font-variant-numeric:tabular-nums}
+
+  .board{width:100%;max-width:1500px;border-radius:calc(var(--u)*.22);overflow:hidden;
+    background:var(--court-deep);border:var(--net) solid var(--tape);box-shadow:0 1vmin 5vmin rgba(0,0,0,.35)}
+
+  .cols,.row{display:grid;grid-template-columns:calc(var(--u)*.22) 1fr calc(var(--u)*.9) calc(var(--u)*1.7) calc(var(--u)*2.3);align-items:stretch}
+  .cols{font-size:calc(var(--u)*.32);letter-spacing:.14em;color:var(--slate);text-transform:lowercase}
+  .cols span{padding:calc(var(--u)*.12) 0;text-align:center}
+  .cols .c-name{text-align:left;padding-left:calc(var(--u)*.4)}
+  .row{min-height:calc(var(--u)*1.75);border-top:1px solid rgba(143,166,184,.22)}
+
+  .bar.a{background:var(--team-a)} .bar.b{background:var(--team-b)}
+  .name{display:flex;align-items:center;min-width:0;padding:calc(var(--u)*.18) calc(var(--u)*.4);
+    font-size:var(--u);font-weight:600;letter-spacing:.03em;line-height:1.05}
+  .name .label{overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;overflow-wrap:anywhere}
+  .serve{display:flex;align-items:center;justify-content:center}
+  .serve svg{width:calc(var(--u)*.62);height:calc(var(--u)*.62);opacity:0;transform:scale(.6);transition:opacity .2s ease,transform .2s ease}
+  .serve.on svg{opacity:1;transform:none}
+  .sets{display:flex;align-items:center;justify-content:center;background:var(--court);
+    font-size:calc(var(--u)*1.15);font-weight:600;border-left:1px solid rgba(143,166,184,.22)}
+  .pts{display:flex;align-items:center;justify-content:center;font-size:calc(var(--u)*1.55);font-weight:800;line-height:1}
+  .pts.a{background:var(--team-a);color:var(--ink-a)}
+  .pts.b{background:var(--team-b);color:var(--ink-b)}
+  .no-sets .sets,.no-sets .c-sets{visibility:hidden}
+
+  .foot{display:flex;justify-content:space-between;align-items:center;gap:calc(var(--u)*.4);
+    padding:calc(var(--u)*.2) calc(var(--u)*.4);border-top:1px solid rgba(143,166,184,.22);
+    font-size:calc(var(--u)*.46);letter-spacing:.05em;color:var(--slate);min-height:calc(var(--u)*.95)}
+  .foot .title{color:var(--chalk);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+  .foot .info{flex:0 0 auto;text-align:right;white-space:nowrap}
+  .foot .info.hot{color:var(--team-b);font-weight:600}
+  .foot .info.done{color:var(--chalk);font-weight:600}
+
+  .link-status{position:fixed;left:50%;bottom:max(10px,env(safe-area-inset-bottom));transform:translateX(-50%);
+    display:none;padding:4px 12px;border-radius:99px;font-size:14px;letter-spacing:.06em;white-space:nowrap;
+    background:rgba(10,31,48,.85);color:var(--slate);border:1px solid rgba(143,166,184,.3)}
+  .link-status.show{display:block}
+  .link-status.live{color:#7CE3A1;border-color:rgba(124,227,161,.4)}
+  .link-status.live::before{content:"● "}
+  .link-status.offline,.link-status.rejected{color:var(--team-b);border-color:currentColor}
+
+  .empty{display:none;text-align:center;font-size:20px;color:var(--slate);line-height:1.5;max-width:520px}
+  body.waiting .board{display:none}
+  body.waiting .empty{display:block}
+
+  /* Телефон вертикально: крупніше, бо глядач тримає його в руці на відстані. */
+  @media (max-aspect-ratio:3/4){
+    body{--u:clamp(17px,7.6vw,64px)}
+    .cols,.row{grid-template-columns:calc(var(--u)*.22) 1fr calc(var(--u)*.7) calc(var(--u)*1.4) calc(var(--u)*2)}
+    .row{min-height:calc(var(--u)*2)}
+    .name{font-size:calc(var(--u)*.9)}
+    .pts{font-size:calc(var(--u)*1.7)}
+    .foot{font-size:calc(var(--u)*.52)}
+  }
+
+  @media (prefers-reduced-motion:no-preference){
+    .pts.flash{animation:flash .55s ease-out}
+  }
+  @keyframes flash{0%{filter:brightness(1.7)}100%{filter:none}}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<main class="board" id="board" aria-label="Рахунок">
+  <div class="cols" aria-hidden="true">
+    <span></span><span class="c-name" id="lCaption">команда</span><span></span><span class="c-sets">сети</span><span>очки</span>
+  </div>
+  <div class="row" id="rowA">
+    <span class="bar a"></span>
+    <span class="name"><span class="label" id="lNameA">Команда А</span></span>
+    <span class="serve" id="lServeA" title="подає"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10.5" fill="#F2EFE6"/><path d="M12 1.5c-2 4-2 9 0 10.5M12 12c4.6.4 8.5-1.2 10.3-4.6M12 12c-2.5 3.8-7 5.3-10.2 4.4" fill="none" stroke="#0E2A3F" stroke-width="1.6" stroke-linecap="round"/></svg></span>
+    <span class="sets num" id="lSetsA">0</span>
+    <span class="pts a num" id="lPtsA">0</span>
+  </div>
+  <div class="row" id="rowB">
+    <span class="bar b"></span>
+    <span class="name"><span class="label" id="lNameB">Команда Б</span></span>
+    <span class="serve" id="lServeB" title="подає"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10.5" fill="#F2EFE6"/><path d="M12 1.5c-2 4-2 9 0 10.5M12 12c4.6.4 8.5-1.2 10.3-4.6M12 12c-2.5 3.8-7 5.3-10.2 4.4" fill="none" stroke="#0E2A3F" stroke-width="1.6" stroke-linecap="round"/></svg></span>
+    <span class="sets num" id="lSetsB">0</span>
+    <span class="pts b num" id="lPtsB">0</span>
+  </div>
+  <div class="foot">
+    <span class="title" id="lTitle"></span>
+    <span class="info num" id="lInfo">матч ще не почався</span>
+  </div>
+</main>
+<p class="empty" id="lEmpty">Чекаємо на пульт судді…<br>Рахунок зʼявиться, щойно почнеться трансляція.</p>
+<div class="link-status" id="linkStatus"></div>
+<div id="live" aria-live="polite" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)"></div>
+
+<script src="./match.js"></script>
+<script src="./palettes.js"></script>
+<script src="./ui-common.js"></script>
+<script src="./remote.js"></script>
+<script src="./feed.js"></script>
+<script src="./live.js"></script>
+</body>
+</html>

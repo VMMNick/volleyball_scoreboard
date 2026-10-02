@@ -42,6 +42,7 @@
       if (window.storage) window.storage.set(KEY, raw, false);
       else localStorage.setItem(KEY, raw);
       post({ type: "state", match: raw });
+      castSend({ type: "state", match: raw });
     } catch (e) {}
   }
 
@@ -51,6 +52,7 @@
       if (window.storage) window.storage.set(PREF, raw, false);
       else localStorage.setItem(PREF, raw);
       post({ type: "prefs", prefs: prefs });
+      castSend({ type: "prefs", prefs: prefs });
     } catch (e) {}
   }
 
@@ -171,6 +173,7 @@
     if ($("toOverlay").classList.contains("show")) {
       var lt = M.reduce(match).lastTimeout;
       post({ type: "timeout-end", ts: lt ? lt.ts : null });
+      castSend({ type: "timeout-end", ts: lt ? lt.ts : null });
     }
     $("toOverlay").classList.remove("show");
   }
@@ -268,7 +271,7 @@
       applyPalette(prefs.palette);   // закрили без збереження — вертаємо колір
       pendingPalette = prefs.palette;
     }
-    ["menu", "sheet", "proto", "serveAsk", "subsSheet"].forEach(function (id) { $(id).classList.remove("show"); });
+    ["menu", "sheet", "proto", "serveAsk", "subsSheet", "castSheet"].forEach(function (id) { $(id).classList.remove("show"); });
   }
   Array.prototype.forEach.call(document.querySelectorAll(".sheet"), function (el) {
     el.addEventListener("click", function (e) { if (e.target === el) closeSheets(); });
@@ -381,6 +384,159 @@
     if (M.reduce(match).done && !before.done) closeSheets();
     else paintSubs();
   }
+
+  /* ---------- трансляція на інші пристрої ---------- */
+
+  /*
+   * Кімната й ключ судді зберігаються окремо від налаштувань: налаштування
+   * летять глядачам, а ключ має лишатися тільки на цьому пульті.
+   */
+  var CAST_KEY = "volleyball:cast";
+  var R = window.Remote;
+  var cast = null;            // { server, room, key, page }
+  var castLink = null;        // зʼєднання Remote
+  var castViewers = 0;
+
+  function loadCast() {
+    try {
+      var c = JSON.parse(localStorage.getItem(CAST_KEY) || "null");
+      if (c && R.isRoom(c.room) && c.key && c.server) cast = c;
+    } catch (e) {}
+  }
+  function saveCast() {
+    try {
+      if (cast) localStorage.setItem(CAST_KEY, JSON.stringify(cast));
+      else localStorage.removeItem(CAST_KEY);
+    } catch (e) {}
+  }
+
+  function castSend(msg) {
+    if (castLink) castLink.send(msg);
+  }
+
+  /* Нове зʼєднання — одразу весь стан: сервер міг перезапуститись. */
+  function castSendAll() {
+    castSend({ type: "state", match: M.serialize(match) });
+    castSend({ type: "prefs", prefs: prefs });
+  }
+
+  var CAST_TEXT = {
+    connecting: "підключення до сервера…", live: "наживо", offline: "немає звʼязку — перепідключаюсь",
+    rejected: "сервер відмовив", closed: ""
+  };
+
+  function castStatus(status, info) {
+    if (status === "live") castSendAll();
+    if (status === "rejected" && info === "wrong-key") {
+      // Код зайняв хтось інший — беремо новий, посилання оновиться.
+      cast.room = R.newRoom();
+      saveCast();
+      setTimeout(startCastLink, 0);
+    }
+    paintCast(status);
+  }
+
+  function startCastLink() {
+    if (castLink) castLink.close();
+    castViewers = 0;
+    castLink = R.connect({
+      server: cast.server, room: cast.room, role: "control", key: cast.key,
+      WebSocket: window.WebSocket,
+      onStatus: castStatus,
+      onMessage: function (msg) {
+        if (msg.type === "viewers") { castViewers = msg.count; paintCast(castLink.status()); }
+      }
+    });
+  }
+
+  function normServer(v) {
+    v = String(v || "").trim().replace(/\/+$/, "");
+    if (v && !/^https?:\/\//i.test(v)) v = "https://" + v;
+    return /^https?:\/\/[^\s/]+/i.test(v) ? v : "";
+  }
+
+  function startCast() {
+    var server = normServer($("inCastServer").value);
+    if (!server) { $("castErr").textContent = "Вкажіть адресу сервера трансляції, наприклад https://назва.onrender.com"; return; }
+    $("castErr").textContent = "";
+    cast = { server: server, room: R.newRoom(), key: R.newKey(), page: "live.html" };
+    saveCast();
+    startCastLink();
+  }
+
+  function stopCast() {
+    if (castLink) castLink.close();
+    castLink = null;
+    cast = null;
+    saveCast();
+    paintCast("closed");
+  }
+
+  function castUrl() {
+    return R.viewerLink(cast.server, cast.page || "live.html", cast.room);
+  }
+
+  /*
+   * Окреме посилання для трансляції (OBS, vMix, Streamlabs — «Browser source»):
+   * прозорий фон, компактне табло в куті кадру. Кімната та сама, тож посилання
+   * не змінюється від матчу до матчу — у OBS його вставляють один раз.
+   */
+  function castObsUrl() {
+    var pos = cast.pos || "tl";
+    return R.viewerLink(cast.server, "live.html", cast.room, "bg=none" + (pos !== "tl" ? "&pos=" + pos : ""));
+  }
+
+  function paintQr(text) {
+    var box = $("castQr");
+    if (typeof window.qrcode !== "function") { box.textContent = ""; return; }
+    try {
+      var qr = window.qrcode(0, "M");
+      qr.addData(text);
+      qr.make();
+      box.innerHTML = qr.createSvgTag({ cellSize: 4, margin: 0, scalable: true });
+    } catch (e) { box.textContent = ""; }
+  }
+
+  function paintCast(status) {
+    status = status || (castLink ? castLink.status() : "closed");
+    var on = !!cast;
+    $("castSheet").classList.toggle("on", on);
+    var dot = $("castDot");
+    dot.className = "cast-dot" + (on ? (status === "live" ? " live" : " offline") : "");
+    dot.textContent = on ? (status === "live" ? "наживо" + (castViewers ? " · " + castViewers : "") : "немає звʼязку") : "";
+    if (!on) {
+      $("inCastServer").value = $("inCastServer").value || R.defaultServer(location);
+      return;
+    }
+    var st = $("castStatus");
+    st.className = "cast-status " + status;
+    st.textContent = (CAST_TEXT[status] || "") + (status === "live" ? " · глядачів: " + castViewers : "");
+    $("castCode").textContent = cast.room;
+    var url = castUrl();
+    $("castLink").textContent = url;
+    $("castLink").href = url;
+    Array.prototype.forEach.call($("segCastPage").children, function (b) {
+      b.setAttribute("aria-pressed", String(b.dataset.page === (cast.page || "live.html")));
+    });
+    paintQr(url);
+    var obs = castObsUrl();
+    $("castObsLink").textContent = obs;
+    $("castObsLink").href = obs;
+    Array.prototype.forEach.call($("segCastPos").children, function (b) {
+      b.setAttribute("aria-pressed", String(b.dataset.pos === (cast.pos || "tl")));
+    });
+  }
+
+  function copyText(btn, text, label) {
+    var done = function () {
+      btn.textContent = "Скопійовано";
+      setTimeout(function () { btn.textContent = label; }, 1600);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done).catch(function () {});
+  }
+
+  function copyCast() { copyText($("castCopy"), castUrl(), "Копіювати посилання"); }
+  function copyObs() { copyText($("castObsCopy"), castObsUrl(), "Копіювати для OBS"); }
 
   /* ---------- протокол ---------- */
 
@@ -625,6 +781,27 @@
 
   $("mProto").addEventListener("click", function () { renderProtocol(); openSheet("proto"); });
   $("mSubs").addEventListener("click", openSubs);
+  $("mCast").addEventListener("click", function () { paintCast(); openSheet("castSheet"); });
+  $("castStart").addEventListener("click", startCast);
+  $("castStop").addEventListener("click", function () {
+    if (confirm("Зупинити трансляцію? Посилання перестане працювати.")) stopCast();
+  });
+  $("castCopy").addEventListener("click", copyCast);
+  $("castObsCopy").addEventListener("click", copyObs);
+  $("segCastPos").addEventListener("click", function (e) {
+    var b = e.target.closest("button");
+    if (!b || !cast) return;
+    cast.pos = b.dataset.pos;
+    saveCast();
+    paintCast();
+  });
+  $("segCastPage").addEventListener("click", function (e) {
+    var b = e.target.closest("button");
+    if (!b || !cast) return;
+    cast.page = b.dataset.page;
+    saveCast();
+    paintCast();
+  });
   $("segTeam").addEventListener("click", function (e) {
     var b = e.target.closest("button");
     if (!b) return;
@@ -730,4 +907,9 @@
   }
 
   load();
+
+  // Трансляція переживає перезавантаження пульта: той самий код, те саме посилання.
+  loadCast();
+  if (cast) startCastLink();
+  paintCast();
 })();

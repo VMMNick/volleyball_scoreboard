@@ -17,7 +17,7 @@ try { ({ JSDOM } = require("jsdom")); } catch (e) { JSDOM = null; }
 
 const root = path.join(__dirname, "..");
 const read = (f) => fs.readFileSync(path.join(root, f), "utf8");
-const scripts = ["match.js", "palettes.js", "ui-common.js"].map(read);
+const scripts = ["match.js", "palettes.js", "ui-common.js", "remote.js", "vendor/qrcode.js"].map(read);
 
 function makeBus() {
   const members = new Set();
@@ -55,7 +55,7 @@ const suite = JSDOM ? test : test.skip;
 suite("повний матч у залі: пульт і табло від першої подачі до протоколу", (t) => {
   const bus = makeBus();
   const c = boot("index.html", ["app.js"], bus);
-  const d = boot("display.html", ["sounds.js", "display.js"], bus);
+  const d = boot("display.html", ["sounds.js", "feed.js", "display.js"], bus);
   t.after(() => { c.close(); d.close(); });
   // Стан рахуємо ядром у самому Node: масиви з jsdom мають інший прототип і не проходять deepStrictEqual.
   const M = require("../match.js");
