@@ -920,7 +920,7 @@
       var l = R.ensureLink(localStorage, location);
       if (l) { link = l; startLinkConn(); }
     }
-    var w = window.open(link ? boardUrl() : "./live.html", "volley-board", "popup,width=760,height=320");
+    var w = window.open(link ? boardUrl() : "./live.html", "volley-board", "popup,width=640,height=200");
     if (link) { paintLink(); openSheet("linkSheet"); return; }   // тут же — адреса для копіювання
     if (w) return;
     var btn = $("mBoard");

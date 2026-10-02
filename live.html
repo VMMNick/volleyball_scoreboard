@@ -56,6 +56,33 @@
     body{--u:clamp(17px,7.6vw,64px)}
   }
 
+  /*
+   * Окреме міні-табло — сама таблиця на всю сторінку, без полів довкола:
+   * у маленькому вікні чи накладці стріму видно лише назви команд і лічильник.
+   * Два рядки ділять висоту навпіл; розміри — від висоти й ширини вікна.
+   */
+  html,body{background:var(--court-deep)}
+  body:not(.waiting){padding:0;display:block;overflow:hidden}
+  #live{top:0;left:0}
+  body:not(.waiting) .board{
+    --row:50vh;
+    width:100vw;height:100vh;max-width:none;border:0;border-radius:0;box-shadow:none;
+    display:grid;grid-template-rows:1fr 1fr}
+  .board .cols,.board .foot,.board .sets{display:none}
+  .board .row{
+    grid-template-columns:min(2.2vw,3vh) 1fr min(14vh,5vw) min(30vw,calc(var(--row)*1.6));
+    min-height:0;border-top:0}
+  .board .row + .row{border-top:max(1px,.6vh) solid var(--court)}
+  .board .name{font-size:min(24vh,7vw);padding:0 min(4vh,2.4vw)}
+  .board .serve svg{width:min(12vh,3.8vw);height:min(12vh,3.8vw)}
+  .board .pts{font-size:min(42vh,13vw)}
+
+  /* Статус і «Керування» не перекривають таблицю: статус — лише коли звʼязок не «наживо»,
+     кнопка — під курсором (у накладці стріму курсора немає). */
+  .link-status.live{display:none}
+  body.local .ctl-link{opacity:0;transition:opacity .2s}
+  body.local:hover .ctl-link,body.local .ctl-link:focus-visible{opacity:.85}
+
   @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>

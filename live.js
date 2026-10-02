@@ -40,6 +40,8 @@
     if (!match) return;
     var s = M.reduce(match);
     var i = bug.render(s, prefs, dismissedTimeout);
+    // Колонки сетів тут немає — після кінця матчу лічильник показує рахунок за сетами.
+    if (s.done) { $("lPtsA").textContent = s.sets[0]; $("lPtsB").textContent = s.sets[1]; }
     document.title = s.names[0] + " " + s.points[0] + ":" + s.points[1] + " " + s.names[1];
     $("live").textContent = s.names[0] + " " + s.points[0] + ", " + s.names[1] + " " + s.points[1];
     if (i.ticking) tick = setTimeout(render, 500);       // відлік тайм-ауту щосекунди

@@ -139,7 +139,14 @@ suite("live: сетбол, тайм-аут і кінець матчу в ниж�
   for (let i = 0; i < 3; i++) done = Match.addPoint(done, 1, 1000);
   push(done);
   assert.match(l.text("lInfo"), /Ліцей виграла 1:0/);
-  assert.equal(l.text("lPtsA"), "", "після фіналу очки не показуємо");
+  assert.equal(l.text("lPtsA"), "0", "колонки сетів немає — після фіналу лічильник показує сети");
+  assert.equal(l.text("lPtsB"), "1");
+});
+
+test("окреме міні-табло — сама таблиця: лише назви команд і лічильник", () => {
+  const css = liveHtml.slice(liveHtml.indexOf("<style>"), liveHtml.indexOf("</style>"));
+  assert.match(css, /\.board \.cols,\.board \.foot,\.board \.sets\{display:none\}/, "без підписів «команда / сети / очки», без колонки сетів і нижнього рядка");
+  assert.match(css, /width:100vw;height:100vh/, "таблиця на всю сторінку, без полів довкола");
 });
 
 /* ---------- за посиланням на матч (через сервер) ---------- */

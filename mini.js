@@ -228,7 +228,7 @@
       var l = R.ensureLink(localStorage, location);
       if (l) connectLink(l);
     }
-    var w = window.open(boardUrl(), "volley-board", "popup,width=760,height=320");
+    var w = window.open(boardUrl(), "volley-board", "popup,width=640,height=200");
     // Маленьке вікно заблоковане — тоді посилання саме відкриє табло в новій вкладці.
     if (w && e) e.preventDefault();
     setView(true, true);                                 // табло тепер окремо — тут лишаємо кнопки
