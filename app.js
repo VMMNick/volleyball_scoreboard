@@ -405,6 +405,7 @@
   var linkLostAt = 0;         // відколи немає звʼязку (0 — є або посилання вимкнене)
   var linkLostTimer = null;
   var linkWhy = "";           // причина відмови сервера (rejected)
+  var linkProbe = "";         // що відповів сервер на /healthz: "", "checking", "ok", "static", "down"
 
   function loadLink() {
     try {
@@ -540,6 +541,7 @@
     linkWhy = status === "rejected" ? (info || "") : "";
     if (status === "live" || status === "closed") {
       linkLostAt = 0;
+      linkProbe = "";
       clearTimeout(linkLostTimer);
       return;
     }
@@ -548,6 +550,24 @@
       clearTimeout(linkLostTimer);
       linkLostTimer = setTimeout(function () { paintLink(); }, LINK_LONG_MS + 50);
     }
+  }
+
+  /*
+   * Звʼязку довго немає — питаємо сервер напряму. Сайт відповідає, а /healthz — ні:
+   * на хостингу лежить лише статика (напр., Static Site на Render), сервера посилань немає.
+   */
+  function probeServer() {
+    if (!link || typeof fetch !== "function" || linkProbe) return;
+    var server = link.server;
+    linkProbe = "checking";
+    fetch(server.replace(/\/+$/, "") + "/healthz", { cache: "no-store" }).then(function (r) {
+      if (r.ok) return r.json().then(function (j) { return j && j.ok ? "ok" : "static"; }, function () { return "static"; });
+      return r.status === 404 ? "static" : "down";
+    }, function () { return "down"; }).then(function (res) {
+      if (!link || link.server !== server || !linkLostAt) return;
+      linkProbe = res;
+      paintLink();
+    });
   }
 
   function linkTrouble(status) {
@@ -581,6 +601,15 @@
       why.push("Посилання створене для сервера " + hostOf(link.server) + ", а сайт відкрито з " + location.host +
         ". Якщо сервер змінився — зупиніть посилання й створіть нове.");
     }
+    if (linkProbe === "static") {
+      why.unshift("Сайт на " + hostOf(link.server) + " працює, але сервера посилань там немає — розгорнуто лише статичні файли. " +
+        "На Render потрібен Web Service (Node, команда запуску «node server.js»), а не Static Site.");
+      return why;
+    }
+    if (linkProbe === "ok") {
+      why.push("Сервер працює, але WebSocket-зʼєднання не проходить — можливо, його блокує мережа (проксі, VPN, шкільний чи робочий Wi-Fi).");
+      return why;
+    }
     if (/onrender\.com$/i.test(hostOf(link.server))) {
       why.push("Безкоштовний Render засинає без відвідувачів і прокидається до хвилини. Якщо довше — сервіс не запущений: перевірте його в панелі Render.");
     } else {
@@ -601,6 +630,7 @@
     dot.title = trouble ? "Що сталося і що робити" : "";
     dot.tabIndex = trouble ? 0 : -1;
     $("linkTrouble").classList.toggle("on", trouble);
+    if (trouble && status !== "rejected") probeServer();
     if (!on) {
       $("inLinkServer").value = $("inLinkServer").value || R.defaultServer(location);
       return;

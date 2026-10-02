@@ -336,3 +336,24 @@ suite("пульт другого судді: застарілий ключ — �
   g.tap("linkRetry");
   assert.equal(WS.all.length, 2, "«Спробувати ще раз» — нове підключення");
 });
+
+suite("пульт: сайт відповідає, а сервера посилань немає — підказка про Static Site", async (t) => {
+  const WS = fakeSockets();
+  const c = control({ WebSocket: WS });
+  t.after(c.close);
+  const asked = [];
+  c.win.fetch = (url) => { asked.push(url); return Promise.resolve({ ok: false, status: 404 }); };
+  createLink(c);
+  WS.last().onclose({ code: 1006 });
+  assert.deepEqual(asked, [], "поки звʼязок пропав щойно — сервер не смикаємо");
+  const now = Date.now();
+  c.win.Date.now = () => now + 60000;
+  c.tap("mLink");
+  assert.deepEqual(asked, ["https://tablo.example/healthz"]);
+  await new Promise((r) => setTimeout(r, 0));
+  await new Promise((r) => setTimeout(r, 0));
+  assert.match(c.text("linkTroubleWhy"), /Static Site/);
+  assert.match(c.text("linkTroubleWhy"), /node server\.js/);
+  c.tap("mLink");
+  assert.equal(asked.length, 1, "перевіряємо один раз, а не на кожне відкриття");
+});

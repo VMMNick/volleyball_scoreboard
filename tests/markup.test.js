@@ -135,6 +135,9 @@ test("збирання для хостингу бере файли з офлай
   assert.match(render, /buildCommand: .*npm run build/);
   assert.match(render, /startCommand: node server\.js/, "Render — сервер для посилань на матч, а не лише статика");
   assert.match(render, /healthCheckPath: \/healthz/);
+  if (/package-lock\.json/.test(read(".gitignore"))) {
+    assert.equal(/npm ci\b/.test(render), false, "lock-файл не в репозиторії — npm ci на Render впаде");
+  }
 });
 
 test("ярлики маніфесту ведуть на табло", () => {

@@ -6,6 +6,6 @@ services:
     name: volleyball-scoreboard
     runtime: node
     plan: free
-    buildCommand: npm ci --omit=dev && npm run build
+    buildCommand: npm install --omit=dev --no-audit --no-fund && npm run build
     startCommand: node server.js
     healthCheckPath: /healthz
