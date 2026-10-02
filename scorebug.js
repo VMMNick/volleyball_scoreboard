@@ -26,7 +26,7 @@
     if (mp !== null) return { text: "матчбол · " + s.names[mp], cls: "hot" };
     if (sp !== null) return { text: "сетбол · " + s.names[sp], cls: "hot" };
     if (M.sideSwapDue(s)) return { text: "зміна сторін", cls: "hot" };
-    if (s.startedAt === null && !s.setLog.length) return { text: "матч ще не почався", cls: "" };
+    if (s.startedAt === null && !s.setLog.length) return { text: "почати матч", cls: "" };
     return { text: (s.rules.bestOf > 1 ? s.setNumber + "-й сет · " : "") + "до " + s.target, cls: "" };
   }
 

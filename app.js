@@ -221,7 +221,7 @@
       ? s.setLog.map(function (set) {
           return s.flipped ? set.points[1] + "–" + set.points[0] : set.points[0] + "–" + set.points[1];
         }).join("  ·  ")
-      : "матч ще не почався";
+      : "почати матч";
     $("matchFmt").innerHTML = s.rules.bestOf > 1
       ? '<b class="ca">' + s.sets[sides[0]] + "</b>:" + '<b class="cb">' + s.sets[sides[1]] + "</b>"
       : "один сет";
