@@ -1,7 +1,7 @@
 "use strict";
 
 /*
- * Компактне табло для трансляції (live.html) і вікно «Трансляція» на пульті.
+ * Міні-табло (live.html) і «Посилання на матч» на пульті: міні-табло та пульт для другого судді.
  * Сокети тут фальшиві — справжній сервер перевіряє server.test.js.
  */
 
@@ -80,7 +80,7 @@ test("live у тому ж стилі й офлайн-кеші", () => {
   assert.match(liveHtml, /href="\.\/theme\.css"/);
   assert.equal(/:root\{/.test(liveHtml), false);
   const sw = read("sw.js");
-  ["live.html", "live.js", "feed.js", "remote.js", "vendor/qrcode.js"].forEach((f) => assert.ok(sw.includes('"./' + f + '"'), f));
+  ["live.html", "live.js", "feed.js", "remote.js"].forEach((f) => assert.ok(sw.includes('"./' + f + '"'), f));
 });
 
 /* ---------- той самий пристрій ---------- */
@@ -138,7 +138,7 @@ suite("live: сетбол, тайм-аут і кінець матчу в ниж�
   assert.equal(l.text("lPtsA"), "", "після фіналу очки не показуємо");
 });
 
-/* ---------- з сервера трансляції ---------- */
+/* ---------- за посиланням на матч (через сервер) ---------- */
 
 suite("live?room=…: підключається глядачем і малює те, що прислав сервер", (t) => {
   const WS = fakeSockets();
@@ -167,81 +167,115 @@ suite("live?room=…: невідомий код — зрозуміле пові�
   assert.equal(WS.all.length, 1);
 });
 
-suite("live?bg=none — прозорий фон для OBS", (t) => {
-  const l = live({ url: "http://localhost/live.html?bg=none" });
-  t.after(l.close);
-  assert.ok(l.win.document.body.classList.contains("clear"));
+test("ні QR-коду, ні OBS-накладки, ні «трансляції» — лише посилання на матч", () => {
+  ["index.html", "app.js", "live.html", "live.js", "display.html", "display.js"].forEach((f) => {
+    assert.equal(/qrcode|OBS|bg=none|трансляц/i.test(read(f)), false, f);
+  });
+  assert.equal(fs.existsSync(path.join(root, "vendor/qrcode.js")), false);
 });
 
-/* ---------- пульт ---------- */
+/* ---------- пульт: посилання на матч ---------- */
 
-const control = (opts) => boot(read("index.html"), [read("vendor/qrcode.js"), read("app.js")],
+const control = (opts) => boot(read("index.html"), [read("app.js")],
   Object.assign({ url: "https://tablo.example/index.html" }, opts));
+const judgeKey = (c) => JSON.parse(c.win.localStorage.getItem("volleyball:link")).key;
 
-suite("пульт: трансляція — код, посилання, QR, стан на сервер, ключ лише в пульта", (t) => {
+function createLink(c, server) {
+  c.tap("menuBtn");
+  c.tap("mLink");
+  if (server !== undefined) c.$("inLinkServer").value = server;
+  c.tap("linkCreate");
+}
+
+suite("пульт: посилання на міні-табло й пульт для другого судді", (t) => {
   const WS = fakeSockets();
   const c = control({ WebSocket: WS });
   t.after(c.close);
 
   c.tap("menuBtn");
-  c.tap("mCast");
-  assert.equal(c.$("inCastServer").value, "https://tablo.example", "за замовчуванням — цей сайт");
-  c.tap("castStart");
-
-  const code = c.text("castCode");
-  assert.match(code, /^[A-HJ-NP-Z2-9]{6}$/);
-  assert.equal(c.text("castLink"), "https://tablo.example/live.html?room=" + code);
-  assert.ok(c.$("castQr").querySelector("svg"), "QR-код намальовано");
+  c.tap("mLink");
+  assert.equal(c.$("inLinkServer").value, "https://tablo.example", "за замовчуванням — цей сайт");
+  c.tap("linkCreate");
 
   const ws = WS.last();
+  const code = /room=([A-Z0-9]{6})/.exec(ws.url)[1];
+  assert.match(code, /^[A-HJ-NP-Z2-9]{6}$/);
   assert.match(ws.url, new RegExp("^wss://tablo\\.example/ws\\?room=" + code + "&role=control&key=[\\w-]{32}$"));
+  assert.equal(c.text("linkBoard"), "https://tablo.example/live.html?room=" + code, "міні-табло — без ключа");
+  assert.equal(c.text("linkJudge"), "https://tablo.example/index.html?room=" + code + "&key=" + judgeKey(c));
+  assert.match(c.text("linkStatus"), new RegExp("код " + code));
+
   WS.open(ws, "control");
   assert.deepEqual(ws.sent.map((m) => m.type), ["state", "prefs"], "одразу весь стан");
-  assert.equal(JSON.stringify(ws.sent[1]).includes(JSON.parse(c.win.localStorage.getItem("volleyball:cast")).key), false,
-    "ключ не їде в налаштуваннях");
-  assert.match(c.text("castDot"), /наживо/);
+  assert.equal(JSON.stringify(ws.sent).includes(judgeKey(c)), false, "ключ не їде в стані й налаштуваннях");
+  assert.match(c.text("linkDot"), /на звʼязку/);
 
   c.tap("sideA");
   const last = ws.sent[ws.sent.length - 1];
   assert.equal(last.type, "state");
   assert.deepEqual(Match.reduce(Match.deserialize(last.match)).points, [1, 0]);
-
-  WS.serve(ws, { type: "viewers", count: 3 });
-  assert.match(c.text("castDot"), /3/);
-
-  // Перемикач сторінки для глядачів
-  [...c.$("segCastPage").children].find((b) => b.dataset.page === "display.html")
-    .dispatchEvent(new c.win.Event("click", { bubbles: true }));
-  assert.match(c.text("castLink"), /display\.html\?room=/);
 });
 
-suite("пульт: трансляція переживає перезавантаження й зупиняється", (t) => {
+suite("пульт другого судді: підключається за посиланням, бере матч із сервера й керує ним", (t) => {
+  const WS = fakeSockets();
+  const g = control({ WebSocket: WS, url: "https://tablo.example/index.html?room=ABC234&key=" + "k".repeat(32) });
+  t.after(g.close);
+
+  const ws = WS.last();
+  assert.equal(ws.url, "wss://tablo.example/ws?room=ABC234&role=control&key=" + "k".repeat(32));
+  assert.equal(g.win.location.search, "", "ключ прибрано з адресного рядка");
+
+  WS.open(ws, "control");
+  assert.deepEqual(ws.sent, [], "другий суддя при підключенні нічого не надсилає — не затирає матч");
+
+  // сервер надсилає матч першого судді
+  const host = Match.addPoint(Match.addPoint(Match.createMatch({ names: ["Імідж", "Ліцей"] }), 1, 1000), 1, 1001);
+  WS.serve(ws, { type: "state", match: Match.serialize(host) });
+  WS.serve(ws, { type: "prefs", prefs: { palette: "neon" } });
+  assert.equal(g.text("nameA"), "Імідж");
+  assert.equal(g.text("scoreB"), "2", "той самий рахунок, що в першого судді");
+  assert.equal(g.win.document.documentElement.style.getPropertyValue("--team-a"), "#7B3FE4");
+  assert.deepEqual(ws.sent, [], "прийняте назад не відлітає — без луни");
+
+  g.tap("sideA");
+  const sent = ws.sent[ws.sent.length - 1];
+  assert.equal(sent.type, "state");
+  assert.deepEqual(Match.reduce(Match.deserialize(sent.match)).points, [1, 2], "очко другого судді йде в матч");
+
+  // тайм-аут, узятий першим суддею, видно й на другому пульті
+  WS.serve(ws, { type: "state", match: Match.serialize(Match.callTimeout(Match.deserialize(sent.match), 0, Date.now())) });
+  assert.ok(g.$("toOverlay").classList.contains("show"));
+  WS.serve(ws, { type: "timeout-end", ts: null });
+  assert.equal(g.$("toOverlay").classList.contains("show"), false);
+
+  g.tap("menuBtn");
+  g.tap("mLink");
+  assert.match(g.text("linkStatus"), /другий суддя/);
+  assert.match(g.text("linkStop"), /Відʼєднатися/);
+  g.tap("linkStop");
+  assert.equal(g.win.localStorage.getItem("volleyball:link"), null);
+});
+
+suite("пульт: посилання переживає перезавантаження й закривається", (t) => {
   const WS = fakeSockets();
   const c = control({ WebSocket: WS });
   t.after(c.close);
-  c.tap("menuBtn");
-  c.tap("mCast");
-  c.$("inCastServer").value = "tablo-srv.onrender.com";      // без https:// — додасться
-  c.tap("castStart");
-  const code = c.text("castCode");
+  createLink(c, "tablo-srv.onrender.com");                    // без https:// — додасться
   assert.match(WS.last().url, /^wss:\/\/tablo-srv\.onrender\.com\/ws/);
+  const board = c.text("linkBoard");
 
   c.win.eval(read("app.js"));                                  // перезавантаження
-  assert.equal(c.text("castCode"), code, "той самий код — посилання в глядачів не ламається");
-  assert.match(WS.last().url, new RegExp("room=" + code));
+  assert.equal(c.text("linkBoard"), board, "ті самі посилання");
 
-  c.tap("castStop");
-  assert.equal(c.win.localStorage.getItem("volleyball:cast"), null);
-  assert.equal(c.text("castDot"), "");
+  c.tap("linkStop");
+  assert.equal(c.win.localStorage.getItem("volleyball:link"), null);
+  assert.equal(c.text("linkDot"), "");
 });
 
-suite("пульт: без адреси сервера трансляція не стартує", (t) => {
+suite("пульт: без адреси сервера посилання не створюється", (t) => {
   const c = control({ WebSocket: fakeSockets() });
   t.after(c.close);
-  c.tap("menuBtn");
-  c.tap("mCast");
-  c.$("inCastServer").value = "  ";
-  c.tap("castStart");
-  assert.match(c.text("castErr"), /адресу сервера/);
-  assert.equal(c.win.localStorage.getItem("volleyball:cast"), null);
+  createLink(c, "  ");
+  assert.match(c.text("linkErr"), /адресу сервера/);
+  assert.equal(c.win.localStorage.getItem("volleyball:link"), null);
 });

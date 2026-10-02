@@ -14,7 +14,6 @@ const SHELL = [
   "./remote.js",
   "./feed.js",
   "./live.js",
-  "./vendor/qrcode.js",
   "./display.js",
   "./manifest.webmanifest",
   "./fonts/barlow-condensed-latin-400.woff2",

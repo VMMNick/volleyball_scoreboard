@@ -219,30 +219,22 @@
     background:var(--tape);color:var(--court);font:inherit;font-size:14px;font-weight:600;letter-spacing:.06em}
   .net .tech.on{display:block}
   @media (max-width:420px){.cards{grid-template-columns:1fr 1fr}}
-  .cast-dot{flex:0 0 auto;display:none;font-size:clamp(13px,1vmin + 9px,17px);letter-spacing:.06em;color:var(--slate)}
-  .cast-dot.live{display:inline;color:#7CE3A1}
-  .cast-dot.live::before{content:"● "}
-  .cast-dot.offline{display:inline;color:var(--team-b)}
-  #castOn{display:none}
-  #castSheet.on #castOn{display:block}
-  #castSheet.on #castOff{display:none}
+  .link-dot{flex:0 0 auto;display:none;font-size:clamp(13px,1vmin + 9px,17px);letter-spacing:.06em;color:var(--slate)}
+  .link-dot.live{display:inline;color:#7CE3A1}
+  .link-dot.live::before{content:"● "}
+  .link-dot.offline{display:inline;color:var(--team-b)}
+  #linkOn{display:none}
+  #linkSheet.on #linkOn{display:block}
+  #linkSheet.on #linkOff{display:none}
   .hint.top{margin-top:0}
-  .cast-status{font-size:18px;letter-spacing:.04em;margin-bottom:12px;color:var(--slate)}
-  .cast-status.live{color:#7CE3A1}
-  .cast-status.offline,.cast-status.rejected{color:var(--team-b)}
-  .cast-grid{display:grid;grid-template-columns:auto 1fr;gap:16px;align-items:start}
-  .qr{width:min(220px,42vw);aspect-ratio:1;background:#fff;border-radius:12px;padding:8px}
-  .qr svg{display:block;width:100%;height:100%}
-  .cast-side{display:flex;flex-direction:column;gap:12px;min-width:0}
-  .cast-code{font-size:18px;color:var(--slate);letter-spacing:.06em}
-  .cast-code b{font-size:34px;color:var(--chalk);letter-spacing:.14em;font-weight:800;margin-left:6px}
-  .cast-link{color:var(--chalk);font-size:15px;word-break:break-all;opacity:.85}
-  .seg.small button{height:40px;font-size:15px}
-  .cast-obs{display:flex;flex-direction:column;gap:12px;padding-top:16px;border-top:1px solid rgba(143,166,184,.25)}
-  .cast-obs h3{margin:0;font-size:20px;font-weight:600;letter-spacing:.04em}
-  #segCastPos{flex-wrap:wrap}
-  #segCastPos button{flex:1 1 40%}
-  @media (max-width:460px){.cast-grid{grid-template-columns:1fr}.qr{width:min(260px,70vw);margin:0 auto}}
+  .hint.warn{color:var(--team-b)}
+  .link-status{font-size:17px;letter-spacing:.04em;margin-bottom:14px;color:var(--slate)}
+  .link-status.live{color:#7CE3A1}
+  .link-status.offline,.link-status.rejected{color:var(--team-b)}
+  .link-block{display:flex;flex-direction:column;gap:10px;padding:14px 0;border-top:1px solid rgba(143,166,184,.25)}
+  .link-block h3{margin:0;font-size:20px;font-weight:600;letter-spacing:.04em}
+  .link-url{color:var(--chalk);font-size:15px;word-break:break-all;opacity:.85}
+  .link-block .ghost{align-self:flex-start}
   .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
   @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
@@ -253,7 +245,7 @@
     <div class="clock" id="clock">0:00</div>
     <div class="sets-log" id="setsLog">матч ще не почався</div>
     <div class="match-fmt" id="matchFmt"></div>
-    <span class="cast-dot" id="castDot"></span>
+    <span class="link-dot" id="linkDot"></span>
     <button class="iconbtn" id="menuBtn" aria-label="Меню матчу">⋯</button>
   </div>
 
@@ -307,7 +299,7 @@
     <div class="menu-list">
       <button id="mProto">Протокол і статистика</button>
       <button id="mDisplay">Табло для глядачів</button>
-      <button id="mCast">Трансляція на інші пристрої</button>
+      <button id="mLink">Посилання на матч</button>
       <button id="mSubs">Заміни й картки</button>
       <button id="mServe">Хто подає першим</button>
       <button id="mSwap">Поміняти сторони</button>
@@ -348,45 +340,33 @@
   </div>
 </div>
 
-<div class="sheet" id="castSheet">
+<div class="sheet" id="linkSheet">
   <div class="sheet-inner">
-    <h2>Трансляція</h2>
-    <div id="castOff">
-      <p class="hint top">Рахунок наживо на будь-якому телефоні, планшеті чи ТБ — за посиланням або QR-кодом.
-        Змінювати рахунок може лише цей пульт. Потрібен інтернет і сервер трансляції.</p>
-      <label class="field gap-top"><span>Сервер трансляції</span>
-        <input id="inCastServer" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://назва.onrender.com"></label>
-      <button class="primary" id="castStart">Почати трансляцію</button>
-      <p class="hint" id="castErr"></p>
+    <h2>Посилання на матч</h2>
+    <div id="linkOff">
+      <p class="hint top">Два посилання на цей матч: <b>міні-табло</b> з назвами команд і очками — відкрити на
+        будь-якому телефоні чи ТБ, і <b>пульт для другого судді</b> — вести рахунок з іншого пристрою.
+        Потрібен інтернет і сервер.</p>
+      <label class="field gap-top"><span>Сервер</span>
+        <input id="inLinkServer" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://назва.onrender.com"></label>
+      <button class="primary" id="linkCreate">Створити посилання</button>
+      <p class="hint" id="linkErr"></p>
     </div>
-    <div id="castOn">
-      <div class="cast-status" id="castStatus"></div>
-      <div class="cast-grid">
-        <div class="qr" id="castQr" aria-label="QR-код посилання"></div>
-        <div class="cast-side">
-          <div class="cast-code">код <b id="castCode"></b></div>
-          <div class="seg small" id="segCastPage">
-            <button data-page="live.html">Компактне</button>
-            <button data-page="display.html">Велике табло</button>
-          </div>
-          <a class="cast-link" id="castLink" target="_blank" rel="noopener"></a>
-          <button class="ghost" id="castCopy">Копіювати посилання</button>
-        </div>
+    <div id="linkOn">
+      <div class="link-status" id="linkStatus"></div>
+      <div class="link-block">
+        <h3>Міні-табло</h3>
+        <p class="hint top">Назви команд, сети й очки наживо. Лише перегляд.</p>
+        <a class="link-url" id="linkBoard" target="_blank" rel="noopener"></a>
+        <button class="ghost" id="linkBoardCopy">Копіювати</button>
       </div>
-      <div class="cast-obs gap-top">
-        <h3>Для трансляції (OBS)</h3>
-        <p class="hint top">Окреме посилання з прозорим фоном: у OBS — «Джерело → Браузер», 1920×1080.
-          Табло стоїть у вибраному куті кадру. Посилання не змінюється між матчами — вставте його один раз.</p>
-        <div class="seg small" id="segCastPos" aria-label="Кут кадру">
-          <button data-pos="tl">↖ зліва вгорі</button>
-          <button data-pos="tr">↗ справа вгорі</button>
-          <button data-pos="bl">↙ зліва внизу</button>
-          <button data-pos="br">↘ справа внизу</button>
-        </div>
-        <a class="cast-link" id="castObsLink" target="_blank" rel="noopener"></a>
-        <button class="ghost" id="castObsCopy">Копіювати для OBS</button>
+      <div class="link-block">
+        <h3>Пульт для другого судді</h3>
+        <p class="hint top warn">Хто має це посилання, може змінювати рахунок. Надсилайте лише судді.</p>
+        <a class="link-url" id="linkJudge" target="_blank" rel="noopener"></a>
+        <button class="ghost" id="linkJudgeCopy">Копіювати</button>
       </div>
-      <button class="ghost reset gap-top" id="castStop">Зупинити трансляцію</button>
+      <button class="ghost reset gap-top" id="linkStop">Закрити посилання</button>
     </div>
   </div>
 </div>
@@ -467,7 +447,6 @@
 <script src="./palettes.js"></script>
 <script src="./ui-common.js"></script>
 <script src="./remote.js"></script>
-<script src="./vendor/qrcode.js"></script>
 <script src="./app.js"></script>
 </body>
 </html>

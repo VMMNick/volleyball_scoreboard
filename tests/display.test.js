@@ -107,8 +107,7 @@ function boot(markup, scripts, opts) {
 }
 
 const display = (opts) => boot(html, [core, palettes, common, sounds, remote, feed, js], opts);
-const qrJs = read("vendor/qrcode.js");
-const control = (opts) => boot(controlHtml, [core, palettes, common, remote, qrJs, app], opts);
+const control = (opts) => boot(controlHtml, [core, palettes, common, remote, app], opts);
 
 function played(points) {
   let m = Match.createMatch({ names: ["Імідж", "Ліцей"] });
@@ -204,10 +203,9 @@ suite("палітра пульта переходить на табло", (t) =>
 });
 
 suite("макет задається адресою", (t) => {
-  const d = display({ url: "http://localhost/display.html?layout=strip&bg=none" });
+  const d = display({ url: "http://localhost/display.html?layout=strip" });
   t.after(d.close);
   assert.equal(d.win.document.body.getAttribute("data-layout"), "strip");
-  assert.ok(d.win.document.body.classList.contains("clear"));
 
   d.win.document.dispatchEvent(new d.win.KeyboardEvent("keydown", { key: "l" }));
   assert.equal(d.win.document.body.getAttribute("data-layout"), "arena");

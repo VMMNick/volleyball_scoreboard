@@ -36,23 +36,24 @@
 
   /* ---------- збереження ---------- */
 
-  function save() {
+  /* fromRemote — зміна прийшла з іншого пульта: зберігаємо, але назад не надсилаємо. */
+  function save(fromRemote) {
     try {
       var raw = M.serialize(match);
       if (window.storage) window.storage.set(KEY, raw, false);
       else localStorage.setItem(KEY, raw);
       post({ type: "state", match: raw });
-      castSend({ type: "state", match: raw });
+      if (!fromRemote) linkSend({ type: "state", match: raw });
     } catch (e) {}
   }
 
-  function savePrefs() {
+  function savePrefs(fromRemote) {
     try {
       var raw = JSON.stringify(prefs);
       if (window.storage) window.storage.set(PREF, raw, false);
       else localStorage.setItem(PREF, raw);
       post({ type: "prefs", prefs: prefs });
-      castSend({ type: "prefs", prefs: prefs });
+      if (!fromRemote) linkSend({ type: "prefs", prefs: prefs });
     } catch (e) {}
   }
 
@@ -149,8 +150,8 @@
 
   /* ---------- годинник тайм-ауту ---------- */
 
-  function startTimeoutClock(label) {
-    toEndsAt = Date.now() + prefs.timeoutSec * 1000;
+  function startTimeoutClock(label, endsAt) {
+    toEndsAt = endsAt || Date.now() + prefs.timeoutSec * 1000;
     $("toWho").textContent = label;
     $("toOverlay").classList.add("show");
     tickTimeout();
@@ -168,12 +169,12 @@
     toTimer = setTimeout(tickTimeout, 250);
   }
 
-  function stopTimeoutClock() {
+  function stopTimeoutClock(fromRemote) {
     clearTimeout(toTimer);
     if ($("toOverlay").classList.contains("show")) {
       var lt = M.reduce(match).lastTimeout;
       post({ type: "timeout-end", ts: lt ? lt.ts : null });
-      castSend({ type: "timeout-end", ts: lt ? lt.ts : null });
+      if (fromRemote !== true) linkSend({ type: "timeout-end", ts: lt ? lt.ts : null });
     }
     $("toOverlay").classList.remove("show");
   }
@@ -271,7 +272,7 @@
       applyPalette(prefs.palette);   // закрили без збереження — вертаємо колір
       pendingPalette = prefs.palette;
     }
-    ["menu", "sheet", "proto", "serveAsk", "subsSheet", "castSheet"].forEach(function (id) { $(id).classList.remove("show"); });
+    ["menu", "sheet", "proto", "serveAsk", "subsSheet", "linkSheet"].forEach(function (id) { $(id).classList.remove("show"); });
   }
   Array.prototype.forEach.call(document.querySelectorAll(".sheet"), function (el) {
     el.addEventListener("click", function (e) { if (e.target === el) closeSheets(); });
@@ -385,67 +386,97 @@
     else paintSubs();
   }
 
-  /* ---------- трансляція на інші пристрої ---------- */
+  /* ---------- посилання на матч: міні-табло й пульт для другого судді ---------- */
 
   /*
-   * Кімната й ключ судді зберігаються окремо від налаштувань: налаштування
-   * летять глядачам, а ключ має лишатися тільки на цьому пульті.
+   * Обидва посилання працюють через сервер синхронізації (server.js):
+   *   • міні-табло (live.html?room=…) — назви команд, сети й очки, лише перегляд;
+   *   • пульт для другого судді (index.html?room=…&key=…) — той самий матч,
+   *     керування з іншого телефона.
+   * Код кімнати й ключ судді лежать окремо від налаштувань: налаштування
+   * летять на міні-табло, а ключ — лише в пультах. Пульти рівноправні:
+   * діє стан того, хто змінив рахунок останнім.
    */
-  var CAST_KEY = "volleyball:cast";
+  var LINK_KEY = "volleyball:link";
   var R = window.Remote;
-  var cast = null;            // { server, room, key, page }
-  var castLink = null;        // зʼєднання Remote
-  var castViewers = 0;
+  var link = null;            // { server, room, key, guest }
+  var linkConn = null;
 
-  function loadCast() {
+  function loadLink() {
     try {
-      var c = JSON.parse(localStorage.getItem(CAST_KEY) || "null");
-      if (c && R.isRoom(c.room) && c.key && c.server) cast = c;
+      var l = JSON.parse(localStorage.getItem(LINK_KEY) || "null");
+      if (l && R.isRoom(l.room) && l.key && l.server) link = l;
     } catch (e) {}
   }
-  function saveCast() {
+  function saveLink() {
     try {
-      if (cast) localStorage.setItem(CAST_KEY, JSON.stringify(cast));
-      else localStorage.removeItem(CAST_KEY);
+      if (link) localStorage.setItem(LINK_KEY, JSON.stringify(link));
+      else localStorage.removeItem(LINK_KEY);
     } catch (e) {}
   }
 
-  function castSend(msg) {
-    if (castLink) castLink.send(msg);
+  function linkSend(msg) {
+    if (linkConn) linkConn.send(msg);
   }
 
-  /* Нове зʼєднання — одразу весь стан: сервер міг перезапуститись. */
-  function castSendAll() {
-    castSend({ type: "state", match: M.serialize(match) });
-    castSend({ type: "prefs", prefs: prefs });
+  /* Пульт, що створив посилання, після (пере)підключення надсилає весь стан. */
+  function linkSendAll() {
+    linkSend({ type: "state", match: M.serialize(match) });
+    linkSend({ type: "prefs", prefs: prefs });
   }
 
-  var CAST_TEXT = {
-    connecting: "підключення до сервера…", live: "наживо", offline: "немає звʼязку — перепідключаюсь",
-    rejected: "сервер відмовив", closed: ""
+  var LINK_TEXT = {
+    connecting: "підключення до сервера…", live: "на звʼязку", offline: "немає звʼязку — перепідключаюсь",
+    rejected: "сервер відмовив — посилання недійсне", closed: ""
   };
 
-  function castStatus(status, info) {
-    if (status === "live") castSendAll();
-    if (status === "rejected" && info === "wrong-key") {
-      // Код зайняв хтось інший — беремо новий, посилання оновиться.
-      cast.room = R.newRoom();
-      saveCast();
-      setTimeout(startCastLink, 0);
+  function linkStatus(status, info) {
+    // Другий суддя нічого не надсилає при підключенні — він отримує матч від сервера.
+    if (status === "live" && !link.guest) linkSendAll();
+    if (status === "rejected" && info === "wrong-key" && !link.guest) {
+      link.room = R.newRoom();                      // код зайняв хтось інший — беремо новий
+      saveLink();
+      setTimeout(startLinkConn, 0);
     }
-    paintCast(status);
+    paintLink(status);
   }
 
-  function startCastLink() {
-    if (castLink) castLink.close();
-    castViewers = 0;
-    castLink = R.connect({
-      server: cast.server, room: cast.room, role: "control", key: cast.key,
-      WebSocket: window.WebSocket,
-      onStatus: castStatus,
-      onMessage: function (msg) {
-        if (msg.type === "viewers") { castViewers = msg.count; paintCast(castLink.status()); }
+  /* Зміни з іншого пульта: приймаємо, але назад не надсилаємо. */
+  function adoptRemote(msg) {
+    if (msg.type === "state" && msg.match) {
+      var m;
+      try { m = M.deserialize(msg.match); } catch (e) { return; }
+      if (!m) return;
+      var before = M.reduce(match);
+      match = m;
+      render();
+      save(true);
+      var after = M.reduce(match);
+      var lt = after.lastTimeout;
+      if (lt && !after.done && (!before.lastTimeout || before.lastTimeout.ts !== lt.ts)) {
+        var endsAt = lt.ts + prefs.timeoutSec * 1000;
+        if (endsAt > Date.now()) startTimeoutClock(lt.tech ? "Технічний тайм-аут" : "Тайм-аут · " + after.names[lt.team], endsAt);
       }
+    } else if (msg.type === "prefs" && msg.prefs) {
+      var p = msg.prefs;
+      if (typeof p.palette === "string") prefs.palette = paletteById(p.palette).id;
+      if (typeof p.showServe === "boolean") prefs.showServe = p.showServe;
+      if (typeof p.sound === "boolean") prefs.sound = p.sound;
+      applyPalette(prefs.palette);
+      savePrefs(true);
+      render();
+    } else if (msg.type === "timeout-end") {
+      stopTimeoutClock(true);
+    }
+  }
+
+  function startLinkConn() {
+    if (linkConn) linkConn.close();
+    linkConn = R.connect({
+      server: link.server, room: link.room, role: "control", key: link.key,
+      WebSocket: window.WebSocket,
+      onStatus: linkStatus,
+      onMessage: adoptRemote
     });
   }
 
@@ -455,76 +486,59 @@
     return /^https?:\/\/[^\s/]+/i.test(v) ? v : "";
   }
 
-  function startCast() {
-    var server = normServer($("inCastServer").value);
-    if (!server) { $("castErr").textContent = "Вкажіть адресу сервера трансляції, наприклад https://назва.onrender.com"; return; }
-    $("castErr").textContent = "";
-    cast = { server: server, room: R.newRoom(), key: R.newKey(), page: "live.html" };
-    saveCast();
-    startCastLink();
+  function createLink() {
+    var server = normServer($("inLinkServer").value);
+    if (!server) { $("linkErr").textContent = "Вкажіть адресу сервера, наприклад https://назва.onrender.com"; return; }
+    $("linkErr").textContent = "";
+    link = { server: server, room: R.newRoom(), key: R.newKey(), guest: false };
+    saveLink();
+    startLinkConn();
   }
 
-  function stopCast() {
-    if (castLink) castLink.close();
-    castLink = null;
-    cast = null;
-    saveCast();
-    paintCast("closed");
+  function closeLink() {
+    if (linkConn) linkConn.close();
+    linkConn = null;
+    link = null;
+    saveLink();
+    paintLink("closed");
   }
 
-  function castUrl() {
-    return R.viewerLink(cast.server, cast.page || "live.html", cast.room);
+  /* Відкрили посилання «пульт для другого судді» — підключаємось до того ж матчу. */
+  function joinFromUrl() {
+    var q;
+    try { q = new URLSearchParams(location.search); } catch (e) { return; }
+    var room = (q.get("room") || "").toUpperCase();
+    var key = q.get("key") || "";
+    if (!R.isRoom(room) || !key) return;
+    link = { server: normServer(q.get("server")) || R.defaultServer(location), room: room, key: key, guest: true };
+    saveLink();
+    // Ключ не лишаємо в адресному рядку, щоб його випадково не переслали далі.
+    try { history.replaceState(null, "", location.pathname); } catch (e) {}
   }
 
-  /*
-   * Окреме посилання для трансляції (OBS, vMix, Streamlabs — «Browser source»):
-   * прозорий фон, компактне табло в куті кадру. Кімната та сама, тож посилання
-   * не змінюється від матчу до матчу — у OBS його вставляють один раз.
-   */
-  function castObsUrl() {
-    var pos = cast.pos || "tl";
-    return R.viewerLink(cast.server, "live.html", cast.room, "bg=none" + (pos !== "tl" ? "&pos=" + pos : ""));
-  }
+  function boardUrl() { return R.viewerLink(link.server, "live.html", link.room); }
+  function judgeUrl() { return R.viewerLink(link.server, "index.html", link.room, "key=" + encodeURIComponent(link.key)); }
 
-  function paintQr(text) {
-    var box = $("castQr");
-    if (typeof window.qrcode !== "function") { box.textContent = ""; return; }
-    try {
-      var qr = window.qrcode(0, "M");
-      qr.addData(text);
-      qr.make();
-      box.innerHTML = qr.createSvgTag({ cellSize: 4, margin: 0, scalable: true });
-    } catch (e) { box.textContent = ""; }
-  }
-
-  function paintCast(status) {
-    status = status || (castLink ? castLink.status() : "closed");
-    var on = !!cast;
-    $("castSheet").classList.toggle("on", on);
-    var dot = $("castDot");
-    dot.className = "cast-dot" + (on ? (status === "live" ? " live" : " offline") : "");
-    dot.textContent = on ? (status === "live" ? "наживо" + (castViewers ? " · " + castViewers : "") : "немає звʼязку") : "";
+  function paintLink(status) {
+    status = status || (linkConn ? linkConn.status() : "closed");
+    var on = !!link;
+    $("linkSheet").classList.toggle("on", on);
+    var dot = $("linkDot");
+    dot.className = "link-dot" + (on ? (status === "live" ? " live" : " offline") : "");
+    dot.textContent = on ? (status === "live" ? "на звʼязку" : "немає звʼязку") : "";
     if (!on) {
-      $("inCastServer").value = $("inCastServer").value || R.defaultServer(location);
+      $("inLinkServer").value = $("inLinkServer").value || R.defaultServer(location);
       return;
     }
-    var st = $("castStatus");
-    st.className = "cast-status " + status;
-    st.textContent = (CAST_TEXT[status] || "") + (status === "live" ? " · глядачів: " + castViewers : "");
-    $("castCode").textContent = cast.room;
-    var url = castUrl();
-    $("castLink").textContent = url;
-    $("castLink").href = url;
-    Array.prototype.forEach.call($("segCastPage").children, function (b) {
-      b.setAttribute("aria-pressed", String(b.dataset.page === (cast.page || "live.html")));
-    });
-    paintQr(url);
-    var obs = castObsUrl();
-    $("castObsLink").textContent = obs;
-    $("castObsLink").href = obs;
-    Array.prototype.forEach.call($("segCastPos").children, function (b) {
-      b.setAttribute("aria-pressed", String(b.dataset.pos === (cast.pos || "tl")));
-    });
+    var st = $("linkStatus");
+    st.className = "link-status " + status;
+    st.textContent = (LINK_TEXT[status] || "") + (link.guest ? " · ви — другий суддя" : "") + " · код " + link.room;
+    var b = boardUrl(), j = judgeUrl();
+    $("linkBoard").textContent = b;
+    $("linkBoard").href = b;
+    $("linkJudge").textContent = j;
+    $("linkJudge").href = j;
+    $("linkStop").textContent = link.guest ? "Відʼєднатися від матчу" : "Закрити посилання";
   }
 
   function copyText(btn, text, label) {
@@ -534,9 +548,6 @@
     };
     if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done).catch(function () {});
   }
-
-  function copyCast() { copyText($("castCopy"), castUrl(), "Копіювати посилання"); }
-  function copyObs() { copyText($("castObsCopy"), castObsUrl(), "Копіювати для OBS"); }
 
   /* ---------- протокол ---------- */
 
@@ -777,31 +788,20 @@
   $("redoBtn").addEventListener("click", function () { commit(M.redo(match)); });
   $("menuBtn").addEventListener("click", function () { openSheet("menu"); });
 
-  $("toStop").addEventListener("click", stopTimeoutClock);
+  $("toStop").addEventListener("click", function () { stopTimeoutClock(); });
 
   $("mProto").addEventListener("click", function () { renderProtocol(); openSheet("proto"); });
   $("mSubs").addEventListener("click", openSubs);
-  $("mCast").addEventListener("click", function () { paintCast(); openSheet("castSheet"); });
-  $("castStart").addEventListener("click", startCast);
-  $("castStop").addEventListener("click", function () {
-    if (confirm("Зупинити трансляцію? Посилання перестане працювати.")) stopCast();
+  $("mLink").addEventListener("click", function () { paintLink(); openSheet("linkSheet"); });
+  $("linkCreate").addEventListener("click", createLink);
+  $("linkStop").addEventListener("click", function () {
+    var q = link && link.guest
+      ? "Відʼєднатися? Цей пульт перестане отримувати зміни з матчу."
+      : "Закрити посилання? Міні-табло й пульт другого судді перестануть оновлюватись.";
+    if (confirm(q)) closeLink();
   });
-  $("castCopy").addEventListener("click", copyCast);
-  $("castObsCopy").addEventListener("click", copyObs);
-  $("segCastPos").addEventListener("click", function (e) {
-    var b = e.target.closest("button");
-    if (!b || !cast) return;
-    cast.pos = b.dataset.pos;
-    saveCast();
-    paintCast();
-  });
-  $("segCastPage").addEventListener("click", function (e) {
-    var b = e.target.closest("button");
-    if (!b || !cast) return;
-    cast.page = b.dataset.page;
-    saveCast();
-    paintCast();
-  });
+  $("linkBoardCopy").addEventListener("click", function () { copyText($("linkBoardCopy"), boardUrl(), "Копіювати"); });
+  $("linkJudgeCopy").addEventListener("click", function () { copyText($("linkJudgeCopy"), judgeUrl(), "Копіювати"); });
   $("segTeam").addEventListener("click", function (e) {
     var b = e.target.closest("button");
     if (!b) return;
@@ -908,8 +908,9 @@
 
   load();
 
-  // Трансляція переживає перезавантаження пульта: той самий код, те саме посилання.
-  loadCast();
-  if (cast) startCastLink();
-  paintCast();
+  // Посилання переживає перезавантаження пульта: той самий код, ті самі посилання.
+  joinFromUrl();
+  if (!link) loadLink();
+  if (link) startLinkConn();
+  paintLink();
 })();

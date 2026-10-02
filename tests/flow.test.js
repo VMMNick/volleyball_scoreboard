@@ -17,7 +17,7 @@ try { ({ JSDOM } = require("jsdom")); } catch (e) { JSDOM = null; }
 
 const root = path.join(__dirname, "..");
 const read = (f) => fs.readFileSync(path.join(root, f), "utf8");
-const scripts = ["match.js", "palettes.js", "ui-common.js", "remote.js", "vendor/qrcode.js"].map(read);
+const scripts = ["match.js", "palettes.js", "ui-common.js", "remote.js"].map(read);
 
 function makeBus() {
   const members = new Set();

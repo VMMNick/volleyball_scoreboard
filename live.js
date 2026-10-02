@@ -1,7 +1,7 @@
 /*
- * Компактне табло для трансляції (live.html).
- * Без ?room= — рахунок із цього ж пристрою; з ?room=ABC234 — з сервера
- * трансляції на будь-якому пристрої. Тільки показ, нічого не змінює.
+ * Міні-табло (live.html): назви команд, сети й очки.
+ * Без ?room= — рахунок із цього ж пристрою; з ?room=ABC234 — посилання
+ * на матч з будь-якого пристрою через сервер. Тільки показ, нічого не змінює.
  */
 (function () {
   "use strict";
@@ -88,7 +88,7 @@
 
   var LINK_TEXT = {
     connecting: "підключення…", live: "наживо", offline: "немає звʼязку — перепідключаюсь",
-    rejected: "трансляцію не знайдено — перевірте посилання"
+    rejected: "табло не знайдено — перевірте посилання"
   };
   function paintLink(status) {
     var el = $("linkStatus");
@@ -96,14 +96,6 @@
     el.textContent = LINK_TEXT[status] || "";
   }
 
-  try {
-    var q = new URLSearchParams(location.search);
-    if (q.get("bg") === "none") {
-      document.body.classList.add("clear");
-      var pos = q.get("pos");
-      if (/^(tl|tr|bl|br)$/.test(pos || "")) document.body.classList.add("pos-" + pos);
-    }
-  } catch (e) {}
 
   P.apply(document.documentElement, prefs.palette);
   render();

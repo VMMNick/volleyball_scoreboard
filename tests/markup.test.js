@@ -136,7 +136,7 @@ test("збирання для хостингу бере файли з офлай
   assert.equal(vercel.outputDirectory, "_site");
   const render = read("render.yaml");
   assert.match(render, /buildCommand: .*npm run build/);
-  assert.match(render, /startCommand: node server\.js/, "Render — сервер трансляції, а не лише статика");
+  assert.match(render, /startCommand: node server\.js/, "Render — сервер для посилань на матч, а не лише статика");
   assert.match(render, /healthCheckPath: \/healthz/);
 });
 
