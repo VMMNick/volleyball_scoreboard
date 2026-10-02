@@ -1,9 +1,8 @@
 /*
  * Табло для глядачів. Лише показує — нічого не змінює.
  *
- * Звідки брати рахунок, вирішує feed.js: з цього ж пристрою (друге вікно,
- * проєктор — без сервера) або з кімнати матчу на сервері (?room=ABC234 — будь-який
- * пристрій через server.js).
+ * Рахунок бере з пульта на цьому ж пристрої (друге вікно, другий монітор,
+ * проєктор) через feed.js — без сервера й інтернету.
  */
 (function () {
   "use strict";
@@ -57,21 +56,8 @@
       win: window,
       onMatch: function (raw) { takeMatch(raw); render(); },
       onPrefs: applyPrefs,
-      onTimeoutEnd: function (ts) { dismissedTimeout = ts || dismissedTimeout; render(); },
-      onStatus: paintLink
+      onTimeoutEnd: function (ts) { dismissedTimeout = ts || dismissedTimeout; render(); }
     });
-  }
-
-  /* Стан звʼязку з сервером — лише коли табло дивиться в кімнату матчу. */
-  var LINK_TEXT = {
-    connecting: "підключення…", live: "наживо", offline: "немає звʼязку — перепідключаюсь",
-    rejected: "матч не знайдено — перевірте посилання"
-  };
-  function paintLink(status) {
-    var el = $("linkStatus");
-    if (!el) return;
-    el.className = "link-status " + (status === "local" ? "" : "show " + status);
-    el.textContent = LINK_TEXT[status] || "";
   }
 
   /* ---------- допоміжне ---------- */

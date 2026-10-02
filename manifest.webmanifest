@@ -36,6 +36,18 @@
   ],
   "shortcuts": [
     {
+      "name": "Міні-табло з керуванням",
+      "short_name": "Міні-пульт",
+      "url": "./mini.html",
+      "icons": [
+        {
+          "src": "./icons/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
       "name": "Табло для глядачів",
       "short_name": "Табло",
       "description": "Рахунок на проєкторі чи другому моніторі",

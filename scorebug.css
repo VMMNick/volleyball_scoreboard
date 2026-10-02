@@ -1,0 +1,53 @@
+/*
+ * Міні-табло («скорбаг»): один блок — назви команд, хто подає, сети й очки,
+ * знизу турнір і що зараз важливо. Спільне для live.html (глядачі) і
+ * mini.html (міні-табло з керуванням). Усі розміри — від змінної --u,
+ * яку задає сторінка.
+ */
+.num{font-variant-numeric:tabular-nums}
+
+.board{width:100%;max-width:1500px;border-radius:calc(var(--u)*.22);overflow:hidden;
+  background:var(--court-deep);border:var(--net) solid var(--tape);box-shadow:0 1vmin 5vmin rgba(0,0,0,.35)}
+
+.cols,.row{display:grid;grid-template-columns:calc(var(--u)*.22) 1fr calc(var(--u)*.9) calc(var(--u)*1.7) calc(var(--u)*2.3);align-items:stretch}
+.cols{font-size:calc(var(--u)*.32);letter-spacing:.14em;color:var(--slate);text-transform:lowercase}
+.cols span{padding:calc(var(--u)*.12) 0;text-align:center}
+.cols .c-name{text-align:left;padding-left:calc(var(--u)*.4)}
+.row{min-height:calc(var(--u)*1.75);border-top:1px solid rgba(143,166,184,.22)}
+
+.bar.a{background:var(--team-a)} .bar.b{background:var(--team-b)}
+.name{display:flex;align-items:center;min-width:0;padding:calc(var(--u)*.18) calc(var(--u)*.4);
+  font-size:var(--u);font-weight:600;letter-spacing:.03em;line-height:1.05}
+.name .label{overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;overflow-wrap:anywhere}
+.serve{display:flex;align-items:center;justify-content:center}
+.serve svg{width:calc(var(--u)*.62);height:calc(var(--u)*.62);opacity:0;transform:scale(.6);transition:opacity .2s ease,transform .2s ease}
+.serve.on svg{opacity:1;transform:none}
+.sets{display:flex;align-items:center;justify-content:center;background:var(--court);
+  font-size:calc(var(--u)*1.15);font-weight:600;border-left:1px solid rgba(143,166,184,.22)}
+.pts{display:flex;align-items:center;justify-content:center;font-size:calc(var(--u)*1.55);font-weight:800;line-height:1}
+.pts.a{background:var(--team-a);color:var(--ink-a)}
+.pts.b{background:var(--team-b);color:var(--ink-b)}
+.no-sets .sets,.no-sets .c-sets{visibility:hidden}
+
+.foot{display:flex;justify-content:space-between;align-items:center;gap:calc(var(--u)*.4);
+  padding:calc(var(--u)*.2) calc(var(--u)*.4);border-top:1px solid rgba(143,166,184,.22);
+  font-size:calc(var(--u)*.46);letter-spacing:.05em;color:var(--slate);min-height:calc(var(--u)*.95)}
+.foot .title{color:var(--chalk);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.foot .info{flex:0 0 auto;text-align:right;white-space:nowrap}
+.foot .info.hot{color:var(--team-b);font-weight:600}
+.foot .info.done{color:var(--chalk);font-weight:600}
+
+
+/* Телефон вертикально: колонки вужчі, очки крупніші. */
+@media (max-aspect-ratio:3/4){
+  .cols,.row{grid-template-columns:calc(var(--u)*.22) 1fr calc(var(--u)*.7) calc(var(--u)*1.4) calc(var(--u)*2)}
+  .row{min-height:calc(var(--u)*2)}
+  .name{font-size:calc(var(--u)*.9)}
+  .pts{font-size:calc(var(--u)*1.7)}
+  .foot{font-size:calc(var(--u)*.52)}
+}
+
+@media (prefers-reduced-motion:no-preference){
+  .pts.flash{animation:flash .55s ease-out}
+}
+@keyframes flash{0%{filter:brightness(1.7)}100%{filter:none}}

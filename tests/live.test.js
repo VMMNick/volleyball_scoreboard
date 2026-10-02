@@ -53,7 +53,7 @@ function boot(html, scripts, opts = {}) {
            tap: (id) => $(id).dispatchEvent(new win.Event("click", { bubbles: true })), close: () => win.close() };
 }
 
-const live = (opts) => boot(liveHtml, [read("feed.js"), liveJs], opts);
+const live = (opts) => boot(liveHtml, [read("scorebug.js"), read("feed.js"), liveJs], opts);
 
 function played(points, extra) {
   let m = Match.createMatch(Object.assign({ names: ["Імідж", "Ліцей"], title: "Кубок міста" }, extra || {}));

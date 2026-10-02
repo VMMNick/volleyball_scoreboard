@@ -66,7 +66,7 @@ test("табло в тому ж стилі, що й пульт", () => {
 });
 
 test("табло: скрипти спільного коду підключені", () => {
-  const order = ["match.js", "palettes.js", "ui-common.js", "sounds.js", "remote.js", "feed.js", "display.js"].map((f) => html.indexOf(f));
+  const order = ["match.js", "palettes.js", "ui-common.js", "sounds.js", "feed.js", "display.js"].map((f) => html.indexOf(f));
   assert.ok(order.every((x, i) => x > -1 && (i === 0 || x > order[i - 1])), "порядок: " + order);
 });
 
@@ -106,7 +106,7 @@ function boot(markup, scripts, opts) {
   return { win, $, text, errors, close: () => win.close() };
 }
 
-const display = (opts) => boot(html, [core, palettes, common, sounds, remote, feed, js], opts);
+const display = (opts) => boot(html, [core, palettes, common, sounds, feed, js], opts);
 const control = (opts) => boot(controlHtml, [core, palettes, common, remote, app], opts);
 
 function played(points) {
@@ -267,7 +267,7 @@ function push(d, m) {
 suite("кінець сету: банер, звук і без ефектів при першому відкритті", (t) => {
   const notes = [];
   const start = played(new Array(24).fill(0));                 // 24:0 — сетбол
-  const d = boot(html, [core, palettes, common, sounds, remote, feed, js], {
+  const d = boot(html, [core, palettes, common, sounds, feed, js], {
     seed: { "volleyball:match": Match.serialize(start) },
     beforeScripts: (win) => { win.AudioContext = fakeAudio(notes); }
   });
@@ -296,7 +296,7 @@ suite("очко дає спалах, перехід подачі — ротац�
 suite("тайм-аут показується, а вимкнений звук мовчить", (t) => {
   const notes = [];
   const m = played([0]);
-  const d = boot(html, [core, palettes, common, sounds, remote, feed, js], {
+  const d = boot(html, [core, palettes, common, sounds, feed, js], {
     seed: { "volleyball:match": Match.serialize(m), "volleyball:prefs": JSON.stringify({ sound: false }) },
     beforeScripts: (win) => { win.AudioContext = fakeAudio(notes); }
   });

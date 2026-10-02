@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0E2A3F">
+<meta name="description" content="Міні-табло з керуванням: рахунок і кнопки в одній маленькій вкладці.">
+<title>Міні-пульт — волейбол</title>
+<link rel="icon" href="./icons/icon-192.png">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="preload" href="./fonts/barlow-condensed-latin-800.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="./theme.css">
+<link rel="stylesheet" href="./scorebug.css">
+<style>
+  /*
+   * Міні-пульт: зверху міні-табло, під ним — кнопки. Окрема маленька вкладка
+   * чи вікно поруч із трансляцією або іншою програмою. Веде той самий матч,
+   * що й основний пульт: зміни йдуть в обидва боки.
+   */
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{min-height:100%;margin:0}
+  body{
+    --u:clamp(14px,min(4.6vw,3.6vh),34px);
+    background:var(--court);color:var(--chalk);font-family:var(--font);
+    display:flex;flex-direction:column;align-items:center;gap:14px;
+    padding:max(12px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) max(12px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left));
+    user-select:none;-webkit-font-smoothing:antialiased;
+  }
+  .wrap{width:100%;max-width:720px;display:flex;flex-direction:column;gap:14px}
+  .board{max-width:none}
+
+  .teams{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .team{display:flex;flex-direction:column;gap:8px;padding:10px;border-radius:12px;
+    background:var(--court-deep);border:1px solid rgba(143,166,184,.25);border-top:4px solid var(--team-a);min-width:0}
+  .team.b{border-top-color:var(--team-b)}
+  .team h2{margin:0;font-size:17px;font-weight:600;letter-spacing:.03em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .pm{display:grid;grid-template-columns:2fr 1fr;gap:8px}
+  .btn{height:clamp(56px,10vh,96px);border-radius:10px;border:0;cursor:pointer;font:inherit;font-size:22px;font-weight:800;letter-spacing:.02em}
+  .btn:active{filter:brightness(.9)}
+  .btn[disabled]{opacity:.35;cursor:default}
+  .plus.a{background:var(--team-a);color:var(--ink-a)}
+  .plus.b{background:var(--team-b);color:var(--ink-b)}
+  .minus{background:transparent;color:var(--chalk);border:1.5px solid rgba(242,239,230,.45)}
+  .to{height:42px;border-radius:99px;background:transparent;color:var(--chalk);border:1.5px solid rgba(242,239,230,.35);
+    font:inherit;font-size:16px;letter-spacing:.04em;cursor:pointer}
+  .to[disabled]{opacity:.35;cursor:default}
+
+  /* Скасувати | Повторити, під ними — подача на всю ширину: назва команди вміщається. */
+  .bar2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  #mServe{grid-column:1 / -1}
+  .tool{height:46px;border-radius:10px;cursor:pointer;background:var(--court-deep);color:var(--chalk);
+    border:1px solid rgba(143,166,184,.3);font:inherit;font-size:16px;letter-spacing:.03em;padding:0 8px;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tool[disabled]{opacity:.35;cursor:default}
+  .tool:active{background:rgba(242,239,230,.12)}
+  .foot2{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:14px;color:var(--slate);letter-spacing:.04em}
+  .foot2 a{color:var(--chalk)}
+  .hint{margin:0}
+
+
+  /* Телефон вертикально: усе крупніше — вкладку тримають у руці. */
+  @media (max-aspect-ratio:3/4){
+    body{--u:clamp(15px,6vw,34px)}
+    .team h2{font-size:19px}
+    .btn{font-size:26px}
+    .to,.tool{height:52px;font-size:17px}
+  }
+  @media (max-width:340px){.teams{grid-template-columns:1fr}}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<main class="board" id="board" aria-label="Рахунок">
+  <div class="cols" aria-hidden="true">
+    <span></span><span class="c-name" id="lCaption">команда</span><span></span><span class="c-sets">сети</span><span>очки</span>
+  </div>
+  <div class="row" id="rowA">
+    <span class="bar a"></span>
+    <span class="name"><span class="label" id="lNameA">Команда А</span></span>
+    <span class="serve" id="lServeA" title="подає"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10.5" fill="#F2EFE6"/><path d="M12 1.5c-2 4-2 9 0 10.5M12 12c4.6.4 8.5-1.2 10.3-4.6M12 12c-2.5 3.8-7 5.3-10.2 4.4" fill="none" stroke="#0E2A3F" stroke-width="1.6" stroke-linecap="round"/></svg></span>
+    <span class="sets num" id="lSetsA">0</span>
+    <span class="pts a num" id="lPtsA">0</span>
+  </div>
+  <div class="row" id="rowB">
+    <span class="bar b"></span>
+    <span class="name"><span class="label" id="lNameB">Команда Б</span></span>
+    <span class="serve" id="lServeB" title="подає"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10.5" fill="#F2EFE6"/><path d="M12 1.5c-2 4-2 9 0 10.5M12 12c4.6.4 8.5-1.2 10.3-4.6M12 12c-2.5 3.8-7 5.3-10.2 4.4" fill="none" stroke="#0E2A3F" stroke-width="1.6" stroke-linecap="round"/></svg></span>
+    <span class="sets num" id="lSetsB">0</span>
+    <span class="pts b num" id="lPtsB">0</span>
+  </div>
+  <div class="foot">
+    <span class="title" id="lTitle"></span>
+    <span class="info num" id="lInfo">матч ще не почався</span>
+  </div>
+</main>
+
+  <div class="teams">
+    <section class="team a" aria-label="Перша команда">
+      <h2 id="mNameA">Команда А</h2>
+      <div class="pm">
+        <button class="btn plus a" id="mPlusA" aria-label="Очко першій команді">+1</button>
+        <button class="btn minus" id="mMinusA" aria-label="Зняти очко першій команді">−1</button>
+      </div>
+      <button class="to" id="mToA">тайм-аут ●●</button>
+    </section>
+    <section class="team b" aria-label="Друга команда">
+      <h2 id="mNameB">Команда Б</h2>
+      <div class="pm">
+        <button class="btn plus b" id="mPlusB" aria-label="Очко другій команді">+1</button>
+        <button class="btn minus" id="mMinusB" aria-label="Зняти очко другій команді">−1</button>
+      </div>
+      <button class="to" id="mToB">тайм-аут ●●</button>
+    </section>
+  </div>
+
+  <div class="bar2">
+    <button class="tool" id="mUndo" title="Скасувати останню дію">⟲ Скасувати</button>
+    <button class="tool" id="mRedo" title="Повторити">⟳ Повторити</button>
+    <button class="tool" id="mServe" title="Хто подає першим у цьому сеті">Подача ⇄</button>
+  </div>
+
+  <div class="foot2">
+    <span class="hint">1 / 2 — очко · Backspace — скасувати</span>
+    <a href="./index.html" target="_blank" rel="noopener">Повний пульт ↗</a>
+  </div>
+</div>
+<div id="live" aria-live="polite" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)"></div>
+
+<script src="./match.js"></script>
+<script src="./palettes.js"></script>
+<script src="./ui-common.js"></script>
+<script src="./scorebug.js"></script>
+<script src="./mini.js"></script>
+</body>
+</html>

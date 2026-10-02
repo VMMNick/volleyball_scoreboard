@@ -129,11 +129,8 @@ test("шрифти лежать у проєкті й покривають кир
 });
 
 test("збирання для хостингу бере файли з офлайн-кешу", () => {
-  const deploy = read(".github/workflows/deploy.yml");
-  assert.match(deploy, /npm run build/, "GitHub Pages збирається тим самим скриптом");
-  const vercel = JSON.parse(read("vercel.json"));
-  assert.equal(vercel.buildCommand, "npm run build");
-  assert.equal(vercel.outputDirectory, "_site");
+  assert.match(read(".github/workflows/deploy.yml"), /npm run build/, "CI перевіряє, що сайт збирається");
+  assert.equal(fs.existsSync(path.join(root, "vercel.json")), false, "деплой лише на Render");
   const render = read("render.yaml");
   assert.match(render, /buildCommand: .*npm run build/);
   assert.match(render, /startCommand: node server\.js/, "Render — сервер для посилань на матч, а не лише статика");

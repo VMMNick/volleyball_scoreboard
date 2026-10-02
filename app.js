@@ -441,22 +441,32 @@
     paintLink(status);
   }
 
-  /* Зміни з іншого пульта: приймаємо, але назад не надсилаємо. */
+  /*
+   * Матч, змінений деінде: на пульті другого судді (fromRemote — назад на сервер
+   * не надсилаємо) або в міні-пульті в сусідній вкладці (пересилаємо на сервер,
+   * щоб другий суддя й міні-табло теж побачили).
+   */
+  function takeState(raw, fromRemote) {
+    if (!raw || raw === M.serialize(match)) return;      // уже маємо — без луни
+    var m;
+    try { m = M.deserialize(raw); } catch (e) { return; }
+    if (!m) return;
+    var before = M.reduce(match);
+    match = m;
+    render();
+    save(fromRemote);
+    var after = M.reduce(match);
+    var lt = after.lastTimeout;
+    if (lt && !after.done && (!before.lastTimeout || before.lastTimeout.ts !== lt.ts)) {
+      var endsAt = lt.ts + prefs.timeoutSec * 1000;
+      if (endsAt > Date.now()) startTimeoutClock(lt.tech ? "Технічний тайм-аут" : "Тайм-аут · " + after.names[lt.team], endsAt);
+    }
+  }
+
+  /* Зміни з іншого пульта через сервер: приймаємо, але назад не надсилаємо. */
   function adoptRemote(msg) {
     if (msg.type === "state" && msg.match) {
-      var m;
-      try { m = M.deserialize(msg.match); } catch (e) { return; }
-      if (!m) return;
-      var before = M.reduce(match);
-      match = m;
-      render();
-      save(true);
-      var after = M.reduce(match);
-      var lt = after.lastTimeout;
-      if (lt && !after.done && (!before.lastTimeout || before.lastTimeout.ts !== lt.ts)) {
-        var endsAt = lt.ts + prefs.timeoutSec * 1000;
-        if (endsAt > Date.now()) startTimeoutClock(lt.tech ? "Технічний тайм-аут" : "Тайм-аут · " + after.names[lt.team], endsAt);
-      }
+      takeState(msg.match, true);
     } else if (msg.type === "prefs" && msg.prefs) {
       var p = msg.prefs;
       if (typeof p.palette === "string") prefs.palette = paletteById(p.palette).id;
@@ -792,6 +802,16 @@
 
   $("mProto").addEventListener("click", function () { renderProtocol(); openSheet("proto"); });
   $("mSubs").addEventListener("click", openSubs);
+  $("mMini").addEventListener("click", function () {
+    closeSheets();
+    // Маленьке окреме вікно: міні-табло й кнопки, поруч з іншою програмою.
+    var w = window.open("./mini.html", "volley-mini", "popup,width=480,height=640");
+    if (w) return;
+    var btn = $("mMini");                                // спливні вікна заблоковані — підказуємо
+    openSheet("menu");
+    btn.textContent = "Дозвольте спливні вікна для цього сайту";
+    setTimeout(function () { btn.textContent = "Міні-табло з керуванням"; }, 3200);
+  });
   $("mLink").addEventListener("click", function () { paintLink(); openSheet("linkSheet"); });
   $("linkCreate").addEventListener("click", createLink);
   $("linkStop").addEventListener("click", function () {
@@ -894,12 +914,19 @@
   /* Табло щойно відкрилось і просить поточний стан. */
   if (channel) {
     channel.onmessage = function (e) {
-      if (e.data && e.data.type === "hello") {
+      var d = e.data || {};
+      if (d.type === "hello") {
+        // Табло чи міні-пульт щойно відкрились і просять поточний стан.
         post({ type: "state", match: M.serialize(match) });
         post({ type: "prefs", prefs: prefs });
+      } else if (d.type === "state" && d.match) {
+        takeState(d.match, false);                       // міні-пульт у сусідній вкладці
       }
     };
   }
+  window.addEventListener("storage", function (e) {
+    if (e.key === KEY && e.newValue) takeState(e.newValue, false);
+  });
 
   $("mDisplay").textContent = displayLabel();
   if (window.screen && "onchange" in window.screen) {

@@ -167,14 +167,6 @@
     padding:.6vmin 1.6vmin;border-radius:99px;font-size:clamp(12px,1.6vmin,18px);letter-spacing:.06em;
     color:var(--court);background:var(--chalk)}
   .sound-hint.show{display:block}
-  .link-status{position:fixed;bottom:1.4vmin;left:1.4vmin;z-index:30;display:none;
-    padding:.5vmin 1.4vmin;border-radius:99px;font-size:clamp(12px,1.6vmin,18px);letter-spacing:.06em;
-    background:rgba(10,31,48,.85);color:var(--slate);border:1px solid rgba(143,166,184,.3)}
-  .link-status.show{display:block}
-  .link-status.live{color:#7CE3A1;border-color:rgba(124,227,161,.4)}
-  .link-status.live::before{content:"● "}
-  .link-status.live{opacity:.7}
-  .link-status.offline,.link-status.rejected{color:var(--team-b);border-color:currentColor}
   body.idle .sound-hint{opacity:.55}
 
   @media (prefers-reduced-motion:no-preference){
@@ -265,7 +257,6 @@
   </div>
 </div>
 
-<div class="link-status" id="linkStatus"></div>
 <div class="sound-hint" id="soundHint">звук вимкнено — клікніть будь-де</div>
 <div class="tip" id="tip">Подвійний клік або <b>F</b> — повний екран · <b>L</b> — макет</div>
 <div id="live" aria-live="polite" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)"></div>
@@ -274,7 +265,6 @@
 <script src="./palettes.js"></script>
 <script src="./ui-common.js"></script>
 <script src="./sounds.js"></script>
-<script src="./remote.js"></script>
 <script src="./feed.js"></script>
 <script src="./display.js"></script>
 </body>

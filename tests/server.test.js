@@ -77,8 +77,6 @@ suite("пульт передає стан глядачам, глядач отр�
   const v1 = client(s.url("room=ABC234"));
   await v1.open();
   assert.equal((await v1.wait("hello")).role, "viewer");
-  assert.equal((await ctl.wait("viewers")).count, 0, "спершу — нікого");
-  assert.equal((await ctl.wait("viewers")).count, 1, "пульт знає, що дивляться");
 
   ctl.send({ type: "state", match: STATE });
   assert.equal((await v1.wait("state")).match, STATE);

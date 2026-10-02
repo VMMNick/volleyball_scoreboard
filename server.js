@@ -100,18 +100,6 @@ function createServer(opts) {
     room.clients.forEach((c) => { if (c !== except) send(c, msg); });
   }
 
-  function viewers(room) {
-    let n = 0;
-    room.clients.forEach((c) => { if (c.role === "viewer") n++; });
-    return n;
-  }
-
-  /* Пультам — скільки глядачів зараз дивляться. */
-  function announce(room) {
-    const n = viewers(room);
-    room.clients.forEach((c) => { if (c.role === "control") send(c, { type: "viewers", count: n }); });
-  }
-
   const wss = new WebSocketServer({ noServer: true, maxPayload: MAX_MESSAGE });
 
   server.on("upgrade", (req, socket, head) => {
@@ -156,7 +144,6 @@ function createServer(opts) {
     send(ws, { type: "hello", room: code, role: role });
     if (room.state) send(ws, { type: "state", match: room.state });
     if (room.prefs) send(ws, { type: "prefs", prefs: room.prefs });
-    announce(room);
 
     ws.on("pong", () => { ws.alive = true; });
 
@@ -184,7 +171,6 @@ function createServer(opts) {
     ws.on("close", () => {
       room.clients.delete(ws);
       room.touched = Date.now();
-      announce(room);
     });
   });
 

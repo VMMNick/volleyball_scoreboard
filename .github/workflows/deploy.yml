@@ -1,21 +1,16 @@
-name: deploy
+name: tests
 
-# Публікує табло на GitHub Pages після кожного пушу в main —
-# але лише якщо тести зелені.
+# Перевіряє кожен пуш і pull request: синтаксис, збирання й усі тести.
+# Сам деплой робить Render (render.yaml) — він підхоплює пуш у main.
 
 on:
   push:
     branches: [main]
+  pull_request:
   workflow_dispatch:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: pages
-  cancel-in-progress: true
 
 jobs:
   test:
@@ -27,23 +22,5 @@ jobs:
           node-version: 20
       - run: npm run check
       - run: npm install --no-audit --no-fund
+      - run: npm run build
       - run: npm test
-
-  deploy:
-    needs: test
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.pages.outputs.page_url }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Зібрати те, що справді їде на хостинг
-        run: npm run build
-
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: _site
-      - id: pages
-        uses: actions/deploy-pages@v4
