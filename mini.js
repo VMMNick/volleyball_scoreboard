@@ -77,6 +77,7 @@
     [0, 1].forEach(function (team) {
       var t = team === 0 ? "A" : "B";
       $("mName" + t).textContent = s.names[team];
+      $("mPts" + t).textContent = s.done ? s.sets[team] : s.points[team];
       $("mPlus" + t).disabled = s.done;
       $("mMinus" + t).disabled = s.done || s.points[team] === 0;
       var to = $("mTo" + t);
@@ -130,6 +131,43 @@
     else if (k === "backspace") { e.preventDefault(); commit(e.shiftKey ? M.redo(match) : M.undo(match)); }
   });
 
+  /* ---------- табло й керування: разом або окремими сторінками ---------- */
+
+  /*
+   * ?view=controls — лише кнопки (табло відкрите окремо: live.html поруч чи на
+   * іншому екрані). Вибір запамʼятовується для цієї вкладки браузера.
+   */
+  var VIEW_KEY = "volleyball:miniView";
+
+  function setView(controlsOnly, remember) {
+    document.body.classList.toggle("controls", controlsOnly);
+    $("mToggleBoard").textContent = controlsOnly ? "Показати табло" : "Сховати табло";
+    if (!remember) return;
+    try { localStorage.setItem(VIEW_KEY, controlsOnly ? "controls" : "both"); } catch (e) {}
+    try { history.replaceState(null, "", location.pathname + (controlsOnly ? "?view=controls" : "")); } catch (e) {}
+  }
+
+  function initialView() {
+    try {
+      var v = new URLSearchParams(location.search).get("view");
+      if (v) return v === "controls";
+      return localStorage.getItem(VIEW_KEY) === "controls";
+    } catch (e) { return false; }
+  }
+
+  /* Табло окремо — у своєму вікні; керування лишається тут і далі веде той самий матч. */
+  function openBoard(e) {
+    var w = window.open("./live.html", "volley-board", "popup,width=760,height=320");
+    // Маленьке вікно заблоковане — тоді посилання саме відкриє табло в новій вкладці.
+    if (w && e) e.preventDefault();
+    setView(true, true);                                 // табло тепер окремо — тут лишаємо кнопки
+  }
+
+  $("mToggleBoard").addEventListener("click", function () {
+    setView(!document.body.classList.contains("controls"), true);
+  });
+  $("mBoardOut").addEventListener("click", openBoard);
+
   /* ---------- зміни з основного пульта й інших вкладок ---------- */
 
   window.addEventListener("storage", function (e) {
@@ -153,6 +191,7 @@
     takePrefs(localStorage.getItem(PREF));
   } catch (e) {}
   P.apply(document.documentElement, prefs.palette);
+  setView(initialView(), false);
   render();
   if (channel) channel.postMessage({ type: "hello" });
   U.keepAwake();

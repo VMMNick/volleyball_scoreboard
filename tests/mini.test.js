@@ -220,3 +220,83 @@ suite("меню пульта відкриває міні-пульт окреми
 });
 
 function FakeOpen(WS, ws) { WS.open(ws); }
+
+/* ---------- табло й керування окремими сторінками ---------- */
+
+suite("міні-пульт: «Сховати табло» — лише кнопки з рахунком у картках, вибір запамʼятовується", (t) => {
+  const m = mini();
+  t.after(m.close);
+  const body = m.win.document.body;
+  assert.equal(body.classList.contains("controls"), false, "за замовчуванням — табло й кнопки разом");
+  m.tap("mPlusA"); m.tap("mPlusA");
+
+  m.tap("mToggleBoard");
+  assert.ok(body.classList.contains("controls"));
+  assert.equal(m.text("mToggleBoard"), "Показати табло");
+  assert.equal(m.text("mPtsA"), "2", "рахунок видно і без табла");
+  assert.equal(m.win.location.search, "?view=controls", "адресу можна зберегти закладкою");
+  assert.equal(m.win.localStorage.getItem("volleyball:miniView"), "controls");
+
+  m.tap("mToggleBoard");
+  assert.equal(body.classList.contains("controls"), false);
+  assert.equal(m.win.location.search, "");
+
+  // нова вкладка з тим самим сховищем — пам'ятає вибір
+  const again = mini({ seed: { "volleyball:miniView": "controls" } });
+  t.after(again.close);
+  assert.ok(again.win.document.body.classList.contains("controls"), "після перезавантаження — так само лише кнопки");
+});
+
+suite("mini.html?view=controls одразу відкриває лише керування", (t) => {
+  const m = mini({ url: "https://tablo.example/mini.html?view=controls" });
+  t.after(m.close);
+  assert.ok(m.win.document.body.classList.contains("controls"));
+});
+
+suite("міні-пульт: «Табло окремо» відкриває міні-табло у своєму вікні, тут лишаються кнопки", (t) => {
+  const m = mini();
+  t.after(m.close);
+  let opened = null;
+  m.win.open = (url, name, features) => { opened = { url, name, features }; return {}; };
+  m.tap("mBoardOut");
+  assert.match(opened.url, /live\.html$/);
+  assert.equal(opened.name, "volley-board", "повторне натискання не плодить вікна");
+  assert.ok(m.win.document.body.classList.contains("controls"));
+});
+
+suite("окреме міні-табло на цьому пристрої має «Керування ↗», у глядачів за посиланням — ні", (t) => {
+  const liveFiles = ["remote.js", "scorebug.js", "feed.js", "live.js"];
+  const local = boot(read("live.html"), liveFiles, { url: "https://tablo.example/live.html" });
+  t.after(local.close);
+  assert.ok(local.win.document.body.classList.contains("local"));
+  let opened = null;
+  local.win.open = (url) => { opened = url; return {}; };
+  local.tap("lCtl");
+  assert.match(opened, /mini\.html\?view=controls/);
+
+  const viewer = boot(read("live.html"), liveFiles, { url: "https://tablo.example/live.html?room=ABC234", WebSocket: fakeSockets() });
+  t.after(viewer.close);
+  assert.equal(viewer.win.document.body.classList.contains("local"), false, "глядач не бачить посилання на керування");
+});
+
+suite("міні-табло окремо й міні-пульт «лише керування» ведуть той самий матч", (t) => {
+  const bus = makeBus();
+  const board = boot(read("live.html"), ["remote.js", "scorebug.js", "feed.js", "live.js"], { url: "https://tablo.example/live.html", bus });
+  const m = mini({ url: "https://tablo.example/mini.html?view=controls", bus });
+  t.after(() => { board.close(); m.close(); });
+  m.tap("mPlusB"); m.tap("mPlusB"); m.tap("mPlusA");
+  assert.equal(board.text("lPtsB"), "2");
+  assert.equal(board.text("lPtsA"), "1");
+  assert.equal(m.text("mPtsB"), "2");
+});
+
+suite("основний пульт: «Міні-табло окремо» відкриває лише табло", (t) => {
+  const c = control();
+  t.after(c.close);
+  let opened = null;
+  c.win.open = (url, name) => { opened = { url, name }; return {}; };
+  c.tap("menuBtn");
+  c.tap("mBoard");
+  assert.match(opened.url, /live\.html$/);
+  assert.equal(opened.name, "volley-board");
+});

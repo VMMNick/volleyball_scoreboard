@@ -49,7 +49,15 @@
     connecting: "підключення…", live: "наживо", offline: "немає звʼязку — перепідключаюсь",
     rejected: "табло не знайдено — перевірте посилання"
   };
+
+  /* Відкрити кнопки окремим маленьким вікном; заблоковане — посилання відкриє вкладку. */
+  $("lCtl").addEventListener("click", function (e) {
+    var w = window.open("./mini.html?view=controls", "volley-mini", "popup,width=480,height=560");
+    if (w) e.preventDefault();
+  });
   function paintLink(status) {
+    // Табло на цьому ж пристрої — поруч посилання на кнопки керування того ж матчу.
+    document.body.classList.toggle("local", status === "local");
     var el = $("linkStatus");
     el.className = "link-status " + (status === "local" ? "" : "show " + status);
     el.textContent = LINK_TEXT[status] || "";

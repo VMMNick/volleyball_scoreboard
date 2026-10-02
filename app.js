@@ -812,6 +812,16 @@
     btn.textContent = "Дозвольте спливні вікна для цього сайту";
     setTimeout(function () { btn.textContent = "Міні-табло з керуванням"; }, 3200);
   });
+  $("mBoard").addEventListener("click", function () {
+    closeSheets();
+    // Лише табло, без кнопок: керувати — тут, у міні-пульті або з «Керування ↗» на самому табло.
+    var w = window.open("./live.html", "volley-board", "popup,width=760,height=320");
+    if (w) return;
+    var btn = $("mBoard");
+    openSheet("menu");
+    btn.textContent = "Дозвольте спливні вікна для цього сайту";
+    setTimeout(function () { btn.textContent = "Міні-табло окремо"; }, 3200);
+  });
   $("mLink").addEventListener("click", function () { paintLink(); openSheet("linkSheet"); });
   $("linkCreate").addEventListener("click", createLink);
   $("linkStop").addEventListener("click", function () {
