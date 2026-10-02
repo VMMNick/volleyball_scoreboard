@@ -57,6 +57,13 @@
   .foot2 a,.linkbtn{color:var(--chalk);font:inherit;font-size:15px;letter-spacing:.04em}
   .linkbtn{background:none;border:0;padding:0;cursor:pointer;text-decoration:underline}
   .keys{margin:0;font-size:13px;color:var(--slate);letter-spacing:.04em}
+  .stream{display:none;flex-direction:column;gap:6px;padding:10px 12px;border:1px solid rgba(143,166,184,.3);border-radius:10px;font-size:14px;color:var(--slate);letter-spacing:.04em}
+  .stream.on{display:flex}
+  .stream .su{color:var(--chalk);font-size:14px;word-break:break-all;opacity:.85}
+  .stream .sr2{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .stream .st.live{color:#7CE3A1}
+  .stream .st.live::before{content:"● "}
+  .stream .st.offline,.stream .st.rejected{color:var(--team-b)}
 
   /* Рахунок у картках — лише коли табло сховане (сторінка «лише керування»). */
   .th{display:flex;justify-content:space-between;align-items:baseline;gap:8px;min-width:0}
@@ -132,6 +139,11 @@
     <a href="./live.html" id="mBoardOut" target="volley-board">Табло окремо ↗</a>
     <a href="./index.html" target="_blank" rel="noopener">Повний пульт ↗</a>
   </div>
+  <div class="stream" id="mStream">
+    <span>Міні-табло для стріму чи іншого пристрою:</span>
+    <a class="su" id="mStreamUrl" target="_blank" rel="noopener"></a>
+    <div class="sr2"><button class="linkbtn" id="mStreamCopy">Копіювати</button><span class="st" id="mStreamSt"></span></div>
+  </div>
   <p class="keys">1 / 2 — очко · Q / P — тайм-аут · Backspace — скасувати</p>
 </div>
 <div id="live" aria-live="polite" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)"></div>
@@ -140,6 +152,7 @@
 <script src="./palettes.js"></script>
 <script src="./ui-common.js"></script>
 <script src="./scorebug.js"></script>
+<script src="./remote.js"></script>
 <script src="./mini.js"></script>
 </body>
 </html>

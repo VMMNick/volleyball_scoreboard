@@ -6,6 +6,10 @@
  * сховище (localStorage) і в той самий BroadcastChannel, а основний пульт
  * підхоплює зміни й, якщо створено «Посилання на матч», пересилає їх на сервер.
  * Зміни з основного пульта так само одразу видно тут.
+ *
+ * Якщо в цьому браузері є «Посилання на матч», міні-пульт і сам підключається
+ * до матчу на сервері — тож окреме міні-табло за посиланням (стрім, інший
+ * пристрій) оновлюється, навіть коли основний пульт закритий.
  */
 (function () {
   "use strict";
@@ -25,6 +29,66 @@
 
   function $(id) { return document.getElementById(id); }
   function raw() { return M.serialize(match); }
+
+  /* ---------- посилання на матч: той самий матч на сервері ---------- */
+
+  var R = window.Remote;
+  var link = null, conn = null;
+
+  function linkSend(msg) { if (conn) conn.send(msg); }
+
+  function pultPrefs() {
+    try { return JSON.parse(localStorage.getItem(PREF) || "null"); } catch (e) { return null; }
+  }
+
+  function boardUrl() { return link ? R.viewerLink(link.server, "live.html", link.room) : "./live.html"; }
+
+  var STREAM_TEXT = { connecting: "підключення…", live: "на звʼязку", offline: "немає звʼязку", rejected: "посилання недійсне" };
+
+  function paintStream(status) {
+    $("mStream").classList.toggle("on", !!link);
+    $("mBoardOut").href = boardUrl();
+    if (!link) return;
+    status = status || (conn ? conn.status() : "");
+    $("mStreamUrl").textContent = boardUrl();
+    $("mStreamUrl").href = boardUrl();
+    $("mStreamSt").className = "st " + status;
+    $("mStreamSt").textContent = STREAM_TEXT[status] || "";
+  }
+
+  function connectLink(l) {
+    if (conn) conn.close();
+    conn = null;
+    link = l;
+    if (!l || !R) { paintStream(); return; }
+    conn = R.connect({
+      server: l.server, room: l.room, role: "control", key: l.key,
+      WebSocket: window.WebSocket,
+      onStatus: function (st) {
+        // Як і основний пульт: після (пере)підключення — увесь стан. Другий суддя — ні, він бере матч із сервера.
+        if (st === "live" && !l.guest && conn) {
+          conn.send({ type: "state", match: raw() });
+          var p = pultPrefs();
+          if (p) conn.send({ type: "prefs", prefs: p });
+        }
+        paintStream(st);
+      },
+      onMessage: function (msg) {
+        if (!msg) return;
+        if (msg.type === "state" && msg.match && take(msg.match)) { share(); render(); }
+        else if (msg.type === "prefs" && msg.prefs) { takePrefs(msg.prefs); render(); }
+        else if (msg.type === "timeout-end") { dismissedTimeout = msg.ts; render(); }
+      }
+    });
+    paintStream();
+  }
+
+  /* Новий стан — у сховище й сусідні вкладки (основний пульт, велике табло). */
+  function share() {
+    var r = raw();
+    try { localStorage.setItem(KEY, r); } catch (e) {}
+    if (channel) channel.postMessage({ type: "state", match: r });
+  }
 
   /* Прийняти стан ззовні; true — якщо він справді новий. */
   function take(r) {
@@ -52,9 +116,8 @@
     if (next === match) return;
     var before = M.reduce(match);
     match = next;
-    var r = raw();
-    try { localStorage.setItem(KEY, r); } catch (e) {}
-    if (channel) channel.postMessage({ type: "state", match: r });
+    share();
+    linkSend({ type: "state", match: raw() });
     var after = M.reduce(match);
     if (prefs.vibrate && navigator.vibrate && after.rallies > before.rallies) {
       var lp = after.lastPoint;
@@ -155,9 +218,17 @@
     } catch (e) { return false; }
   }
 
-  /* Табло окремо — у своєму вікні; керування лишається тут і далі веде той самий матч. */
+  /*
+   * Табло окремо — у своєму вікні; керування лишається тут і далі веде той самий матч.
+   * Сайт відкрито з сервера — табло йде за посиланням на матч, тож його адресу можна
+   * вставити в програму для стріму чи відкрити на іншому пристрої.
+   */
   function openBoard(e) {
-    var w = window.open("./live.html", "volley-board", "popup,width=760,height=320");
+    if (!link && R) {
+      var l = R.ensureLink(localStorage, location);
+      if (l) connectLink(l);
+    }
+    var w = window.open(boardUrl(), "volley-board", "popup,width=760,height=320");
     // Маленьке вікно заблоковане — тоді посилання саме відкриє табло в новій вкладці.
     if (w && e) e.preventDefault();
     setView(true, true);                                 // табло тепер окремо — тут лишаємо кнопки
@@ -167,12 +238,26 @@
     setView(!document.body.classList.contains("controls"), true);
   });
   $("mBoardOut").addEventListener("click", openBoard);
+  $("mStreamCopy").addEventListener("click", function () {
+    var btn = $("mStreamCopy");
+    if (!navigator.clipboard || !navigator.clipboard.writeText) return;
+    navigator.clipboard.writeText(boardUrl()).then(function () {
+      btn.textContent = "Скопійовано";
+      setTimeout(function () { btn.textContent = "Копіювати"; }, 1600);
+    }).catch(function () {});
+  });
 
   /* ---------- зміни з основного пульта й інших вкладок ---------- */
 
   window.addEventListener("storage", function (e) {
+    // Чужі зміни назад на сервер не шлемо: старий стан міг би перекрити новіший від другого судді.
     if (e.key === KEY && take(e.newValue)) render();
     else if (e.key === PREF && e.newValue) { takePrefs(e.newValue); render(); }
+    else if (R && e.key === R.LINK_KEY) {
+      // Посилання створили чи закрили в основному пульті.
+      var l = R.loadLink(localStorage);
+      if (!l !== !link || (l && l.room !== link.room)) connectLink(l);
+    }
   });
 
   if (channel) {
@@ -193,6 +278,7 @@
   P.apply(document.documentElement, prefs.palette);
   setView(initialView(), false);
   render();
+  if (R) connectLink(R.loadLink(localStorage));
   if (channel) channel.postMessage({ type: "hello" });
   U.keepAwake();
   U.registerSW();

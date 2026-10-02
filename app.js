@@ -884,8 +884,14 @@
   });
   $("mBoard").addEventListener("click", function () {
     closeSheets();
-    // Лише табло, без кнопок: керувати — тут, у міні-пульті або з «Керування ↗» на самому табло.
-    var w = window.open("./live.html", "volley-board", "popup,width=760,height=320");
+    // Сайт відкрито з сервера — табло йде за посиланням на матч: його можна вставити
+    // в програму для стріму чи відкрити на іншому пристрої. Інакше — лише цей браузер.
+    if (!link) {
+      var l = R.ensureLink(localStorage, location);
+      if (l) { link = l; startLinkConn(); }
+    }
+    var w = window.open(link ? boardUrl() : "./live.html", "volley-board", "popup,width=760,height=320");
+    if (link) { paintLink(); openSheet("linkSheet"); return; }   // тут же — адреса для копіювання
     if (w) return;
     var btn = $("mBoard");
     openSheet("menu");
@@ -1021,6 +1027,12 @@
   }
   window.addEventListener("storage", function (e) {
     if (e.key === KEY && e.newValue) takeState(e.newValue, false);
+    else if (e.key === LINK_KEY) {
+      // Посилання створили (напр., «Табло окремо» в міні-пульті) чи закрили в іншій вкладці.
+      var l = R.loadLink(localStorage);
+      if (l && (!link || l.room !== link.room)) { link = l; startLinkConn(); paintLink(); }
+      else if (!l && link) { if (linkConn) linkConn.close(); linkConn = null; link = null; trackLinkLoss("closed"); paintLink("closed"); }
+    }
   });
 
   $("mDisplay").textContent = displayLabel();

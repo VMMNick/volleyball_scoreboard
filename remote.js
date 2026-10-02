@@ -110,6 +110,31 @@
     };
   }
 
+  /*
+   * Посилання на матч, збережене в цьому браузері (спільне для пульта й міні-пульта):
+   * { server, room, key, guest }. null — посилання немає.
+   */
+  var LINK_KEY = "volleyball:link";
+
+  function loadLink(storage) {
+    try {
+      var l = JSON.parse(storage.getItem(LINK_KEY) || "null");
+      return l && isRoom(l.room) && l.key && l.server ? l : null;
+    } catch (e) { return null; }
+  }
+
+  /* Є посилання — його; немає, а сайт відкрито з сервера — створюємо. Інакше null. */
+  function ensureLink(storage, loc) {
+    var l = loadLink(storage);
+    if (l) return l;
+    var server = defaultServer(loc);
+    if (!server) return null;
+    l = { server: server, room: newRoom(), key: newKey(), guest: false };
+    try { storage.setItem(LINK_KEY, JSON.stringify(l)); } catch (e) { return null; }
+    return l;
+  }
+
   return { connect: connect, newRoom: newRoom, newKey: newKey, isRoom: isRoom,
-           defaultServer: defaultServer, wsUrl: wsUrl, viewerLink: viewerLink };
+           defaultServer: defaultServer, wsUrl: wsUrl, viewerLink: viewerLink,
+           LINK_KEY: LINK_KEY, loadLink: loadLink, ensureLink: ensureLink };
 });

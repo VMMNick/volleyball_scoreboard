@@ -79,7 +79,9 @@ function fakeSockets() {
   function FakeWS(url) { this.url = url; this.readyState = 0; this.sent = []; all.push(this); }
   FakeWS.prototype.send = function (d) { this.sent.push(JSON.parse(d)); };
   FakeWS.prototype.close = function () { this.readyState = 3; };
+  FakeWS.all = all;
   FakeWS.last = () => all[all.length - 1];
+  FakeWS.serve = (ws, msg) => ws.onmessage({ data: JSON.stringify(msg) });
   FakeWS.open = (ws) => { ws.readyState = 1; ws.onmessage({ data: JSON.stringify({ type: "hello", role: "control" }) }); };
   return FakeWS;
 }
@@ -100,7 +102,7 @@ function boot(html, files, opts = {}) {
            tap: (id) => $(id).dispatchEvent(new win.Event("click", { bubbles: true })), close: () => win.close() };
 }
 
-const mini = (opts) => boot(miniHtml, ["scorebug.js", "mini.js"], opts);
+const mini = (opts) => boot(miniHtml, ["scorebug.js", "remote.js", "mini.js"], opts);
 const control = (opts) => boot(read("index.html"), ["remote.js", "app.js"], Object.assign({ url: "https://tablo.example/index.html" }, opts));
 const stored = (ui) => Match.reduce(Match.deserialize(ui.win.localStorage.getItem("volleyball:match")));
 
@@ -253,15 +255,53 @@ suite("mini.html?view=controls одразу відкриває лише керу
   assert.ok(m.win.document.body.classList.contains("controls"));
 });
 
-suite("міні-пульт: «Табло окремо» відкриває міні-табло у своєму вікні, тут лишаються кнопки", (t) => {
-  const m = mini();
+suite("міні-пульт: «Табло окремо» — міні-табло за посиланням на матч, тут лишаються кнопки", (t) => {
+  const WS = fakeSockets();
+  const m = mini({ WebSocket: WS });
   t.after(m.close);
+  assert.equal(m.$("mStream").classList.contains("on"), false, "поки посилання немає — блоку немає");
   let opened = null;
   m.win.open = (url, name, features) => { opened = { url, name, features }; return {}; };
   m.tap("mBoardOut");
-  assert.match(opened.url, /live\.html$/);
+  const code = /live\.html\?room=([A-Z0-9]{6})$/.exec(opened.url)[1];
+  assert.equal(opened.url, "https://tablo.example/live.html?room=" + code, "адреса працює в будь-якому браузері й програмі для стріму");
   assert.equal(opened.name, "volley-board", "повторне натискання не плодить вікна");
   assert.ok(m.win.document.body.classList.contains("controls"));
+  assert.ok(m.$("mStream").classList.contains("on"), "адресу видно й можна скопіювати");
+  assert.equal(m.text("mStreamUrl"), opened.url);
+  assert.equal(JSON.parse(m.win.localStorage.getItem("volleyball:link")).room, code, "те саме посилання бачить основний пульт");
+
+  // міні-пульт сам веде матч на сервері — основний пульт для цього не потрібен
+  const ws = WS.last();
+  assert.match(ws.url, new RegExp("room=" + code + "&role=control&key="));
+  WS.open(ws, "control");
+  assert.equal(ws.sent[0].type, "state", "після підключення — увесь стан");
+  m.tap("mPlusB");
+  const last = ws.sent[ws.sent.length - 1];
+  assert.deepEqual(Match.reduce(Match.deserialize(last.match)).points, [0, 1]);
+  assert.match(m.text("mStreamSt"), /на звʼязку/);
+
+  // зміни другого судді приходять і сюди
+  const other = Match.addPoint(Match.deserialize(last.match), 0, 5000);
+  WS.serve(ws, { type: "state", match: Match.serialize(other) });
+  assert.equal(m.text("lPtsA"), "1");
+  assert.deepEqual(stored(m).points, [1, 1], "і в сховище — для пульта й табло в сусідніх вкладках");
+  assert.deepEqual(m.errors, []);
+});
+
+suite("міні-пульт: наявне посилання підхоплює одразу, другий суддя стан не затирає", (t) => {
+  const WS = fakeSockets();
+  const link = { server: "https://tablo.example", room: "ABC234", key: "k".repeat(32), guest: true };
+  const m = mini({ WebSocket: WS, seed: { "volleyball:link": JSON.stringify(link) } });
+  t.after(m.close);
+  const ws = WS.last();
+  assert.equal(ws.url, "wss://tablo.example/ws?room=ABC234&role=control&key=" + "k".repeat(32));
+  WS.open(ws, "control");
+  assert.deepEqual(ws.sent, [], "другий суддя бере матч із сервера");
+  let opened = null;
+  m.win.open = (url) => { opened = url; return {}; };
+  m.tap("mBoardOut");
+  assert.equal(opened, "https://tablo.example/live.html?room=ABC234");
 });
 
 suite("окреме міні-табло на цьому пристрої має «Керування ↗», у глядачів за посиланням — ні", (t) => {
@@ -290,13 +330,22 @@ suite("міні-табло окремо й міні-пульт «лише кер
   assert.equal(m.text("mPtsB"), "2");
 });
 
-suite("основний пульт: «Міні-табло окремо» відкриває лише табло", (t) => {
-  const c = control();
+suite("основний пульт: «Міні-табло окремо» — табло за посиланням на матч і адреса для копіювання", (t) => {
+  const WS = fakeSockets();
+  const c = control({ WebSocket: WS });
   t.after(c.close);
   let opened = null;
   c.win.open = (url, name) => { opened = { url, name }; return {}; };
   c.tap("menuBtn");
   c.tap("mBoard");
-  assert.match(opened.url, /live\.html$/);
+  assert.match(opened.url, /^https:\/\/tablo\.example\/live\.html\?room=[A-Z0-9]{6}$/);
   assert.equal(opened.name, "volley-board");
+  assert.ok(c.$("linkSheet").classList.contains("show"), "одразу видно адресу для стріму");
+  assert.equal(c.text("linkBoard"), opened.url);
+  WS.open(WS.last(), "control");
+  assert.equal(WS.last().sent[0].type, "state");
+
+  c.tap("menuBtn");
+  c.tap("mBoard");
+  assert.equal(WS.all.length, 1, "повторно — те саме посилання, без нового підключення");
 });
