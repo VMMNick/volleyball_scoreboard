@@ -103,10 +103,14 @@ suite("live: рахунок із цього пристрою — команди,
   assert.deepEqual(l.errors, []);
 });
 
-suite("live: без даних — «чекаємо на пульт»", (t) => {
+suite("live: без даних і без ?room= — підказка, де взяти посилання", (t) => {
   const l = live();
   t.after(l.close);
-  assert.ok(l.win.document.body.classList.contains("waiting"));
+  const body = l.win.document.body;
+  assert.ok(body.classList.contains("waiting"));
+  assert.ok(body.classList.contains("local"), "показуємо пояснення для цього браузера, а не «чекаємо на суддю»");
+  assert.match(l.text("lEmptyLocal"), /в цьому ж браузері/);
+  assert.match(l.text("lEmptyLocal"), /Посилання на матч/);
 });
 
 suite("live: рядки за командами, а не за сторонами майданчика", (t) => {
@@ -147,6 +151,7 @@ suite("live?room=…: підключається глядачем і малює 
   const ws = WS.last();
   assert.equal(ws.url, "wss://tablo.example/ws?room=ABC234&role=viewer", "той самий сервер, роль глядача, без ключа");
   assert.ok(l.win.document.body.classList.contains("waiting"));
+  assert.equal(l.win.document.body.classList.contains("local"), false, "за посиланням — «чекаємо на пульт судді»");
   assert.match(l.text("linkStatus"), /підключення/);
 
   WS.open(ws, "viewer");

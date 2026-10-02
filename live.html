@@ -41,9 +41,15 @@
   .ctl-link:hover,.ctl-link:focus-visible{opacity:1}
   body.local .ctl-link{display:block}
 
-  .empty{display:none;text-align:center;font-size:20px;color:var(--slate);line-height:1.5;max-width:520px}
+  .empty{display:none;width:100%;max-width:560px;margin:0;text-align:center;
+    font-size:clamp(14px,4.2vmin,22px);color:var(--slate);line-height:1.5;overflow-wrap:anywhere}
+  .empty b{color:var(--chalk);font-weight:600}
+  .empty .local-only{display:none}
+  body.local .empty .local-only{display:inline}
+  body.local .empty .room-only{display:none}
   body.waiting .board{display:none}
   body.waiting .empty{display:block}
+  body.waiting .ctl-link{display:none}   /* поки матчу немає, кнопка «Керування» лише заважає */
 
   /* Телефон вертикально: крупніше, бо глядач тримає його в руці на відстані. */
   @media (max-aspect-ratio:3/4){
@@ -77,7 +83,11 @@
     <span class="info num" id="lInfo">почати матч</span>
   </div>
 </main>
-<p class="empty" id="lEmpty">Чекаємо на пульт судді…<br>Рахунок зʼявиться, щойно суддя почне матч.</p>
+<p class="empty" id="lEmpty">
+  <span class="room-only">Чекаємо на пульт судді…<br>Рахунок зʼявиться, щойно суддя почне матч.</span>
+  <span class="local-only" id="lEmptyLocal">Це табло показує рахунок лише з пульта, відкритого <b>в цьому ж браузері</b>.<br>
+    Для стріму, іншої програми чи пристрою візьміть посилання в пульті:<br><b>Меню → Посилання на матч → Міні-табло</b>.</span>
+</p>
 <div class="link-status" id="linkStatus"></div>
 <a class="ctl-link" id="lCtl" href="./mini.html?view=controls" target="volley-mini">Керування ↗</a>
 <div id="live" aria-live="polite" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)"></div>
