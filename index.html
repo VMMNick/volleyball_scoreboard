@@ -223,6 +223,12 @@
   .link-dot.live{display:inline;color:#7CE3A1}
   .link-dot.live::before{content:"● "}
   .link-dot.offline{display:inline;color:var(--team-b)}
+  .link-dot.trouble{cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+  #linkTrouble{display:none;margin:0 0 14px;padding:12px 14px;border:1px solid var(--team-b);border-radius:10px}
+  #linkTrouble.on{display:block}
+  #linkTrouble h3{margin:0 0 6px;font-size:18px;font-weight:600;letter-spacing:.04em;color:var(--team-b)}
+  #linkTrouble ul{margin:6px 0 10px;padding-left:20px;font-size:14px;line-height:1.55;color:var(--chalk)}
+  #linkTrouble .row{display:flex;gap:10px;flex-wrap:wrap}
   #linkOn{display:none}
   #linkSheet.on #linkOn{display:block}
   #linkSheet.on #linkOff{display:none}
@@ -356,6 +362,15 @@
     </div>
     <div id="linkOn">
       <div class="link-status" id="linkStatus"></div>
+      <div id="linkTrouble" role="alert">
+        <h3 id="linkTroubleTitle">Немає звʼязку із сервером</h3>
+        <ul id="linkTroubleWhy"></ul>
+        <p class="hint top">Рахунок на цьому пристрої ведеться далі — без сервера не оновлюються лише міні-табло й пульт другого судді.</p>
+        <div class="row">
+          <button class="primary" id="linkRetry">Спробувати ще раз</button>
+          <button class="ghost reset" id="linkGiveUp">Зупинити посилання</button>
+        </div>
+      </div>
       <div class="link-block">
         <h3>Міні-табло</h3>
         <p class="hint top">Назви команд, сети й очки наживо. Лише перегляд.</p>

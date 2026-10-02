@@ -401,6 +401,10 @@
   var R = window.Remote;
   var link = null;            // { server, room, key, guest }
   var linkConn = null;
+  var LINK_LONG_MS = 45000;   // стільки чекаємо (Render прокидається до хвилини), перш ніж пояснювати
+  var linkLostAt = 0;         // відколи немає звʼязку (0 — є або посилання вимкнене)
+  var linkLostTimer = null;
+  var linkWhy = "";           // причина відмови сервера (rejected)
 
   function loadLink() {
     try {
@@ -431,6 +435,7 @@
   };
 
   function linkStatus(status, info) {
+    trackLinkLoss(status, info);
     // Другий суддя нічого не надсилає при підключенні — він отримує матч від сервера.
     if (status === "live" && !link.guest) linkSendAll();
     if (status === "rejected" && info === "wrong-key" && !link.guest) {
@@ -509,6 +514,7 @@
     if (linkConn) linkConn.close();
     linkConn = null;
     link = null;
+    trackLinkLoss("closed");
     saveLink();
     paintLink("closed");
   }
@@ -529,13 +535,72 @@
   function boardUrl() { return R.viewerLink(link.server, "live.html", link.room); }
   function judgeUrl() { return R.viewerLink(link.server, "index.html", link.room, "key=" + encodeURIComponent(link.key)); }
 
+  /* Відлік часу без звʼязку: після LINK_LONG_MS пульт пояснює, що сталося. */
+  function trackLinkLoss(status, info) {
+    linkWhy = status === "rejected" ? (info || "") : "";
+    if (status === "live" || status === "closed") {
+      linkLostAt = 0;
+      clearTimeout(linkLostTimer);
+      return;
+    }
+    if (!linkLostAt) {
+      linkLostAt = Date.now();
+      clearTimeout(linkLostTimer);
+      linkLostTimer = setTimeout(function () { paintLink(); }, LINK_LONG_MS + 50);
+    }
+  }
+
+  function linkTrouble(status) {
+    if (!link) return false;
+    if (status === "rejected") return true;
+    return status !== "live" && linkLostAt > 0 && Date.now() - linkLostAt >= LINK_LONG_MS;
+  }
+
+  function hostOf(url) {
+    try { return new URL(url).host; } catch (e) { return String(url || ""); }
+  }
+
+  /* Найімовірніші причини — від конкретних до загальних. */
+  function troubleReasons(status) {
+    var why = [];
+    if (status === "rejected") {
+      why.push(linkWhy === "wrong-key"
+        ? "Ключ судді не підходить — посилання застаріле або матч уже закрили."
+        : linkWhy === "full"
+          ? "Сервер перевантажений — забагато відкритих матчів. Спробуйте пізніше."
+          : "Сервер відмовив у підключенні — це посилання більше не дійсне.");
+      why.push("Зупиніть посилання й створіть нове.");
+      return why;
+    }
+    if (typeof navigator !== "undefined" && navigator.onLine === false) {
+      why.push("Пристрій не в інтернеті — перевірте Wi-Fi або мобільні дані.");
+    }
+    if (location.protocol === "file:") {
+      why.push("Сайт відкрито як файл із комп'ютера — посилання працюють лише з адреси сервера.");
+    } else if (/^https?:$/.test(location.protocol) && hostOf(link.server) !== location.host) {
+      why.push("Посилання створене для сервера " + hostOf(link.server) + ", а сайт відкрито з " + location.host +
+        ". Якщо сервер змінився — зупиніть посилання й створіть нове.");
+    }
+    if (/onrender\.com$/i.test(hostOf(link.server))) {
+      why.push("Безкоштовний Render засинає без відвідувачів і прокидається до хвилини. Якщо довше — сервіс не запущений: перевірте його в панелі Render.");
+    } else {
+      why.push("Сервер " + hostOf(link.server) + " не відповідає — він вимкнений або адреса неправильна.");
+    }
+    return why;
+  }
+
   function paintLink(status) {
     status = status || (linkConn ? linkConn.status() : "closed");
     var on = !!link;
     $("linkSheet").classList.toggle("on", on);
     var dot = $("linkDot");
-    dot.className = "link-dot" + (on ? (status === "live" ? " live" : " offline") : "");
-    dot.textContent = on ? (status === "live" ? "на звʼязку" : "немає звʼязку") : "";
+    var trouble = linkTrouble(status);
+    dot.className = "link-dot" + (on ? (status === "live" ? " live" : " offline") : "") + (trouble ? " trouble" : "");
+    dot.textContent = on ? (status === "live" ? "на звʼязку" : trouble ? "немає звʼязку ?" : "немає звʼязку") : "";
+    dot.setAttribute("role", trouble ? "button" : "status");
+    dot.title = trouble ? "Що сталося і що робити" : "";
+    dot.tabIndex = trouble ? 0 : -1;
+    $("linkTrouble").classList.toggle("on", trouble);
     if (!on) {
       $("inLinkServer").value = $("inLinkServer").value || R.defaultServer(location);
       return;
@@ -549,6 +614,11 @@
     $("linkJudge").textContent = j;
     $("linkJudge").href = j;
     $("linkStop").textContent = link.guest ? "Відʼєднатися від матчу" : "Закрити посилання";
+    if (trouble) {
+      $("linkTroubleTitle").textContent = status === "rejected" ? "Сервер не приймає це посилання" : "Немає звʼязку із сервером";
+      $("linkTroubleWhy").innerHTML = troubleReasons(status).map(function (t) { return "<li>" + U.esc(t) + "</li>"; }).join("");
+      $("linkGiveUp").textContent = link.guest ? "Відʼєднатися від матчу" : "Зупинити посилання";
+    }
   }
 
   function copyText(btn, text, label) {
@@ -824,6 +894,21 @@
   });
   $("mLink").addEventListener("click", function () { paintLink(); openSheet("linkSheet"); });
   $("linkCreate").addEventListener("click", createLink);
+  $("linkDot").addEventListener("click", function () {
+    if (!$("linkDot").classList.contains("trouble")) return;
+    paintLink(); openSheet("linkSheet");
+  });
+  $("linkDot").addEventListener("keydown", function (e) {
+    if ((e.key === "Enter" || e.key === " ") && $("linkDot").classList.contains("trouble")) { e.preventDefault(); paintLink(); openSheet("linkSheet"); }
+  });
+  $("linkRetry").addEventListener("click", function () {
+    if (!link) return;
+    linkLostAt = 0;                        // даємо серверу ще один повний відлік
+    startLinkConn();
+    paintLink();
+  });
+  // Тут не перепитуємо: людина вже прочитала пояснення й свідомо зупиняє.
+  $("linkGiveUp").addEventListener("click", closeLink);
   $("linkStop").addEventListener("click", function () {
     var q = link && link.guest
       ? "Відʼєднатися? Цей пульт перестане отримувати зміни з матчу."

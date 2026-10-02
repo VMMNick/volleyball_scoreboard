@@ -279,3 +279,55 @@ suite("пульт: без адреси сервера посилання не с
   assert.match(c.text("linkErr"), /адресу сервера/);
   assert.equal(c.win.localStorage.getItem("volleyball:link"), null);
 });
+
+suite("пульт: довго немає звʼязку — пояснення й «Зупинити посилання»", (t) => {
+  const WS = fakeSockets();
+  const c = control({ WebSocket: WS });
+  t.after(c.close);
+  createLink(c, "tablo-srv.onrender.com");
+  WS.last().onclose({ code: 1006 });                          // сервер не відповідає
+  assert.match(c.text("linkDot"), /^немає звʼязку$/, "спершу просто індикатор — сервер може прокидатись");
+  assert.equal(c.$("linkTrouble").classList.contains("on"), false);
+
+  const now = Date.now();
+  c.win.Date.now = () => now + 60000;                          // минула хвилина
+  c.tap("mLink");
+  assert.ok(c.$("linkTrouble").classList.contains("on"), "пояснення з'явилось");
+  assert.ok(c.$("linkDot").classList.contains("trouble"), "індикатор став кнопкою");
+  const why = c.text("linkTroubleWhy");
+  assert.match(why, /tablo-srv\.onrender\.com/, "інший сервер, ніж сайт");
+  assert.match(why, /Render засинає/);
+  assert.match(c.text("linkGiveUp"), /Зупинити посилання/);
+
+  // звʼязок повернувся — пояснення зникає
+  const ws = WS.last();
+  WS.open(ws, "control");
+  assert.equal(c.$("linkTrouble").classList.contains("on"), false);
+  assert.match(c.text("linkDot"), /на звʼязку/);
+
+  // знову пропав надовго — зупиняємо без додаткових питань
+  c.win.confirm = () => { throw new Error("не має перепитувати"); };
+  ws.onclose({ code: 1006 });
+  c.win.Date.now = () => now + 200000;
+  c.tap("linkDot");
+  assert.ok(c.$("linkSheet").classList.contains("show"), "індикатор відкриває пояснення");
+  c.tap("linkGiveUp");
+  assert.equal(c.win.localStorage.getItem("volleyball:link"), null);
+  assert.equal(c.text("linkDot"), "");
+  assert.deepEqual(c.errors, []);
+});
+
+suite("пульт другого судді: застарілий ключ — пояснення одразу", (t) => {
+  const WS = fakeSockets();
+  const g = control({ WebSocket: WS, url: "https://tablo.example/index.html?room=ABC234&key=" + "k".repeat(32) });
+  t.after(g.close);
+  WS.last().onclose({ code: 4003 });
+  assert.ok(g.$("linkDot").classList.contains("trouble"));
+  g.tap("linkDot");
+  assert.ok(g.$("linkTrouble").classList.contains("on"));
+  assert.match(g.text("linkTroubleTitle"), /не приймає/);
+  assert.match(g.text("linkTroubleWhy"), /Ключ судді не підходить/);
+  assert.match(g.text("linkGiveUp"), /Відʼєднатися/);
+  g.tap("linkRetry");
+  assert.equal(WS.all.length, 2, "«Спробувати ще раз» — нове підключення");
+});
