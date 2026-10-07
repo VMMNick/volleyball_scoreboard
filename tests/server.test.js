@@ -81,8 +81,8 @@ suite("пульт передає стан глядачам, глядач отр�
   ctl.send({ type: "state", match: STATE });
   assert.equal((await v1.wait("state")).match, STATE);
 
-  ctl.send({ type: "prefs", prefs: { palette: "neon", sound: false, evil: "<script>" } });
-  assert.deepEqual((await v1.wait("prefs")).prefs, { palette: "neon", sound: false }, "лише дозволені поля");
+  ctl.send({ type: "prefs", prefs: { palette: "neon", sound: false, overlaySize: 20, overlayPos: "br", evil: "<script>" } });
+  assert.deepEqual((await v1.wait("prefs")).prefs, { palette: "neon", sound: false, overlaySize: 20, overlayPos: "br" }, "лише дозволені поля (і розмір із кутом накладки)");
 
   const late = client(s.url("room=abc234"));      // регістр не важливий
   await late.open();

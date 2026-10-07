@@ -62,6 +62,15 @@
   .stream .su{color:var(--chalk);font-size:14px;word-break:break-all;opacity:.85}
   .stream .sr2{display:flex;align-items:center;justify-content:space-between;gap:10px}
   .stream .hint2{font-size:12px;opacity:.85}
+  .stream .ovh{margin-top:6px;border-top:1px solid rgba(143,166,184,.25);padding-top:8px}
+  .stream .ovrow{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+  .stream .ovsz{display:flex;align-items:center;gap:6px}
+  .stream .ovsz b{min-width:44px;text-align:center;color:var(--chalk);font-size:16px}
+  .stream .ovb,.stream .ovpos button{min-width:32px;height:30px;border-radius:7px;border:1px solid rgba(143,166,184,.4);
+    background:none;color:var(--chalk);font:inherit;font-size:16px;cursor:pointer;padding:0 6px}
+  .stream .ovb:disabled{opacity:.35}
+  .stream .ovpos{display:grid;grid-template-columns:repeat(3,32px);gap:4px}
+  .stream .ovpos button[aria-pressed="true"]{background:var(--chalk);color:var(--court)}
   .stream .st.live{color:#7CE3A1}
   .stream .st.live::before{content:"● "}
   .stream .st.offline,.stream .st.rejected{color:var(--team-b)}
@@ -145,6 +154,13 @@
     <a class="su" id="mStreamUrl" target="_blank" rel="noopener"></a>
     <div class="sr2"><span><button class="linkbtn" id="mStreamCopy">Копіювати</button> · <button class="linkbtn" id="mStreamEmbed">Код для вставки</button></span><span class="st" id="mStreamSt"></span></div>
     <span class="hint2">У додатку — «Браузер» / «Веб-сторінка», розмір 640×200; зменшуйте чи збільшуйте як треба.</span>
+    <span class="ovh">Накладка для стріму з телефона (Prism Live тощо) — табло маленьке в кутку, решта прозора:</span>
+    <a class="su" id="mOvUrl" target="_blank" rel="noopener"></a>
+    <div class="ovrow">
+      <button class="linkbtn" id="mOvCopy">Копіювати</button>
+      <span class="ovsz"><button class="ovb" id="mOvMinus" aria-label="Зменшити табло">−</button><b class="num" id="mOvSize">35%</b><button class="ovb" id="mOvPlus" aria-label="Збільшити табло">+</button></span>
+      <span class="ovpos" id="mOvPos"><button data-pos="tl" aria-label="Зверху ліворуч">↖</button><button data-pos="tc" aria-label="Зверху посередині">↑</button><button data-pos="tr" aria-label="Зверху праворуч">↗</button><button data-pos="bl" aria-label="Знизу ліворуч">↙</button><button data-pos="bc" aria-label="Знизу посередині">↓</button><button data-pos="br" aria-label="Знизу праворуч">↘</button></span>
+    </div>
   </div>
   <p class="keys">1 / 2 — очко · Q / P — тайм-аут · Backspace — скасувати</p>
 </div>

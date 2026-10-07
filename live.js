@@ -28,8 +28,27 @@
       if (typeof p.timeoutSec === "number") prefs.timeoutSec = p.timeoutSec;
       if (typeof p.palette === "string") prefs.palette = P.byId(p.palette).id;
       if (typeof p.showServe === "boolean") prefs.showServe = p.showServe;
+      if (typeof p.overlaySize === "number") prefs.overlaySize = p.overlaySize;
+      if (typeof p.overlayPos === "string") prefs.overlayPos = p.overlayPos;
     } catch (e) {}
     P.apply(document.documentElement, prefs.palette);
+    applyOverlay();
+  }
+
+  /*
+   * Накладка (?overlay=1): розмір і кут — з адреси (&size=…&pos=…), якщо там задані,
+   * інакше — з пульта, тож їх можна міняти просто під час ефіру.
+   */
+  var q = {};
+  try { q = Object.fromEntries(new URLSearchParams(location.search)); } catch (e) {}
+  var overlay = "overlay" in q && q.overlay !== "0";
+
+  function applyOverlay() {
+    if (!overlay || !window.Remote) return;
+    var o = window.Remote.overlayNorm(q.size || prefs.overlaySize, q.pos || prefs.overlayPos);
+    var b = document.body;
+    b.style.setProperty("--ov", o.size);
+    window.Remote.OVERLAY_POS.forEach(function (p) { b.classList.toggle("pos-" + p, p === o.pos); });
   }
 
   var bug = window.Scorebug.create(document, M);
@@ -73,8 +92,12 @@
   var keep = false;
   try { keep = new URLSearchParams(location.search).get("fit") === "keep"; } catch (e) {}
   try { if (window.self !== window.top) keep = true; } catch (e) { keep = true; }
+  if (overlay) keep = false;                       // накладка має власне розміщення
   document.documentElement.classList.toggle("keep", keep);
   document.body.classList.toggle("keep", keep);
+  document.documentElement.classList.toggle("overlay", overlay);
+  document.body.classList.toggle("overlay", overlay);
+  applyOverlay();
 
   P.apply(document.documentElement, prefs.palette);
   render();

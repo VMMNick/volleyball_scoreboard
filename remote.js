@@ -111,6 +111,26 @@
   }
 
   /*
+   * Накладка для стрім-додатків, де веб-віджет займає весь екран і його не зменшити
+   * (Prism Live на телефоні тощо): табло маленьке в кутку, решта сторінки прозора.
+   * size — ширина табло у відсотках ширини екрана, pos — кут чи середина краю.
+   */
+  var OVERLAY_POS = ["tl", "tc", "tr", "bl", "bc", "br"];
+  var OVERLAY_DEFAULT = { size: 35, pos: "tl" };
+
+  function overlayNorm(size, pos) {
+    var n = Math.round(Number(size));
+    return {
+      size: isFinite(n) && n > 0 ? Math.max(10, Math.min(100, n)) : OVERLAY_DEFAULT.size,
+      pos: OVERLAY_POS.indexOf(pos) >= 0 ? pos : OVERLAY_DEFAULT.pos
+    };
+  }
+
+  function overlayUrl(boardUrl) {
+    return String(boardUrl) + (String(boardUrl).indexOf("?") >= 0 ? "&" : "?") + "overlay=1";
+  }
+
+  /*
    * Код для вставки міні-табло в іншу сторінку чи додаток. У <iframe> табло само тримає
    * пропорції й має прозорі поля, тож блок можна робити будь-якого розміру.
    */
@@ -145,5 +165,6 @@
 
   return { connect: connect, newRoom: newRoom, newKey: newKey, isRoom: isRoom,
            defaultServer: defaultServer, wsUrl: wsUrl, viewerLink: viewerLink,
-           LINK_KEY: LINK_KEY, loadLink: loadLink, ensureLink: ensureLink, embedCode: embedCode };
+           LINK_KEY: LINK_KEY, loadLink: loadLink, ensureLink: ensureLink, embedCode: embedCode,
+           OVERLAY_POS: OVERLAY_POS, overlayNorm: overlayNorm, overlayUrl: overlayUrl };
 });

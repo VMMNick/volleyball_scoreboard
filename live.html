@@ -87,6 +87,28 @@
   .board .serve svg{width:min(calc(var(--H) * .12),calc(var(--W) * .038));height:min(calc(var(--H) * .12),calc(var(--W) * .038))}
   .board .pts{font-size:min(calc(var(--H) * .42),calc(var(--W) * .13))}
 
+  /*
+   * ?overlay=1 — накладка для стрім-додатків, де веб-віджет на весь екран і не зменшується
+   * (Prism Live на телефоні тощо). Сторінка прозора, табло — маленьке в кутку.
+   * Ширину (--ov, % екрана) і кут (pos-…) задає пульт, а адреса може їх перекрити: &size=30&pos=br.
+   */
+  html.overlay,body.overlay{background:transparent}
+  body.overlay{--ov:35;--m:max(8px,2.5vmin);padding:0;overflow:hidden;
+    --W:min(calc(var(--ov) * 1vw),calc((100vh - 2 * var(--m)) * 3.2));--H:calc(var(--W) / 3.2)}
+  body.overlay:not(.waiting){display:block}
+  body.overlay .board,body.overlay .empty{position:fixed;margin:0}
+  body.overlay .board{border-radius:calc(var(--H) * .08);overflow:hidden;box-shadow:0 .4vmin 2vmin rgba(0,0,0,.35)}
+  body.overlay .empty{width:auto;max-width:var(--W);padding:6px 12px;border-radius:8px;
+    background:rgba(10,31,48,.85);font-size:clamp(11px,1.6vmin,16px);text-align:left}
+  body.overlay .empty .room-only br{display:none}
+  .pos-tl .board,.pos-tl .empty{top:var(--m);left:var(--m)}
+  .pos-tr .board,.pos-tr .empty{top:var(--m);right:var(--m)}
+  .pos-bl .board,.pos-bl .empty{bottom:var(--m);left:var(--m)}
+  .pos-br .board,.pos-br .empty{bottom:var(--m);right:var(--m)}
+  .pos-tc .board,.pos-tc .empty{top:var(--m);left:50%;transform:translateX(-50%)}
+  .pos-bc .board,.pos-bc .empty{bottom:var(--m);left:50%;transform:translateX(-50%)}
+  body.overlay .link-status,body.overlay .ctl-link{display:none!important}
+
   /* Статус і «Керування» не перекривають таблицю: статус — лише коли звʼязок не «наживо»,
      кнопка — під курсором (у накладці стріму курсора немає). */
   .link-status.live{display:none}

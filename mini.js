@@ -21,7 +21,7 @@
   var PREF = "volleyball:prefs";
 
   var match = M.createMatch();
-  var prefs = { timeoutSec: 30, palette: P.list[0].id, showServe: true, vibrate: true };
+  var prefs = { timeoutSec: 30, palette: P.list[0].id, showServe: true, vibrate: true, overlaySize: 35, overlayPos: "tl" };
   var dismissedTimeout = null;
   var tick = null;
   var bug = window.Scorebug.create(document, M);
@@ -52,6 +52,15 @@
     status = status || (conn ? conn.status() : "");
     $("mStreamUrl").textContent = boardUrl();
     $("mStreamUrl").href = boardUrl();
+    var ou = R.overlayUrl(boardUrl());
+    $("mOvUrl").textContent = ou;
+    $("mOvUrl").href = ou;
+    $("mOvSize").textContent = prefs.overlaySize + "%";
+    $("mOvMinus").disabled = prefs.overlaySize <= 10;
+    $("mOvPlus").disabled = prefs.overlaySize >= 100;
+    Array.prototype.forEach.call($("mOvPos").children, function (b) {
+      b.setAttribute("aria-pressed", String(b.dataset.pos === prefs.overlayPos));
+    });
     $("mStreamSt").className = "st " + status;
     $("mStreamSt").textContent = STREAM_TEXT[status] || "";
   }
@@ -108,8 +117,15 @@
       if (typeof p.palette === "string") prefs.palette = P.byId(p.palette).id;
       if (typeof p.showServe === "boolean") prefs.showServe = p.showServe;
       if (typeof p.vibrate === "boolean") prefs.vibrate = p.vibrate;
+      if (R && (p.overlaySize !== undefined || p.overlayPos !== undefined)) {
+        var o = R.overlayNorm(p.overlaySize !== undefined ? p.overlaySize : prefs.overlaySize,
+                              p.overlayPos !== undefined ? p.overlayPos : prefs.overlayPos);
+        prefs.overlaySize = o.size;
+        prefs.overlayPos = o.pos;
+      }
     } catch (e) {}
     P.apply(document.documentElement, prefs.palette);
+    if (R) paintStream();                                // розмір і кут накладки могли змінитись
   }
 
   function commit(next) {
@@ -246,6 +262,29 @@
       setTimeout(function () { btn.textContent = label; }, 1600);
     }).catch(function () {});
   }
+  /*
+   * Накладка змінюється звідси й без основного пульта: зберігаємо в спільні налаштування,
+   * сусіднім вкладкам — через канал, накладці в стрім-додатку — через сервер.
+   */
+  function setOverlay(size, pos) {
+    var o = R.overlayNorm(size, pos);
+    prefs.overlaySize = o.size;
+    prefs.overlayPos = o.pos;
+    var all = pultPrefs() || {};
+    all.overlaySize = o.size;
+    all.overlayPos = o.pos;
+    try { localStorage.setItem(PREF, JSON.stringify(all)); } catch (e) {}
+    if (channel) channel.postMessage({ type: "prefs", prefs: all });
+    linkSend({ type: "prefs", prefs: all });
+    paintStream();
+  }
+  $("mOvCopy").addEventListener("click", function () { copy($("mOvCopy"), R.overlayUrl(boardUrl())); });
+  $("mOvMinus").addEventListener("click", function () { setOverlay(prefs.overlaySize - 5, prefs.overlayPos); });
+  $("mOvPlus").addEventListener("click", function () { setOverlay(prefs.overlaySize + 5, prefs.overlayPos); });
+  $("mOvPos").addEventListener("click", function (e) {
+    var b = e.target.closest("button");
+    if (b) setOverlay(prefs.overlaySize, b.dataset.pos);
+  });
   $("mStreamCopy").addEventListener("click", function () { copy($("mStreamCopy"), boardUrl()); });
   $("mStreamEmbed").addEventListener("click", function () { copy($("mStreamEmbed"), R.embedCode(boardUrl())); });
 
