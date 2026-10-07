@@ -1,5 +1,5 @@
 /* Табло — волейбол. Офлайн-оболонка. */
-const CACHE = "volley-score-v18";
+const CACHE = "volley-score-v19";
 const SHELL = [
   "./",
   "./index.html",
@@ -33,7 +33,10 @@ const SHELL = [
 
 self.addEventListener("install", (e) => {
   e.waitUntil(
-    caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting())
+    // cache: "reload" — повз HTTP-кеш браузера: інакше нова версія могла б зберегти старі скрипти.
+    caches.open(CACHE)
+      .then((c) => c.addAll(SHELL.map((u) => new Request(u, { cache: "reload" }))))
+      .then(() => self.skipWaiting())
   );
 });
 

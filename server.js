@@ -63,7 +63,8 @@ function createServer(opts) {
       if (err) { res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" }).end("не знайдено"); return; }
       const headers = { "Content-Type": MIME[path.extname(file)] || "application/octet-stream" };
       // sw.js і сторінки — завжди свіжі, решта змінюється разом із версією кешу.
-      headers["Cache-Control"] = /\.(html|webmanifest)$|sw\.js$/.test(file) ? "no-cache" : "public, max-age=3600";
+      // Сторінки, скрипти й стилі — завжди свіжі (304, якщо не змінились), щоб після деплою не змішались версії.
+      headers["Cache-Control"] = /\.(html|webmanifest|js|css)$/.test(file) ? "no-cache" : "public, max-age=3600";
       headers["X-Content-Type-Options"] = "nosniff";
       res.writeHead(200, headers);
       res.end(req.method === "HEAD" ? undefined : data);

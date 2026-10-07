@@ -22,6 +22,7 @@ async function start(t) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "site-"));
   fs.writeFileSync(path.join(root, "index.html"), "<!doctype html><title>пульт</title>");
   fs.writeFileSync(path.join(root, "live.html"), "<!doctype html><title>live</title>");
+  fs.writeFileSync(path.join(root, "live.js"), "// live");
   const server = createServer({ root, pingMs: 60000 });
   await new Promise((r) => server.listen(0, "127.0.0.1", r));
   t.after(() => new Promise((r) => {
@@ -154,6 +155,8 @@ suite("статика, health і захист від ../", async (t) => {
   assert.equal(live.status, 200);
   assert.match(live.headers["content-type"], /text\/html/);
   assert.equal(live.headers["cache-control"], "no-cache");
+  const js = await get(s.port, "/live.js");
+  assert.equal(js.headers["cache-control"], "no-cache", "скрипти теж свіжі — інакше після деплою сторінка нова, а скрипт старий");
   assert.equal((await get(s.port, "/")).status, 200, "/ → index.html");
   assert.equal((await get(s.port, "/nope.js")).status, 404);
   assert.notEqual((await get(s.port, "/../server.js")).status, 200);
