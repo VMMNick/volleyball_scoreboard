@@ -441,3 +441,9 @@ suite("пульт: розмір міні-табла йде на сервер о�
   c.tap("mBoard");
   assert.equal(feat, "popup,width=220,height=69");
 });
+
+test("маленьке табло — лише таблиця: без плашки «чекаємо» і без фону", () => {
+  const css = liveHtml.slice(liveHtml.indexOf("<style>"), liveHtml.indexOf("</style>"));
+  assert.match(css, /body\.mini \.empty\{display:none!important\}/, "до першого очка — табло 0 : 0, а не плашка");
+  assert.match(css, /html\.mini,body\.mini\{background:transparent!important/, "фону немає");
+});

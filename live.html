@@ -75,11 +75,10 @@
   body:not(.keep):not(.waiting){display:block}
   html.mini,body.mini{min-height:0;overflow:hidden}
   body.mini{padding:0;display:block}
-  body.mini .empty{max-width:none;width:100%;height:100%;margin:0;padding:4px 8px;box-sizing:border-box;
-    background:var(--court-deep);border-radius:6px;font-size:max(10px,calc(var(--H) * .14));line-height:1.35;
-    display:none;align-items:center;justify-content:center;overflow:hidden}
-  body.mini.waiting .empty{display:flex}
-  body.mini .empty br{display:none}
+  /* Маленьке табло — лише таблиця: без підказок і плашок навіть до першого очка (тоді — 0 : 0). */
+  body.mini .empty{display:none!important}
+  body.mini.waiting .board{display:grid;width:var(--W);height:var(--H);max-width:none;border:0;box-shadow:none;
+    grid-template-rows:1fr 1fr}
   body.mini .link-status,body.mini .ctl-link{display:none!important}
   body:not(.waiting) .board{
     width:var(--W);height:var(--H);max-width:none;border:0;border-radius:0;box-shadow:none;
