@@ -263,12 +263,12 @@ suite("міні-пульт: «Табло окремо» — міні-табло 
   let opened = null;
   m.win.open = (url, name, features) => { opened = { url, name, features }; return {}; };
   m.tap("mBoardOut");
-  const code = /live\.html\?room=([A-Z0-9]{6})$/.exec(opened.url)[1];
-  assert.equal(opened.url, "https://tablo.example/live.html?room=" + code, "адреса працює в будь-якому браузері й програмі для стріму");
+  const code = /live\.html\?room=([A-Z0-9]{6})&size=100$/.exec(opened.url)[1];
+  assert.equal(opened.url, "https://tablo.example/live.html?room=" + code + "&size=100", "окреме вікно — табло на всю ширину вікна");
   assert.equal(opened.name, "volley-board", "повторне натискання не плодить вікна");
   assert.ok(m.win.document.body.classList.contains("controls"));
   assert.ok(m.$("mStream").classList.contains("on"), "адресу видно й можна скопіювати");
-  assert.equal(m.text("mStreamUrl"), opened.url);
+  assert.equal(m.text("mStreamUrl"), "https://tablo.example/live.html?room=" + code, "адреса для стріму — маленьке табло");
   assert.equal(JSON.parse(m.win.localStorage.getItem("volleyball:link")).room, code, "те саме посилання бачить основний пульт");
 
   // міні-пульт сам веде матч на сервері — основний пульт для цього не потрібен
@@ -301,7 +301,7 @@ suite("міні-пульт: наявне посилання підхоплює �
   let opened = null;
   m.win.open = (url) => { opened = url; return {}; };
   m.tap("mBoardOut");
-  assert.equal(opened, "https://tablo.example/live.html?room=ABC234");
+  assert.equal(opened, "https://tablo.example/live.html?room=ABC234&size=100");
 });
 
 suite("окреме міні-табло на цьому пристрої має «Керування ↗», у глядачів за посиланням — ні", (t) => {
@@ -338,10 +338,10 @@ suite("основний пульт: «Міні-табло окремо» — т�
   c.win.open = (url, name) => { opened = { url, name }; return {}; };
   c.tap("menuBtn");
   c.tap("mBoard");
-  assert.match(opened.url, /^https:\/\/tablo\.example\/live\.html\?room=[A-Z0-9]{6}$/);
+  assert.match(opened.url, /^https:\/\/tablo\.example\/live\.html\?room=[A-Z0-9]{6}&size=100$/);
   assert.equal(opened.name, "volley-board");
   assert.ok(c.$("linkSheet").classList.contains("show"), "одразу видно адресу для стріму");
-  assert.equal(c.text("linkBoard"), opened.url);
+  assert.equal(c.text("linkBoard") + "&size=100", opened.url);
   WS.open(WS.last(), "control");
   assert.equal(WS.last().sent[0].type, "state");
 

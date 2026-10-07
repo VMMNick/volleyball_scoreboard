@@ -30,7 +30,7 @@
 
   var match = M.createMatch();
   var prefs = { vibrate: true, timeoutSec: TIMEOUT_SEC, palette: PALETTES[0].id, showServe: true, sound: true,
-                boardWidth: 300 };
+                boardPct: 30 };
   var rotTimer = null, toTimer = null, toEndsAt = 0;
 
   function $(id) { return document.getElementById(id); }
@@ -74,7 +74,7 @@
           if (typeof p.sound === "boolean") prefs.sound = p.sound;
           if (typeof p.timeoutSec === "number") prefs.timeoutSec = p.timeoutSec;
           if (typeof p.palette === "string") prefs.palette = paletteById(p.palette).id;
-          takeBoardWidth(p);
+          takeBoardPct(p);
         }
       } catch (e) {}
     }
@@ -480,7 +480,7 @@
       if (typeof p.palette === "string") prefs.palette = paletteById(p.palette).id;
       if (typeof p.showServe === "boolean") prefs.showServe = p.showServe;
       if (typeof p.sound === "boolean") prefs.sound = p.sound;
-      takeBoardWidth(p);
+      takeBoardPct(p);
       applyPalette(prefs.palette);
       savePrefs(true);
       render();
@@ -647,7 +647,7 @@
     $("linkJudge").textContent = j;
     $("linkJudge").href = j;
     $("linkStop").textContent = link.guest ? "Відʼєднатися від матчу" : "Закрити посилання";
-    paintBoardWidth();
+    paintBoardPct();
     if (trouble) {
       $("linkTroubleTitle").textContent = status === "rejected" ? "Сервер не приймає це посилання" : "Немає звʼязку із сервером";
       $("linkTroubleWhy").innerHTML = troubleReasons(status).map(function (t) { return "<li>" + U.esc(t) + "</li>"; }).join("");
@@ -657,26 +657,26 @@
 
   /* ---------- розмір окремого міні-табла ---------- */
 
-  function takeBoardWidth(p) {
-    if (p && p.boardWidth !== undefined) prefs.boardWidth = R.boardWidthNorm(p.boardWidth);
+  function takeBoardPct(p) {
+    if (p && p.boardPct !== undefined) prefs.boardPct = R.boardPctNorm(p.boardPct);
   }
 
-  function setBoardWidth(w) {
-    prefs.boardWidth = R.boardWidthNorm(w);
+  function setBoardPct(w) {
+    prefs.boardPct = R.boardPctNorm(w);
     savePrefs();                                         // табло оновиться одразу, навіть в ефірі
-    paintBoardWidth();
+    paintBoardPct();
   }
 
-  function paintBoardWidth() {
-    var w = prefs.boardWidth, B = R.BOARD_WIDTH;
-    $("bwSize").textContent = w + "×" + Math.round(w / 3.2);
+  function paintBoardPct() {
+    var w = prefs.boardPct, B = R.BOARD_PCT;
+    $("bwSize").textContent = w + " %";
     $("bwMinus").disabled = w <= B.min;
     $("bwPlus").disabled = w >= B.max;
   }
 
-  /* Окреме вікно — рівно розміром із табло. */
+  /* Окреме вікно з пульта — невелике, табло в ньому на всю ширину. */
   function boardPopupFeatures() {
-    return "popup,width=" + prefs.boardWidth + ",height=" + Math.round(prefs.boardWidth / 3.2);
+    return "popup,width=480,height=150";
   }
 
   function copyText(btn, text, label) {
@@ -948,7 +948,7 @@
       var l = R.ensureLink(localStorage, location);
       if (l) { link = l; startLinkConn(); }
     }
-    var w = window.open(link ? boardUrl() : "./live.html", "volley-board", boardPopupFeatures());
+    var w = window.open(R.fullBoardUrl(link ? boardUrl() : "./live.html"), "volley-board", boardPopupFeatures());
     if (link) { paintLink(); openSheet("linkSheet"); return; }   // тут же — адреса для копіювання
     if (w) return;
     var btn = $("mBoard");
@@ -980,8 +980,8 @@
     if (confirm(q)) closeLink();
   });
   $("linkBoardCopy").addEventListener("click", function () { copyText($("linkBoardCopy"), boardUrl(), "Копіювати"); });
-  $("bwMinus").addEventListener("click", function () { setBoardWidth(prefs.boardWidth - R.BOARD_WIDTH.step); });
-  $("bwPlus").addEventListener("click", function () { setBoardWidth(prefs.boardWidth + R.BOARD_WIDTH.step); });
+  $("bwMinus").addEventListener("click", function () { setBoardPct(prefs.boardPct - R.BOARD_PCT.step); });
+  $("bwPlus").addEventListener("click", function () { setBoardPct(prefs.boardPct + R.BOARD_PCT.step); });
   $("linkBoardEmbed").addEventListener("click", function () { copyText($("linkBoardEmbed"), R.embedCode(boardUrl()), "Код для вставки"); });
   $("linkJudgeCopy").addEventListener("click", function () { copyText($("linkJudgeCopy"), judgeUrl(), "Копіювати"); });
   $("segTeam").addEventListener("click", function (e) {
@@ -1084,7 +1084,7 @@
       } else if (d.type === "state" && d.match) {
         takeState(d.match, false);                       // міні-пульт у сусідній вкладці
       } else if (d.type === "prefs" && d.prefs) {
-        takeBoardWidth(d.prefs);                         // розмір міні-табла змінили в міні-пульті
+        takeBoardPct(d.prefs);                         // розмір міні-табла змінили в міні-пульті
         if (link) paintLink();
       }
     };

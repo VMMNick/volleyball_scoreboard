@@ -28,7 +28,7 @@
       if (typeof p.timeoutSec === "number") prefs.timeoutSec = p.timeoutSec;
       if (typeof p.palette === "string") prefs.palette = P.byId(p.palette).id;
       if (typeof p.showServe === "boolean") prefs.showServe = p.showServe;
-      if (typeof p.boardWidth === "number") prefs.boardWidth = p.boardWidth;
+      if (typeof p.boardPct === "number") prefs.boardPct = p.boardPct;
     } catch (e) {}
     P.apply(document.documentElement, prefs.palette);
     applySize();
@@ -36,8 +36,8 @@
 
   /*
    * Режим сторінки: fill — на все вікно; keep — тримає пропорції в будь-якому блоці (iframe);
-   * mini (типово) — сторінка сама маленька, таблиця фіксованого розміру. Ширину задає адреса
-   * (&w=…) або пульт — тоді її можна міняти просто під час ефіру.
+   * mini (типово) — маленька таблиця в лівому верхньому куті, решта прозора. Ширину (% екрана)
+   * задає адреса (&size=…) або пульт — тоді її можна міняти просто під час ефіру.
    */
   var q = {};
   try { q = Object.fromEntries(new URLSearchParams(location.search)); } catch (e) {}
@@ -47,14 +47,10 @@
 
   function applySize() {
     if (mode !== "mini" || !window.Remote) return;
-    var w = window.Remote.boardWidthNorm(q.w || prefs.boardWidth);
-    var h = Math.round(w / 3.2);
-    [document.documentElement, document.body].forEach(function (el) {
-      el.style.width = w + "px";
-      el.style.height = h + "px";
-    });
-    document.body.style.setProperty("--W", w + "px");
-    document.body.style.setProperty("--H", h + "px");
+    // Відсоток ширини екрана чи віджета: решта сторінки прозора.
+    var pct = window.Remote.boardPctNorm(q.size || prefs.boardPct);
+    document.body.style.setProperty("--W", pct + "vw");
+    document.body.style.setProperty("--H", "calc(" + pct + "vw / 3.2)");
   }
 
   var bug = window.Scorebug.create(document, M);

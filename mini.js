@@ -21,7 +21,7 @@
   var PREF = "volleyball:prefs";
 
   var match = M.createMatch();
-  var prefs = { timeoutSec: 30, palette: P.list[0].id, showServe: true, vibrate: true, boardWidth: 300 };
+  var prefs = { timeoutSec: 30, palette: P.list[0].id, showServe: true, vibrate: true, boardPct: 30 };
   var dismissedTimeout = null;
   var tick = null;
   var bug = window.Scorebug.create(document, M);
@@ -52,9 +52,9 @@
     status = status || (conn ? conn.status() : "");
     $("mStreamUrl").textContent = boardUrl();
     $("mStreamUrl").href = boardUrl();
-    $("mBwSize").textContent = prefs.boardWidth + "×" + Math.round(prefs.boardWidth / 3.2);
-    $("mBwMinus").disabled = prefs.boardWidth <= R.BOARD_WIDTH.min;
-    $("mBwPlus").disabled = prefs.boardWidth >= R.BOARD_WIDTH.max;
+    $("mBwSize").textContent = prefs.boardPct + " %";
+    $("mBwMinus").disabled = prefs.boardPct <= R.BOARD_PCT.min;
+    $("mBwPlus").disabled = prefs.boardPct >= R.BOARD_PCT.max;
     $("mStreamSt").className = "st " + status;
     $("mStreamSt").textContent = STREAM_TEXT[status] || "";
   }
@@ -111,7 +111,7 @@
       if (typeof p.palette === "string") prefs.palette = P.byId(p.palette).id;
       if (typeof p.showServe === "boolean") prefs.showServe = p.showServe;
       if (typeof p.vibrate === "boolean") prefs.vibrate = p.vibrate;
-      if (R && p.boardWidth !== undefined) prefs.boardWidth = R.boardWidthNorm(p.boardWidth);
+      if (R && p.boardPct !== undefined) prefs.boardPct = R.boardPctNorm(p.boardPct);
     } catch (e) {}
     P.apply(document.documentElement, prefs.palette);
     if (R) paintStream();                                // розмір і кут накладки могли змінитись
@@ -233,7 +233,7 @@
       var l = R.ensureLink(localStorage, location);
       if (l) connectLink(l);
     }
-    var w = window.open(boardUrl(), "volley-board", "popup,width=" + prefs.boardWidth + ",height=" + Math.round(prefs.boardWidth / 3.2));
+    var w = window.open(R.fullBoardUrl(boardUrl()), "volley-board", "popup,width=480,height=150");
     // Маленьке вікно заблоковане — тоді посилання саме відкриє табло в новій вкладці.
     if (w && e) e.preventDefault();
     setView(true, true);                                 // табло тепер окремо — тут лишаємо кнопки
@@ -255,17 +255,17 @@
    * Розмір окремого міні-табла змінюється звідси й без основного пульта: у спільні
    * налаштування, сусіднім вкладкам — через канал, табло в стрім-додатку — через сервер.
    */
-  function setBoardWidth(w) {
-    prefs.boardWidth = R.boardWidthNorm(w);
+  function setBoardPct(w) {
+    prefs.boardPct = R.boardPctNorm(w);
     var all = pultPrefs() || {};
-    all.boardWidth = prefs.boardWidth;
+    all.boardPct = prefs.boardPct;
     try { localStorage.setItem(PREF, JSON.stringify(all)); } catch (e) {}
     if (channel) channel.postMessage({ type: "prefs", prefs: all });
     linkSend({ type: "prefs", prefs: all });
     paintStream();
   }
-  $("mBwMinus").addEventListener("click", function () { setBoardWidth(prefs.boardWidth - R.BOARD_WIDTH.step); });
-  $("mBwPlus").addEventListener("click", function () { setBoardWidth(prefs.boardWidth + R.BOARD_WIDTH.step); });
+  $("mBwMinus").addEventListener("click", function () { setBoardPct(prefs.boardPct - R.BOARD_PCT.step); });
+  $("mBwPlus").addEventListener("click", function () { setBoardPct(prefs.boardPct + R.BOARD_PCT.step); });
   $("mStreamCopy").addEventListener("click", function () { copy($("mStreamCopy"), boardUrl()); });
   $("mStreamEmbed").addEventListener("click", function () { copy($("mStreamEmbed"), R.embedCode(boardUrl())); });
 

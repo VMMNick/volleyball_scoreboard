@@ -394,52 +394,52 @@ suite("пульт: «Код для вставки» копіює iframe з по�
   assert.match(copied, new RegExp('^<iframe src="' + c.text("linkBoard").replace(/[.?]/g, "\\$&") + '"'));
 });
 
-suite("окреме міні-табло одразу маленьке: сторінка фіксованого розміру, ширина з адреси чи пульта", (t) => {
+suite("окреме міні-табло одразу маленьке: % ширини екрана, решта прозора; розмір з адреси чи пульта", (t) => {
   const WS = fakeSockets();
   const l = live({ url: "https://tablo.example/live.html?room=ABC234", WebSocket: WS });
   t.after(l.close);
   const doc = l.win.document;
-  assert.ok(doc.body.classList.contains("mini"), "за замовчуванням — маленька сторінка");
+  assert.ok(doc.body.classList.contains("mini"), "за замовчуванням — маленьке табло");
   assert.ok(doc.documentElement.classList.contains("mini"), "поля прозорі");
-  assert.equal(doc.documentElement.style.width, "300px");
-  assert.equal(doc.documentElement.style.height, "94px", "пропорції 3,2 : 1");
-  assert.equal(doc.body.style.getPropertyValue("--W"), "300px");
+  assert.equal(doc.body.style.getPropertyValue("--W"), "30vw", "типово — 30 % ширини екрана чи віджета");
+  assert.equal(doc.body.style.getPropertyValue("--H"), "calc(30vw / 3.2)", "пропорції 3,2 : 1");
 
   const ws = WS.last();
   WS.open(ws, "viewer");
-  WS.serve(ws, { type: "prefs", prefs: { boardWidth: 220 } });
-  assert.equal(doc.documentElement.style.width, "220px", "пульт зменшив табло під час ефіру");
-  WS.serve(ws, { type: "prefs", prefs: { boardWidth: 99999 } });
-  assert.equal(doc.documentElement.style.width, "1280px", "межі 160–1280 px");
+  WS.serve(ws, { type: "prefs", prefs: { boardPct: 20 } });
+  assert.equal(doc.body.style.getPropertyValue("--W"), "20vw", "пульт зменшив табло під час ефіру");
+  WS.serve(ws, { type: "prefs", prefs: { boardPct: 500 } });
+  assert.equal(doc.body.style.getPropertyValue("--W"), "100vw", "межі 10–100 %");
 
-  const fixed = live({ url: "https://tablo.example/live.html?room=ABC234&w=200", WebSocket: fakeSockets() });
+  const fixed = live({ url: "https://tablo.example/live.html?room=ABC234&size=15", WebSocket: fakeSockets() });
   t.after(fixed.close);
-  assert.equal(fixed.win.document.documentElement.style.width, "200px", "адреса перекриває пульт");
+  assert.equal(fixed.win.document.body.style.getPropertyValue("--W"), "15vw", "адреса перекриває пульт");
 
   const fill = live({ url: "https://tablo.example/live.html?room=ABC234&fit=fill", WebSocket: fakeSockets() });
   t.after(fill.close);
   assert.ok(fill.win.document.body.classList.contains("fill"));
-  assert.equal(fill.win.document.documentElement.style.width, "", "fill — на все вікно");
+  assert.equal(fill.win.document.body.style.getPropertyValue("--W"), "", "fill — на все вікно");
 });
 
-suite("пульт: розмір міні-табла йде на сервер одразу, вікно табла — рівно його розміру", (t) => {
+suite("пульт: розмір міні-табла (%) йде на сервер одразу", (t) => {
   const WS = fakeSockets();
   const c = control({ WebSocket: WS });
   t.after(c.close);
   createLink(c);
   const ws = WS.last();
   WS.open(ws, "control");
-  assert.equal(c.text("bwSize"), "300×94");
+  assert.equal(c.text("bwSize"), "30 %");
   c.tap("bwMinus"); c.tap("bwMinus");
   const p = ws.sent.filter((m) => m.type === "prefs").pop().prefs;
-  assert.equal(p.boardWidth, 220);
-  assert.equal(c.text("bwSize"), "220×69");
-  assert.equal(JSON.parse(c.win.localStorage.getItem("volleyball:prefs")).boardWidth, 220, "переживає перезавантаження");
-  let feat = null;
-  c.win.open = (url, name, f) => { feat = f; return {}; };
+  assert.equal(p.boardPct, 20);
+  assert.equal(c.text("bwSize"), "20 %");
+  assert.equal(JSON.parse(c.win.localStorage.getItem("volleyball:prefs")).boardPct, 20, "переживає перезавантаження");
+  let opened = null;
+  c.win.open = (url, name, f) => { opened = { url, f }; return {}; };
   c.tap("menuBtn");
   c.tap("mBoard");
-  assert.equal(feat, "popup,width=220,height=69");
+  assert.match(opened.url, /live\.html\?room=[A-Z0-9]{6}&size=100$/, "окреме вікно — табло на всю ширину вікна");
+  assert.equal(opened.f, "popup,width=480,height=150");
 });
 
 test("маленьке табло — лише таблиця: без плашки «чекаємо» і без фону", () => {

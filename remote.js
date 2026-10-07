@@ -111,14 +111,20 @@
   }
 
   /*
-   * Ширина окремого міні-табла (px): сторінка сама такого розміру, тож у будь-якому
-   * додатку — і в стрім-додатках на телефоні — табло одразу маленьке.
+   * Ширина окремого міні-табла — у відсотках ширини екрана чи віджета, де його показують
+   * (решта прозора). Тож у будь-якому додатку, зокрема в Prism Live на телефоні,
+   * табло займає лише стільки, скільки задано, — типово 30 %.
    */
-  var BOARD_WIDTH = { min: 160, max: 1280, step: 40, def: 300 };
+  var BOARD_PCT = { min: 10, max: 100, step: 5, def: 30 };
 
-  function boardWidthNorm(w) {
+  function boardPctNorm(w) {
     var n = Math.round(Number(w));
-    return isFinite(n) && n > 0 ? Math.max(BOARD_WIDTH.min, Math.min(BOARD_WIDTH.max, n)) : BOARD_WIDTH.def;
+    return isFinite(n) && n > 0 ? Math.max(BOARD_PCT.min, Math.min(BOARD_PCT.max, n)) : BOARD_PCT.def;
+  }
+
+  /* Адреса табла, що заповнює вікно повністю — для окремого вікна з пульта. */
+  function fullBoardUrl(url) {
+    return String(url) + (String(url).indexOf("?") >= 0 ? "&" : "?") + "size=100";
   }
 
   /*
@@ -157,5 +163,5 @@
   return { connect: connect, newRoom: newRoom, newKey: newKey, isRoom: isRoom,
            defaultServer: defaultServer, wsUrl: wsUrl, viewerLink: viewerLink,
            LINK_KEY: LINK_KEY, loadLink: loadLink, ensureLink: ensureLink, embedCode: embedCode,
-           BOARD_WIDTH: BOARD_WIDTH, boardWidthNorm: boardWidthNorm };
+           BOARD_PCT: BOARD_PCT, boardPctNorm: boardPctNorm, fullBoardUrl: fullBoardUrl };
 });
