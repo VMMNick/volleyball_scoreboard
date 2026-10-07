@@ -111,23 +111,14 @@
   }
 
   /*
-   * Накладка для стрім-додатків, де веб-віджет займає весь екран і його не зменшити
-   * (Prism Live на телефоні тощо): табло маленьке в кутку, решта сторінки прозора.
-   * size — ширина табло у відсотках ширини екрана, pos — кут чи середина краю.
+   * Ширина окремого міні-табла (px): сторінка сама такого розміру, тож у будь-якому
+   * додатку — і в стрім-додатках на телефоні — табло одразу маленьке.
    */
-  var OVERLAY_POS = ["tl", "tc", "tr", "bl", "bc", "br"];
-  var OVERLAY_DEFAULT = { size: 35, pos: "tl" };
+  var BOARD_WIDTH = { min: 160, max: 1280, step: 40, def: 300 };
 
-  function overlayNorm(size, pos) {
-    var n = Math.round(Number(size));
-    return {
-      size: isFinite(n) && n > 0 ? Math.max(10, Math.min(100, n)) : OVERLAY_DEFAULT.size,
-      pos: OVERLAY_POS.indexOf(pos) >= 0 ? pos : OVERLAY_DEFAULT.pos
-    };
-  }
-
-  function overlayUrl(boardUrl) {
-    return String(boardUrl) + (String(boardUrl).indexOf("?") >= 0 ? "&" : "?") + "overlay=1";
+  function boardWidthNorm(w) {
+    var n = Math.round(Number(w));
+    return isFinite(n) && n > 0 ? Math.max(BOARD_WIDTH.min, Math.min(BOARD_WIDTH.max, n)) : BOARD_WIDTH.def;
   }
 
   /*
@@ -166,5 +157,5 @@
   return { connect: connect, newRoom: newRoom, newKey: newKey, isRoom: isRoom,
            defaultServer: defaultServer, wsUrl: wsUrl, viewerLink: viewerLink,
            LINK_KEY: LINK_KEY, loadLink: loadLink, ensureLink: ensureLink, embedCode: embedCode,
-           OVERLAY_POS: OVERLAY_POS, overlayNorm: overlayNorm, overlayUrl: overlayUrl };
+           BOARD_WIDTH: BOARD_WIDTH, boardWidthNorm: boardWidthNorm };
 });

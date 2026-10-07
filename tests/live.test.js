@@ -148,7 +148,7 @@ test("окреме міні-табло — сама таблиця: лише н�
   assert.match(css, /\.board \.cols,\.board \.foot,\.board \.sets\{display:none\}/, "без підписів «команда / сети / очки», без колонки сетів і нижнього рядка");
   assert.match(css, /--W:100vw;--H:100vh/, "за замовчуванням таблиця на всю сторінку, без полів довкола");
   assert.match(css, /width:var\(--W\);height:var\(--H\)/, "розміри — від розміру таблиці, тож її можна масштабувати");
-  assert.equal(/\d+vh|\d+vw/.test(css.slice(css.indexOf(".board .row{"), css.indexOf("?overlay=1"))), false, "у самій таблиці — жодних прямих vh/vw");
+  assert.equal(/\d+vh|\d+vw/.test(css.slice(css.indexOf(".board .row{"), css.indexOf("/* Статус і «Керування»"))), false, "у самій таблиці — жодних прямих vh/vw");
 });
 
 /* ---------- за посиланням на матч (через сервер) ---------- */
@@ -394,47 +394,50 @@ suite("пульт: «Код для вставки» копіює iframe з по�
   assert.match(copied, new RegExp('^<iframe src="' + c.text("linkBoard").replace(/[.?]/g, "\\$&") + '"'));
 });
 
-suite("накладка для стріму з телефона: ?overlay=1 — маленьке табло в кутку, розмір і кут з пульта", (t) => {
+suite("окреме міні-табло одразу маленьке: сторінка фіксованого розміру, ширина з адреси чи пульта", (t) => {
   const WS = fakeSockets();
-  const l = live({ url: "https://tablo.example/live.html?room=ABC234&overlay=1", WebSocket: WS });
+  const l = live({ url: "https://tablo.example/live.html?room=ABC234", WebSocket: WS });
   t.after(l.close);
-  const body = l.win.document.body;
-  assert.ok(body.classList.contains("overlay"));
-  assert.ok(l.win.document.documentElement.classList.contains("overlay"), "сторінка прозора");
-  assert.equal(body.style.getPropertyValue("--ov"), "35", "за замовчуванням — третина ширини");
-  assert.ok(body.classList.contains("pos-tl"));
+  const doc = l.win.document;
+  assert.ok(doc.body.classList.contains("mini"), "за замовчуванням — маленька сторінка");
+  assert.ok(doc.documentElement.classList.contains("mini"), "поля прозорі");
+  assert.equal(doc.documentElement.style.width, "300px");
+  assert.equal(doc.documentElement.style.height, "94px", "пропорції 3,2 : 1");
+  assert.equal(doc.body.style.getPropertyValue("--W"), "300px");
 
   const ws = WS.last();
   WS.open(ws, "viewer");
-  WS.serve(ws, { type: "prefs", prefs: { overlaySize: 20, overlayPos: "br" } });
-  assert.equal(body.style.getPropertyValue("--ov"), "20", "пульт зменшив табло під час ефіру");
-  assert.ok(body.classList.contains("pos-br"));
-  assert.equal(body.classList.contains("pos-tl"), false);
-  WS.serve(ws, { type: "prefs", prefs: { overlaySize: 5000, overlayPos: "nowhere" } });
-  assert.equal(body.style.getPropertyValue("--ov"), "100", "межі 10–100 %");
-  assert.ok(body.classList.contains("pos-tl"), "невідомий кут — типовий");
+  WS.serve(ws, { type: "prefs", prefs: { boardWidth: 220 } });
+  assert.equal(doc.documentElement.style.width, "220px", "пульт зменшив табло під час ефіру");
+  WS.serve(ws, { type: "prefs", prefs: { boardWidth: 99999 } });
+  assert.equal(doc.documentElement.style.width, "1280px", "межі 160–1280 px");
 
-  const fixed = live({ url: "https://tablo.example/live.html?room=ABC234&overlay=1&size=25&pos=bc", WebSocket: fakeSockets() });
+  const fixed = live({ url: "https://tablo.example/live.html?room=ABC234&w=200", WebSocket: fakeSockets() });
   t.after(fixed.close);
-  assert.equal(fixed.win.document.body.style.getPropertyValue("--ov"), "25", "адреса перекриває пульт");
-  assert.ok(fixed.win.document.body.classList.contains("pos-bc"));
+  assert.equal(fixed.win.document.documentElement.style.width, "200px", "адреса перекриває пульт");
+
+  const fill = live({ url: "https://tablo.example/live.html?room=ABC234&fit=fill", WebSocket: fakeSockets() });
+  t.after(fill.close);
+  assert.ok(fill.win.document.body.classList.contains("fill"));
+  assert.equal(fill.win.document.documentElement.style.width, "", "fill — на все вікно");
 });
 
-suite("пульт: розмір і кут накладки йдуть на сервер одразу", (t) => {
+suite("пульт: розмір міні-табла йде на сервер одразу, вікно табла — рівно його розміру", (t) => {
   const WS = fakeSockets();
   const c = control({ WebSocket: WS });
   t.after(c.close);
   createLink(c);
   const ws = WS.last();
   WS.open(ws, "control");
-  assert.match(c.text("linkOverlay"), /live\.html\?room=[A-Z0-9]{6}&overlay=1$/);
-  assert.equal(c.text("ovSize"), "35%");
-  c.tap("ovMinus"); c.tap("ovMinus");
-  let p = ws.sent.filter((m) => m.type === "prefs").pop().prefs;
-  assert.equal(p.overlaySize, 25);
-  c.$("ovPos").querySelector('[data-pos="br"]').dispatchEvent(new c.win.Event("click", { bubbles: true }));
-  p = ws.sent.filter((m) => m.type === "prefs").pop().prefs;
-  assert.equal(p.overlayPos, "br");
-  assert.equal(c.text("ovSize"), "25%");
-  assert.equal(JSON.parse(c.win.localStorage.getItem("volleyball:prefs")).overlayPos, "br", "переживає перезавантаження");
+  assert.equal(c.text("bwSize"), "300×94");
+  c.tap("bwMinus"); c.tap("bwMinus");
+  const p = ws.sent.filter((m) => m.type === "prefs").pop().prefs;
+  assert.equal(p.boardWidth, 220);
+  assert.equal(c.text("bwSize"), "220×69");
+  assert.equal(JSON.parse(c.win.localStorage.getItem("volleyball:prefs")).boardWidth, 220, "переживає перезавантаження");
+  let feat = null;
+  c.win.open = (url, name, f) => { feat = f; return {}; };
+  c.tap("menuBtn");
+  c.tap("mBoard");
+  assert.equal(feat, "popup,width=220,height=69");
 });

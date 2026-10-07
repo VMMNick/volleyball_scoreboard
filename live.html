@@ -58,25 +58,33 @@
 
   /*
    * Окреме міні-табло — сама таблиця: лише назви команд і лічильник.
-   * Усі розміри — від розміру таблиці (--W × --H), тож її можна вставити в будь-який
-   * додаток чи сторінку й зменшувати або збільшувати як завгодно.
-   *   за замовчуванням       — таблиця на все вікно, без полів;
-   *   ?fit=keep              — тримає пропорції (3,2 : 1) і стає посередині, а поля довкола
-   *                            прозорі: вікно чи блок у додатку можна тягнути як завгодно;
-   *   у <iframe> на іншій сторінці — так само, як ?fit=keep.
+   * Усі розміри — від розміру таблиці (--W × --H).
+   *   за замовчуванням — сторінка сама маленька: таблиця фіксованого розміру (типово 300×94 px,
+   *                      змінюється в пульті чи адресою &w=…), решта прозора. Так табло одразу
+   *                      маленьке в будь-якому додатку, зокрема в стрім-додатках на телефоні;
+   *   ?fit=fill        — таблиця на все вікно, без полів;
+   *   ?fit=keep, <iframe> — тримає пропорції (3,2 : 1) у будь-якому блоці, поля прозорі.
    */
   html,body{background:var(--court-deep)}
   body:not(.waiting){padding:0;overflow:hidden}
   #live{top:0;left:0}
   body{--W:100vw;--H:100vh}
   body.keep{--H:min(100vh,calc(100vw / 3.2));--W:calc(var(--H) * 3.2)}
-  html.keep,body.keep{background:transparent}
+  html.keep,body.keep,html.mini,body.mini{background:transparent!important;box-shadow:none}
   body.keep:not(.waiting){display:flex;align-items:center;justify-content:center}
   body:not(.keep):not(.waiting){display:block}
+  html.mini,body.mini{min-height:0;overflow:hidden}
+  body.mini{padding:0;display:block}
+  body.mini .empty{max-width:none;width:100%;height:100%;margin:0;padding:4px 8px;box-sizing:border-box;
+    background:var(--court-deep);border-radius:6px;font-size:max(10px,calc(var(--H) * .14));line-height:1.35;
+    display:none;align-items:center;justify-content:center;overflow:hidden}
+  body.mini.waiting .empty{display:flex}
+  body.mini .empty br{display:none}
+  body.mini .link-status,body.mini .ctl-link{display:none!important}
   body:not(.waiting) .board{
     width:var(--W);height:var(--H);max-width:none;border:0;border-radius:0;box-shadow:none;
     display:grid;grid-template-rows:1fr 1fr}
-  body.keep .board{border-radius:calc(var(--H) * .06)}
+  body.keep .board,body.mini .board{border-radius:calc(var(--H) * .06)}
   .board .cols,.board .foot,.board .sets{display:none}
   .board .row{
     grid-template-columns:min(calc(var(--W) * .022),calc(var(--H) * .03)) 1fr
@@ -86,28 +94,6 @@
   .board .name{font-size:min(calc(var(--H) * .24),calc(var(--W) * .07));padding:0 min(calc(var(--H) * .04),calc(var(--W) * .024))}
   .board .serve svg{width:min(calc(var(--H) * .12),calc(var(--W) * .038));height:min(calc(var(--H) * .12),calc(var(--W) * .038))}
   .board .pts{font-size:min(calc(var(--H) * .42),calc(var(--W) * .13))}
-
-  /*
-   * ?overlay=1 — накладка для стрім-додатків, де веб-віджет на весь екран і не зменшується
-   * (Prism Live на телефоні тощо). Сторінка прозора, табло — маленьке в кутку.
-   * Ширину (--ov, % екрана) і кут (pos-…) задає пульт, а адреса може їх перекрити: &size=30&pos=br.
-   */
-  html.overlay,body.overlay{background:transparent}
-  body.overlay{--ov:35;--m:max(8px,2.5vmin);padding:0;overflow:hidden;
-    --W:min(calc(var(--ov) * 1vw),calc((100vh - 2 * var(--m)) * 3.2));--H:calc(var(--W) / 3.2)}
-  body.overlay:not(.waiting){display:block}
-  body.overlay .board,body.overlay .empty{position:fixed;margin:0}
-  body.overlay .board{border-radius:calc(var(--H) * .08);overflow:hidden;box-shadow:0 .4vmin 2vmin rgba(0,0,0,.35)}
-  body.overlay .empty{width:auto;max-width:var(--W);padding:6px 12px;border-radius:8px;
-    background:rgba(10,31,48,.85);font-size:clamp(11px,1.6vmin,16px);text-align:left}
-  body.overlay .empty .room-only br{display:none}
-  .pos-tl .board,.pos-tl .empty{top:var(--m);left:var(--m)}
-  .pos-tr .board,.pos-tr .empty{top:var(--m);right:var(--m)}
-  .pos-bl .board,.pos-bl .empty{bottom:var(--m);left:var(--m)}
-  .pos-br .board,.pos-br .empty{bottom:var(--m);right:var(--m)}
-  .pos-tc .board,.pos-tc .empty{top:var(--m);left:50%;transform:translateX(-50%)}
-  .pos-bc .board,.pos-bc .empty{bottom:var(--m);left:50%;transform:translateX(-50%)}
-  body.overlay .link-status,body.overlay .ctl-link{display:none!important}
 
   /* Статус і «Керування» не перекривають таблицю: статус — лише коли звʼязок не «наживо»,
      кнопка — під курсором (у накладці стріму курсора немає). */
@@ -143,9 +129,9 @@
   </div>
 </main>
 <p class="empty" id="lEmpty">
-  <span class="room-only">Чекаємо на пульт судді…<br>Рахунок зʼявиться, щойно суддя почне матч.</span>
-  <span class="local-only" id="lEmptyLocal">Це табло показує рахунок лише з пульта, відкритого <b>в цьому ж браузері</b>.<br>
-    Для стріму, іншої програми чи пристрою візьміть посилання в пульті:<br><b>Меню → Посилання на матч → Міні-табло</b>.</span>
+  <span class="room-only">Чекаємо на пульт судді… <br>Рахунок зʼявиться, щойно суддя почне матч.</span>
+  <span class="local-only" id="lEmptyLocal">Це табло показує рахунок лише з пульта, відкритого <b>в цьому ж браузері</b>. <br>
+    Для стріму, іншої програми чи пристрою візьміть посилання в пульті: <br><b>Меню → Посилання на матч → Міні-табло</b>.</span>
 </p>
 <div class="link-status" id="linkStatus"></div>
 <a class="ctl-link" id="lCtl" href="./mini.html?view=controls" target="volley-mini">Керування ↗</a>

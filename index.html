@@ -244,11 +244,8 @@
   .row-btns{display:flex;gap:10px;flex-wrap:wrap}
   .ov-ctl{display:flex;align-items:center;gap:10px}
   .ov-l{min-width:64px;color:var(--slate);font-size:15px;letter-spacing:.04em}
-  .ov-v{min-width:56px;text-align:center;font-size:20px}
+  .ov-v{min-width:84px;text-align:center;font-size:20px}
   .ov-b{min-width:48px;padding-left:0;padding-right:0}
-  .ov-pos{display:grid;grid-template-columns:repeat(3,44px);gap:6px}
-  .ov-pos button{height:36px;border-radius:8px;border:1px solid rgba(143,166,184,.4);background:none;color:var(--chalk);font:inherit;font-size:18px;cursor:pointer}
-  .ov-pos button[aria-pressed="true"]{background:var(--chalk);color:var(--court)}
   .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
   @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
@@ -381,29 +378,16 @@
       </div>
       <div class="link-block">
         <h3>Міні-табло</h3>
-        <p class="hint top">Назви команд і очки наживо. Лише перегляд. Вставляється в будь-який додаток
-          («Браузер» / «Веб-сторінка», розмір 640×200) чи на сайт — і зменшується як потрібно.</p>
+        <p class="hint top">Назви команд і очки наживо, лише перегляд. Сторінка сама маленька — у будь-якому
+          додатку (зокрема в Prism Live на телефоні) табло одразу невелике. Розмір — нижче, міняється навіть в ефірі.</p>
         <a class="link-url" id="linkBoard" target="_blank" rel="noopener"></a>
         <div class="row-btns"><button class="ghost" id="linkBoardCopy">Копіювати</button>
           <button class="ghost" id="linkBoardEmbed">Код для вставки</button></div>
-      </div>
-      <div class="link-block">
-        <h3>Накладка для стріму з телефона</h3>
-        <p class="hint top">Для Prism Live та інших додатків, де веб-віджет займає весь екран і його не зменшити:
-          табло маленьке в кутку, решта прозора. Розмір і кут міняються тут — навіть під час ефіру.</p>
-        <a class="link-url" id="linkOverlay" target="_blank" rel="noopener"></a>
-        <div class="row-btns"><button class="ghost" id="linkOverlayCopy">Копіювати</button></div>
         <div class="ov-ctl">
           <span class="ov-l">Розмір</span>
-          <button class="ghost ov-b" id="ovMinus" aria-label="Зменшити табло">−</button>
-          <b class="ov-v num" id="ovSize">35%</b>
-          <button class="ghost ov-b" id="ovPlus" aria-label="Збільшити табло">+</button>
-        </div>
-        <div class="ov-ctl"><span class="ov-l">Де</span>
-          <div class="ov-pos" id="ovPos">
-            <button data-pos="tl" aria-label="Зверху ліворуч">↖</button><button data-pos="tc" aria-label="Зверху посередині">↑</button><button data-pos="tr" aria-label="Зверху праворуч">↗</button>
-            <button data-pos="bl" aria-label="Знизу ліворуч">↙</button><button data-pos="bc" aria-label="Знизу посередині">↓</button><button data-pos="br" aria-label="Знизу праворуч">↘</button>
-          </div>
+          <button class="ghost ov-b" id="bwMinus" aria-label="Зменшити міні-табло">−</button>
+          <b class="ov-v num" id="bwSize">300×94</b>
+          <button class="ghost ov-b" id="bwPlus" aria-label="Збільшити міні-табло">+</button>
         </div>
       </div>
       <div class="link-block">

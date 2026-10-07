@@ -28,27 +28,33 @@
       if (typeof p.timeoutSec === "number") prefs.timeoutSec = p.timeoutSec;
       if (typeof p.palette === "string") prefs.palette = P.byId(p.palette).id;
       if (typeof p.showServe === "boolean") prefs.showServe = p.showServe;
-      if (typeof p.overlaySize === "number") prefs.overlaySize = p.overlaySize;
-      if (typeof p.overlayPos === "string") prefs.overlayPos = p.overlayPos;
+      if (typeof p.boardWidth === "number") prefs.boardWidth = p.boardWidth;
     } catch (e) {}
     P.apply(document.documentElement, prefs.palette);
-    applyOverlay();
+    applySize();
   }
 
   /*
-   * Накладка (?overlay=1): розмір і кут — з адреси (&size=…&pos=…), якщо там задані,
-   * інакше — з пульта, тож їх можна міняти просто під час ефіру.
+   * Режим сторінки: fill — на все вікно; keep — тримає пропорції в будь-якому блоці (iframe);
+   * mini (типово) — сторінка сама маленька, таблиця фіксованого розміру. Ширину задає адреса
+   * (&w=…) або пульт — тоді її можна міняти просто під час ефіру.
    */
   var q = {};
   try { q = Object.fromEntries(new URLSearchParams(location.search)); } catch (e) {}
-  var overlay = "overlay" in q && q.overlay !== "0";
+  var inFrame = false;
+  try { inFrame = window.self !== window.top; } catch (e) { inFrame = true; }
+  var mode = q.fit === "fill" ? "fill" : (q.fit === "keep" || inFrame) ? "keep" : "mini";
 
-  function applyOverlay() {
-    if (!overlay || !window.Remote) return;
-    var o = window.Remote.overlayNorm(q.size || prefs.overlaySize, q.pos || prefs.overlayPos);
-    var b = document.body;
-    b.style.setProperty("--ov", o.size);
-    window.Remote.OVERLAY_POS.forEach(function (p) { b.classList.toggle("pos-" + p, p === o.pos); });
+  function applySize() {
+    if (mode !== "mini" || !window.Remote) return;
+    var w = window.Remote.boardWidthNorm(q.w || prefs.boardWidth);
+    var h = Math.round(w / 3.2);
+    [document.documentElement, document.body].forEach(function (el) {
+      el.style.width = w + "px";
+      el.style.height = h + "px";
+    });
+    document.body.style.setProperty("--W", w + "px");
+    document.body.style.setProperty("--H", h + "px");
   }
 
   var bug = window.Scorebug.create(document, M);
@@ -85,19 +91,11 @@
   }
 
 
-  /*
-   * ?fit=keep або сторінка вставлена в <iframe> — таблиця тримає пропорції, поля прозорі.
-   * Так її можна вбудувати в інший додаток чи сайт і масштабувати як завгодно.
-   */
-  var keep = false;
-  try { keep = new URLSearchParams(location.search).get("fit") === "keep"; } catch (e) {}
-  try { if (window.self !== window.top) keep = true; } catch (e) { keep = true; }
-  if (overlay) keep = false;                       // накладка має власне розміщення
-  document.documentElement.classList.toggle("keep", keep);
-  document.body.classList.toggle("keep", keep);
-  document.documentElement.classList.toggle("overlay", overlay);
-  document.body.classList.toggle("overlay", overlay);
-  applyOverlay();
+  ["fill", "keep", "mini"].forEach(function (m) {
+    document.documentElement.classList.toggle(m, m === mode);
+    document.body.classList.toggle(m, m === mode);
+  });
+  applySize();
 
   P.apply(document.documentElement, prefs.palette);
   render();
