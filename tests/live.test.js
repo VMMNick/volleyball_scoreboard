@@ -146,7 +146,9 @@ suite("live: сетбол, тайм-аут і кінець матчу в ниж�
 test("окреме міні-табло — сама таблиця: лише назви команд і лічильник", () => {
   const css = liveHtml.slice(liveHtml.indexOf("<style>"), liveHtml.indexOf("</style>"));
   assert.match(css, /\.board \.cols,\.board \.foot,\.board \.sets\{display:none\}/, "без підписів «команда / сети / очки», без колонки сетів і нижнього рядка");
-  assert.match(css, /width:100vw;height:100vh/, "таблиця на всю сторінку, без полів довкола");
+  assert.match(css, /--W:100vw;--H:100vh/, "за замовчуванням таблиця на всю сторінку, без полів довкола");
+  assert.match(css, /width:var\(--W\);height:var\(--H\)/, "розміри — від розміру таблиці, тож її можна масштабувати");
+  assert.equal(/\d+vh|\d+vw/.test(css.slice(css.indexOf(".board .row{"))), false, "у самій таблиці — жодних прямих vh/vw");
 });
 
 /* ---------- за посиланням на матч (через сервер) ---------- */
@@ -363,4 +365,31 @@ suite("пульт: сайт відповідає, а сервера посила
   assert.match(c.text("linkTroubleWhy"), /node server\.js/);
   c.tap("mLink");
   assert.equal(asked.length, 1, "перевіряємо один раз, а не на кожне відкриття");
+});
+
+suite("міні-табло для вбудовування: ?fit=keep тримає пропорції, код для вставки — iframe", (t) => {
+  const l = live({ url: "https://tablo.example/live.html?room=ABC234&fit=keep", WebSocket: fakeSockets() });
+  t.after(l.close);
+  assert.ok(l.win.document.body.classList.contains("keep"));
+  assert.ok(l.win.document.documentElement.classList.contains("keep"), "прозорі поля довкола таблиці");
+  const plain = live();
+  t.after(plain.close);
+  assert.equal(plain.win.document.body.classList.contains("keep"), false, "звичайне вікно — таблиця на все вікно");
+
+  const Remote = require("../remote.js");
+  const code = Remote.embedCode("https://tablo.example/live.html?room=ABC234");
+  assert.match(code, /^<iframe src="https:\/\/tablo\.example\/live\.html\?room=ABC234" width="640" height="200" /);
+  assert.match(code, /background:transparent/);
+  assert.equal(Remote.embedCode('x"><script>').includes('"><script>'), false, "лапки екрануються");
+});
+
+suite("пульт: «Код для вставки» копіює iframe з посиланням на міні-табло", async (t) => {
+  const WS = fakeSockets();
+  const c = control({ WebSocket: WS });
+  t.after(c.close);
+  let copied = null;
+  Object.defineProperty(c.win.navigator, "clipboard", { value: { writeText: (x) => { copied = x; return Promise.resolve(); } } });
+  createLink(c);
+  c.tap("linkBoardEmbed");
+  assert.match(copied, new RegExp('^<iframe src="' + c.text("linkBoard").replace(/[.?]/g, "\\$&") + '"'));
 });

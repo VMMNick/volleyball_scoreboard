@@ -952,6 +952,7 @@
     if (confirm(q)) closeLink();
   });
   $("linkBoardCopy").addEventListener("click", function () { copyText($("linkBoardCopy"), boardUrl(), "Копіювати"); });
+  $("linkBoardEmbed").addEventListener("click", function () { copyText($("linkBoardEmbed"), R.embedCode(boardUrl()), "Код для вставки"); });
   $("linkJudgeCopy").addEventListener("click", function () { copyText($("linkJudgeCopy"), judgeUrl(), "Копіювати"); });
   $("segTeam").addEventListener("click", function (e) {
     var b = e.target.closest("button");

@@ -61,6 +61,7 @@
   .stream.on{display:flex}
   .stream .su{color:var(--chalk);font-size:14px;word-break:break-all;opacity:.85}
   .stream .sr2{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .stream .hint2{font-size:12px;opacity:.85}
   .stream .st.live{color:#7CE3A1}
   .stream .st.live::before{content:"● "}
   .stream .st.offline,.stream .st.rejected{color:var(--team-b)}
@@ -142,7 +143,8 @@
   <div class="stream" id="mStream">
     <span>Міні-табло для стріму чи іншого пристрою:</span>
     <a class="su" id="mStreamUrl" target="_blank" rel="noopener"></a>
-    <div class="sr2"><button class="linkbtn" id="mStreamCopy">Копіювати</button><span class="st" id="mStreamSt"></span></div>
+    <div class="sr2"><span><button class="linkbtn" id="mStreamCopy">Копіювати</button> · <button class="linkbtn" id="mStreamEmbed">Код для вставки</button></span><span class="st" id="mStreamSt"></span></div>
+    <span class="hint2">У додатку — «Браузер» / «Веб-сторінка», розмір 640×200; зменшуйте чи збільшуйте як треба.</span>
   </div>
   <p class="keys">1 / 2 — очко · Q / P — тайм-аут · Backspace — скасувати</p>
 </div>

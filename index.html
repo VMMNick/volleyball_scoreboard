@@ -241,6 +241,7 @@
   .link-block h3{margin:0;font-size:20px;font-weight:600;letter-spacing:.04em}
   .link-url{color:var(--chalk);font-size:15px;word-break:break-all;opacity:.85}
   .link-block .ghost{align-self:flex-start}
+  .row-btns{display:flex;gap:10px;flex-wrap:wrap}
   .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
   @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
@@ -373,9 +374,11 @@
       </div>
       <div class="link-block">
         <h3>Міні-табло</h3>
-        <p class="hint top">Назви команд, сети й очки наживо. Лише перегляд.</p>
+        <p class="hint top">Назви команд і очки наживо. Лише перегляд. Вставляється в будь-який додаток
+          («Браузер» / «Веб-сторінка», розмір 640×200) чи на сайт — і зменшується як потрібно.</p>
         <a class="link-url" id="linkBoard" target="_blank" rel="noopener"></a>
-        <button class="ghost" id="linkBoardCopy">Копіювати</button>
+        <div class="row-btns"><button class="ghost" id="linkBoardCopy">Копіювати</button>
+          <button class="ghost" id="linkBoardEmbed">Код для вставки</button></div>
       </div>
       <div class="link-block">
         <h3>Пульт для другого судді</h3>

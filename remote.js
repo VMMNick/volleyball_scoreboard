@@ -111,6 +111,15 @@
   }
 
   /*
+   * Код для вставки міні-табло в іншу сторінку чи додаток. У <iframe> табло само тримає
+   * пропорції й має прозорі поля, тож блок можна робити будь-якого розміру.
+   */
+  function embedCode(url) {
+    return '<iframe src="' + String(url).replace(/"/g, "&quot;") + '" width="640" height="200" ' +
+      'style="border:0;background:transparent" allowtransparency="true" title="Рахунок матчу"></iframe>';
+  }
+
+  /*
    * Посилання на матч, збережене в цьому браузері (спільне для пульта й міні-пульта):
    * { server, room, key, guest }. null — посилання немає.
    */
@@ -136,5 +145,5 @@
 
   return { connect: connect, newRoom: newRoom, newKey: newKey, isRoom: isRoom,
            defaultServer: defaultServer, wsUrl: wsUrl, viewerLink: viewerLink,
-           LINK_KEY: LINK_KEY, loadLink: loadLink, ensureLink: ensureLink };
+           LINK_KEY: LINK_KEY, loadLink: loadLink, ensureLink: ensureLink, embedCode: embedCode };
 });

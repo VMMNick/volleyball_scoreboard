@@ -66,6 +66,16 @@
   }
 
 
+  /*
+   * ?fit=keep або сторінка вставлена в <iframe> — таблиця тримає пропорції, поля прозорі.
+   * Так її можна вбудувати в інший додаток чи сайт і масштабувати як завгодно.
+   */
+  var keep = false;
+  try { keep = new URLSearchParams(location.search).get("fit") === "keep"; } catch (e) {}
+  try { if (window.self !== window.top) keep = true; } catch (e) { keep = true; }
+  document.documentElement.classList.toggle("keep", keep);
+  document.body.classList.toggle("keep", keep);
+
   P.apply(document.documentElement, prefs.palette);
   render();
   window.Feed.create({

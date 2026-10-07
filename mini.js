@@ -238,14 +238,16 @@
     setView(!document.body.classList.contains("controls"), true);
   });
   $("mBoardOut").addEventListener("click", openBoard);
-  $("mStreamCopy").addEventListener("click", function () {
-    var btn = $("mStreamCopy");
+  function copy(btn, text) {
+    var label = btn.textContent;
     if (!navigator.clipboard || !navigator.clipboard.writeText) return;
-    navigator.clipboard.writeText(boardUrl()).then(function () {
+    navigator.clipboard.writeText(text).then(function () {
       btn.textContent = "Скопійовано";
-      setTimeout(function () { btn.textContent = "Копіювати"; }, 1600);
+      setTimeout(function () { btn.textContent = label; }, 1600);
     }).catch(function () {});
-  });
+  }
+  $("mStreamCopy").addEventListener("click", function () { copy($("mStreamCopy"), boardUrl()); });
+  $("mStreamEmbed").addEventListener("click", function () { copy($("mStreamEmbed"), R.embedCode(boardUrl())); });
 
   /* ---------- зміни з основного пульта й інших вкладок ---------- */
 
