@@ -543,3 +543,37 @@ test("вигляд табла не летить глядачам через се
   assert.equal(/boardLayout|boardTitle/.test(keys), false,
     "кожне табло показує свій макет, тож пульт не нав'язує його всім");
 });
+
+suite("пульт: «на весь віджет» додає fit=fill і вимикає відсотки", (t) => {
+  const WS = fakeSockets();
+  const c = control({ WebSocket: WS });
+  t.after(c.close);
+  createLink(c);
+  WS.open(WS.last(), "control");
+
+  assert.equal(c.$("bwPlus").disabled, false, "поки табло маленьке, розмір міняється");
+
+  c.$("inBoardFill").checked = true;
+  c.$("inBoardFill").dispatchEvent(new c.win.Event("change", { bubbles: true }));
+  assert.match(c.text("linkBoard"), /&fit=fill$/);
+  assert.equal(c.$("bwMinus").disabled, true, "на весь віджет відсотки не діють");
+  assert.equal(c.$("bwPlus").disabled, true);
+  assert.equal(JSON.parse(c.win.localStorage.getItem("volleyball:prefs")).boardFill, true);
+
+  c.$("inBoardFill").checked = false;
+  c.$("inBoardFill").dispatchEvent(new c.win.Event("change", { bubbles: true }));
+  assert.equal(/fit=fill/.test(c.text("linkBoard")), false);
+  assert.equal(c.$("bwPlus").disabled, false, "кнопки розміру повернулись");
+});
+
+suite("fit=fill: таблиця займає всю сторінку, без прозорих полів", (t) => {
+  const m = played([0, 1, 0]);
+  const l = live({ url: "https://tablo.example/live.html?layout=bug&fit=fill",
+                   seed: { "volleyball:match": Match.serialize(m) } });
+  t.after(l.close);
+  const body = l.win.document.body;
+  assert.ok(body.classList.contains("fill"));
+  assert.ok(body.classList.contains("l-bug"), "макет і режим не заважають один одному");
+  assert.equal(body.style.getPropertyValue("--W"), "", "ширину задає вікно, а не відсотки");
+  assert.deepEqual(l.errors, []);
+});

@@ -33,7 +33,7 @@
   // boardLayout і boardTitle живуть у самій адресі міні-табла, тож на глядачів не летять
   // (сервер їх не пересилає) — пульт лише памʼятає, який вигляд копіювати.
   var prefs = { vibrate: true, timeoutSec: TIMEOUT_SEC, palette: PALETTES[0].id, showServe: true, sound: true,
-                boardPct: 30, boardLayout: "board", boardTitle: false };
+                boardPct: 30, boardLayout: "board", boardTitle: false, boardFill: false };
   var rotTimer = null, toTimer = null, toEndsAt = 0;
 
   function $(id) { return document.getElementById(id); }
@@ -79,6 +79,7 @@
           if (typeof p.palette === "string") prefs.palette = paletteById(p.palette).id;
           if (BOARD_LAYOUTS.indexOf(p.boardLayout) >= 0) prefs.boardLayout = p.boardLayout;
           if (typeof p.boardTitle === "boolean") prefs.boardTitle = p.boardTitle;
+          if (typeof p.boardFill === "boolean") prefs.boardFill = p.boardFill;
           takeBoardPct(p);
         }
       } catch (e) {}
@@ -546,10 +547,16 @@
    * board — назви й очки, sets — ще й виграні сети, bug — один рядок-смуга;
    * title=1 додає смугу з назвою турніру. Тому одна кімната може світитися
    * по-різному: смугою в стрімі й табло з сетами на телефонах глядачів.
+   *
+   * fit=fill — табло на всю сторінку. У стрім-додатках це ще й питання чіткості:
+   * сторінка малюється в розмірі віджета, тож маленька таблиця отримує лише свою
+   * частку пікселів, а додаток потім розтягує картинку на кадр. На весь віджет
+   * табло малюється в повній роздільності, а розмір задають самим віджетом.
    */
   function boardView() {
     return (prefs.boardLayout !== BOARD_LAYOUTS[0] ? "&layout=" + prefs.boardLayout : "") +
-           (prefs.boardTitle ? "&title=1" : "");
+           (prefs.boardTitle ? "&title=1" : "") +
+           (prefs.boardFill ? "&fit=fill" : "");
   }
 
   function boardUrl() { return R.viewerLink(link.server, "live.html", link.room) + boardView(); }
@@ -697,11 +704,15 @@
       b.setAttribute("aria-pressed", String(b.dataset.layout === prefs.boardLayout));
     });
     $("inBoardTitle").checked = prefs.boardTitle;
+    $("inBoardFill").checked = prefs.boardFill;
+    // На весь віджет відсотки не діють — розмір задає сам віджет.
+    if (prefs.boardFill) { $("bwMinus").disabled = true; $("bwPlus").disabled = true; }
   }
 
-  function setBoardView(layout, title) {
-    if (BOARD_LAYOUTS.indexOf(layout) >= 0) prefs.boardLayout = layout;
-    if (title !== undefined) prefs.boardTitle = !!title;
+  function setBoardView(patch) {
+    if (BOARD_LAYOUTS.indexOf(patch.layout) >= 0) prefs.boardLayout = patch.layout;
+    if (patch.title !== undefined) prefs.boardTitle = !!patch.title;
+    if (patch.fill !== undefined) prefs.boardFill = !!patch.fill;
     savePrefs();
     paintLink();                                         // у полі одразу нова адреса
   }
@@ -1017,9 +1028,10 @@
   $("bwPlus").addEventListener("click", function () { setBoardPct(prefs.boardPct + R.BOARD_PCT.step); });
   $("segLayout").addEventListener("click", function (e) {
     var b = e.target.closest("button");
-    if (b) setBoardView(b.dataset.layout);
+    if (b) setBoardView({ layout: b.dataset.layout });
   });
-  $("inBoardTitle").addEventListener("change", function () { setBoardView(prefs.boardLayout, $("inBoardTitle").checked); });
+  $("inBoardTitle").addEventListener("change", function () { setBoardView({ title: $("inBoardTitle").checked }); });
+  $("inBoardFill").addEventListener("change", function () { setBoardView({ fill: $("inBoardFill").checked }); });
   $("linkBoardEmbed").addEventListener("click", function () { copyText($("linkBoardEmbed"), R.embedCode(boardUrl()), "Код для вставки"); });
   $("linkJudgeCopy").addEventListener("click", function () { copyText($("linkJudgeCopy"), judgeUrl(), "Копіювати"); });
   $("segTeam").addEventListener("click", function (e) {
