@@ -68,8 +68,8 @@
   html,body{background:var(--court-deep)}
   body:not(.waiting){padding:0;overflow:hidden}
   #live{top:0;left:0}
-  body{--W:100vw;--H:100vh}
-  body.keep{--H:min(100vh,calc(100vw / 3.2));--W:calc(var(--H) * 3.2)}
+  body{--W:100vw;--H:100vh;--ratio:3.2}
+  body.keep{--H:min(100vh,calc(100vw / var(--ratio)));--W:calc(var(--H) * var(--ratio))}
   html.keep,body.keep,html.mini,body.mini{background:transparent!important;box-shadow:none}
   body.keep:not(.waiting){display:flex;align-items:center;justify-content:center}
   body:not(.keep):not(.waiting){display:block}
@@ -100,6 +100,62 @@
   body.local .ctl-link{opacity:0;transition:opacity .2s}
   body.local:hover .ctl-link,body.local .ctl-link:focus-visible{opacity:.85}
 
+  /*
+   * Макети таблиці (?layout=) — вигляд вибирає сама адреса, тож одна кімната
+   * може світитися по-різному в стрімі й у глядачів:
+   *   board (типово) — назви команд і очки;
+   *   sets           — ще й колонка виграних сетів;
+   *   bug            — один рядок «Команда А 0 | 1:0 | 0 Команда Б»: найтонша смуга для накладки.
+   * ?title=1 додає знизу смугу з назвою турніру й підказкою (сетбол, тайм-аут).
+   * Пропорції таблиці задає --ratio: двом рядкам треба 3,2 : 1, одному — 7,5 : 1;
+   * зі смугою турніру таблиця вища. Ті самі числа — у live.js (RATIO), щоб
+   * маленьке табло рахувало висоту так само.
+   */
+  .mid{display:none}
+  body.l-bug{--ratio:7.5}
+  body.show-title{--ratio:2.6}
+  body.l-bug.show-title{--ratio:5}
+
+  /* sets: колонка виграних сетів між подачею й очками — світліша, щоб не зливалася з назвою. */
+  body.l-sets .board .sets{display:flex;border-left:0;background:var(--court);
+    font-size:min(calc(var(--H) * .3),calc(var(--W) * .09))}
+  body.l-sets .board .row{
+    grid-template-columns:min(calc(var(--W) * .022),calc(var(--H) * .03)) 1fr
+      min(calc(var(--H) * .14),calc(var(--W) * .05)) min(calc(var(--W) * .12),calc(var(--H) * .34))
+      min(calc(var(--W) * .3),calc(var(--H) * .8))}
+
+  /* bug: рядки поруч, рахунок за сетами — посередині; у правої команди порядок дзеркальний. */
+  body.l-bug:not(.waiting) .board,body.l-bug.mini.waiting .board{display:flex;flex-wrap:wrap;grid-template-rows:none}
+  body.l-bug .board .row{flex:1 1 0;min-width:0;border-top:0;
+    grid-template-columns:min(calc(var(--W) * .012),calc(var(--H) * .09)) 1fr
+      min(calc(var(--H) * .42),calc(var(--W) * .035)) min(calc(var(--W) * .11),calc(var(--H) * .9))}
+  body.l-bug .board #rowB{
+    grid-template-columns:min(calc(var(--W) * .11),calc(var(--H) * .9))
+      min(calc(var(--H) * .42),calc(var(--W) * .035)) 1fr min(calc(var(--W) * .012),calc(var(--H) * .09))}
+  /* Усе в один рядок сітки: без цього дзеркальний порядок у #rowB розкидає комірки вниз. */
+  body.l-bug .board .row > *{grid-row:1}
+  body.l-bug #rowB .pts{grid-column:1}
+  body.l-bug #rowB .serve{grid-column:2}
+  body.l-bug #rowB .name{grid-column:3;justify-content:flex-end;text-align:right}
+  body.l-bug #rowB .bar{grid-column:4}
+  body.l-bug .board .name{font-size:min(calc(var(--H) * .5),calc(var(--W) * .038))}
+  body.l-bug .board .pts{font-size:min(calc(var(--H) * .78),calc(var(--W) * .06))}
+  body.l-bug .board .serve svg{width:min(calc(var(--H) * .36),calc(var(--W) * .028));
+    height:min(calc(var(--H) * .36),calc(var(--W) * .028))}
+  body.l-bug .mid{display:flex;align-items:center;justify-content:center;gap:.22em;flex:0 0 auto;
+    padding:0 min(calc(var(--H) * .22),calc(var(--W) * .018));background:var(--court);color:var(--chalk);
+    font-size:min(calc(var(--H) * .46),calc(var(--W) * .036));font-weight:600}
+  body.l-bug .mid i{font-style:normal;opacity:.45}
+
+  /* Смуга з назвою турніру. */
+  body.show-title .board .foot{display:flex;
+    border-top:max(1px,calc(var(--H) * .004)) solid var(--court);
+    min-height:min(calc(var(--H) * .22),calc(var(--W) * .07));
+    padding:0 min(calc(var(--H) * .06),calc(var(--W) * .02));
+    font-size:min(calc(var(--H) * .13),calc(var(--W) * .026))}
+  body.show-title:not(.waiting) .board{grid-template-rows:1fr 1fr auto}
+  body.show-title.l-bug .board .foot{flex:0 0 100%}
+
   @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
@@ -115,6 +171,7 @@
     <span class="sets num" id="lSetsA">0</span>
     <span class="pts a num" id="lPtsA">0</span>
   </div>
+  <div class="mid" id="lMid" aria-hidden="true"><span class="num" id="lMidA">0</span><i>:</i><span class="num" id="lMidB">0</span></div>
   <div class="row" id="rowB">
     <span class="bar b"></span>
     <span class="name"><span class="label" id="lNameB">Команда Б</span></span>

@@ -45,12 +45,27 @@
   try { inFrame = window.self !== window.top; } catch (e) { inFrame = true; }
   var mode = q.fit === "fill" ? "fill" : (q.fit === "keep" || inFrame) ? "keep" : "mini";
 
+  /*
+   * Макет таблиці (?layout=) — вигляд задає сама адреса:
+   *   board (типово) — назви команд і очки;
+   *   sets           — ще й колонка виграних сетів;
+   *   bug            — один рядок: назви по краях, рахунок за сетами посередині.
+   * ?title=1 додає знизу смугу з назвою турніру. Пропорції таблиці повторюють
+   * --ratio у live.html: висоту маленького табла рахуємо тими самими числами.
+   */
+  var LAYOUTS = ["board", "sets", "bug"];
+  var RATIO = { board: 3.2, sets: 3.2, bug: 7.5 };
+  var RATIO_TITLE = { board: 2.6, sets: 2.6, bug: 5 };
+  var layout = LAYOUTS.indexOf(q.layout) >= 0 ? q.layout : LAYOUTS[0];
+  var withTitle = q.title === "1" || q.title === "on";
+
   function applySize() {
     if (mode !== "mini" || !window.Remote) return;
     // Відсоток ширини екрана чи віджета: решта сторінки прозора.
     var pct = window.Remote.boardPctNorm(q.size || prefs.boardPct);
+    var ratio = (withTitle ? RATIO_TITLE : RATIO)[layout];
     document.body.style.setProperty("--W", pct + "vw");
-    document.body.style.setProperty("--H", "calc(" + pct + "vw / 3.2)");
+    document.body.style.setProperty("--H", "calc(" + pct + "vw / " + ratio + ")");
   }
 
   var bug = window.Scorebug.create(document, M);
@@ -61,7 +76,9 @@
     if (!match) return;
     var s = M.reduce(match);
     var i = bug.render(s, prefs, dismissedTimeout);
-    // Колонки сетів тут немає — після кінця матчу лічильник показує рахунок за сетами.
+    $("lMidA").textContent = s.sets[0];          // рахунок за сетами посередині смуги (layout=bug)
+    $("lMidB").textContent = s.sets[1];
+    // У звичайному макеті колонки сетів немає — після кінця матчу лічильник показує рахунок за сетами.
     if (s.done) { $("lPtsA").textContent = s.sets[0]; $("lPtsB").textContent = s.sets[1]; }
     document.title = s.names[0] + " " + s.points[0] + ":" + s.points[1] + " " + s.names[1];
     $("live").textContent = s.names[0] + " " + s.points[0] + ", " + s.names[1] + " " + s.points[1];
@@ -91,6 +108,8 @@
     document.documentElement.classList.toggle(m, m === mode);
     document.body.classList.toggle(m, m === mode);
   });
+  LAYOUTS.forEach(function (l) { document.body.classList.toggle("l-" + l, l === layout); });
+  document.body.classList.toggle("show-title", withTitle);
   applySize();
 
   P.apply(document.documentElement, prefs.palette);

@@ -29,8 +29,11 @@
   }
 
   var match = M.createMatch();
+  var BOARD_LAYOUTS = ["board", "sets", "bug"];
+  // boardLayout і boardTitle живуть у самій адресі міні-табла, тож на глядачів не летять
+  // (сервер їх не пересилає) — пульт лише памʼятає, який вигляд копіювати.
   var prefs = { vibrate: true, timeoutSec: TIMEOUT_SEC, palette: PALETTES[0].id, showServe: true, sound: true,
-                boardPct: 30 };
+                boardPct: 30, boardLayout: "board", boardTitle: false };
   var rotTimer = null, toTimer = null, toEndsAt = 0;
 
   function $(id) { return document.getElementById(id); }
@@ -74,6 +77,8 @@
           if (typeof p.sound === "boolean") prefs.sound = p.sound;
           if (typeof p.timeoutSec === "number") prefs.timeoutSec = p.timeoutSec;
           if (typeof p.palette === "string") prefs.palette = paletteById(p.palette).id;
+          if (BOARD_LAYOUTS.indexOf(p.boardLayout) >= 0) prefs.boardLayout = p.boardLayout;
+          if (typeof p.boardTitle === "boolean") prefs.boardTitle = p.boardTitle;
           takeBoardPct(p);
         }
       } catch (e) {}
@@ -536,7 +541,18 @@
     try { history.replaceState(null, "", location.pathname); } catch (e) {}
   }
 
-  function boardUrl() { return R.viewerLink(link.server, "live.html", link.room); }
+  /*
+   * Вигляд міні-табла — у самій адресі:
+   * board — назви й очки, sets — ще й виграні сети, bug — один рядок-смуга;
+   * title=1 додає смугу з назвою турніру. Тому одна кімната може світитися
+   * по-різному: смугою в стрімі й табло з сетами на телефонах глядачів.
+   */
+  function boardView() {
+    return (prefs.boardLayout !== BOARD_LAYOUTS[0] ? "&layout=" + prefs.boardLayout : "") +
+           (prefs.boardTitle ? "&title=1" : "");
+  }
+
+  function boardUrl() { return R.viewerLink(link.server, "live.html", link.room) + boardView(); }
   function judgeUrl() { return R.viewerLink(link.server, "index.html", link.room, "key=" + encodeURIComponent(link.key)); }
 
   /* Відлік часу без звʼязку: після LINK_LONG_MS пульт пояснює, що сталося. */
@@ -672,6 +688,22 @@
     $("bwSize").textContent = w + " %";
     $("bwMinus").disabled = w <= B.min;
     $("bwPlus").disabled = w >= B.max;
+    paintBoardView();
+  }
+
+  /* Вибраний вигляд міні-табла: адреса оновлюється одразу, щоб копіювати вже готову. */
+  function paintBoardView() {
+    Array.prototype.forEach.call($("segLayout").children, function (b) {
+      b.setAttribute("aria-pressed", String(b.dataset.layout === prefs.boardLayout));
+    });
+    $("inBoardTitle").checked = prefs.boardTitle;
+  }
+
+  function setBoardView(layout, title) {
+    if (BOARD_LAYOUTS.indexOf(layout) >= 0) prefs.boardLayout = layout;
+    if (title !== undefined) prefs.boardTitle = !!title;
+    savePrefs();
+    paintLink();                                         // у полі одразу нова адреса
   }
 
   /* Окреме вікно з пульта — невелике, табло в ньому на всю ширину. */
@@ -948,7 +980,8 @@
       var l = R.ensureLink(localStorage, location);
       if (l) { link = l; startLinkConn(); }
     }
-    var w = window.open(R.fullBoardUrl(link ? boardUrl() : "./live.html"), "volley-board", boardPopupFeatures());
+    var w = window.open(R.fullBoardUrl(link ? boardUrl() : "./live.html" + boardView().replace("&", "?")),
+      "volley-board", boardPopupFeatures());
     if (link) { paintLink(); openSheet("linkSheet"); return; }   // тут же — адреса для копіювання
     if (w) return;
     var btn = $("mBoard");
@@ -982,6 +1015,11 @@
   $("linkBoardCopy").addEventListener("click", function () { copyText($("linkBoardCopy"), boardUrl(), "Копіювати"); });
   $("bwMinus").addEventListener("click", function () { setBoardPct(prefs.boardPct - R.BOARD_PCT.step); });
   $("bwPlus").addEventListener("click", function () { setBoardPct(prefs.boardPct + R.BOARD_PCT.step); });
+  $("segLayout").addEventListener("click", function (e) {
+    var b = e.target.closest("button");
+    if (b) setBoardView(b.dataset.layout);
+  });
+  $("inBoardTitle").addEventListener("change", function () { setBoardView(prefs.boardLayout, $("inBoardTitle").checked); });
   $("linkBoardEmbed").addEventListener("click", function () { copyText($("linkBoardEmbed"), R.embedCode(boardUrl()), "Код для вставки"); });
   $("linkJudgeCopy").addEventListener("click", function () { copyText($("linkJudgeCopy"), judgeUrl(), "Копіювати"); });
   $("segTeam").addEventListener("click", function (e) {

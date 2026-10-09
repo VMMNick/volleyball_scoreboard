@@ -447,3 +447,99 @@ test("маленьке табло — лише таблиця: без плашк
   assert.match(css, /body\.mini \.empty\{display:none!important\}/, "до першого очка — табло 0 : 0, а не плашка");
   assert.match(css, /html\.mini,body\.mini\{background:transparent!important/, "фону немає");
 });
+
+/* ---------- макети міні-табла (?layout=) ---------- */
+
+suite("layout=sets: таблиця з колонкою виграних сетів", (t) => {
+  let m = played(new Array(25).fill(0));                  // 1:0 у сетах
+  [1, 1, 0].forEach((x) => { m = Match.addPoint(m, x, 1000); });
+  const l = live({ url: "https://tablo.example/live.html?layout=sets",
+                   seed: { "volleyball:match": Match.serialize(m) } });
+  t.after(l.close);
+  const body = l.win.document.body;
+  assert.ok(body.classList.contains("l-sets"));
+  assert.equal(body.classList.contains("l-board"), false, "класи макетів не змішуються");
+  assert.equal(l.text("lSetsA"), "1");
+  assert.equal(l.text("lPtsA"), "1");
+  assert.equal(body.style.getPropertyValue("--H"), "calc(30vw / 3.2)", "два рядки — ті самі пропорції");
+  assert.deepEqual(l.errors, []);
+});
+
+suite("layout=bug: один рядок, рахунок за сетами посередині", (t) => {
+  let m = played(new Array(25).fill(0));
+  [1, 1, 0].forEach((x) => { m = Match.addPoint(m, x, 1000); });
+  const l = live({ url: "https://tablo.example/live.html?layout=bug",
+                   seed: { "volleyball:match": Match.serialize(m) } });
+  t.after(l.close);
+  assert.ok(l.win.document.body.classList.contains("l-bug"));
+  assert.equal(l.text("lMidA"), "1");
+  assert.equal(l.text("lMidB"), "0");
+  assert.equal(l.text("lPtsA"), "1");
+  assert.equal(l.win.document.body.style.getPropertyValue("--H"), "calc(30vw / 7.5)",
+    "один рядок — смуга 7,5 : 1, а не 3,2 : 1");
+  assert.deepEqual(l.errors, []);
+});
+
+suite("?title=1: смуга з назвою турніру; невідомий layout — звичайне табло", (t) => {
+  const m = played([0, 1, 0]);
+  const withTitle = live({ url: "https://tablo.example/live.html?title=1",
+                           seed: { "volleyball:match": Match.serialize(m) } });
+  t.after(withTitle.close);
+  assert.ok(withTitle.win.document.body.classList.contains("show-title"));
+  assert.equal(withTitle.text("lTitle"), "Кубок міста");
+  assert.equal(withTitle.win.document.body.style.getPropertyValue("--H"), "calc(30vw / 2.6)",
+    "зі смугою таблиця вища");
+
+  const junk = live({ url: "https://tablo.example/live.html?layout=неіснує&title=0",
+                      seed: { "volleyball:match": Match.serialize(m) } });
+  t.after(junk.close);
+  assert.ok(junk.win.document.body.classList.contains("l-board"), "типово — звичайне табло");
+  assert.equal(junk.win.document.body.classList.contains("show-title"), false);
+  assert.deepEqual(junk.errors, []);
+});
+
+test("макети описані і в CSS, і в live.js — однакові пропорції", () => {
+  const css = liveHtml.slice(liveHtml.indexOf("<style>"), liveHtml.indexOf("</style>"));
+  assert.match(css, /body\.l-bug\{--ratio:7\.5\}/);
+  assert.match(css, /body\.show-title\{--ratio:2\.6\}/);
+  assert.match(css, /body\.l-sets \.board \.sets\{display:flex/, "колонка сетів показується лише в layout=sets");
+  assert.match(css, /\.mid\{display:none\}/, "рахунок за сетами посередині — лише у смузі");
+  assert.match(liveJs, /RATIO = \{ board: 3\.2, sets: 3\.2, bug: 7\.5 \}/);
+  assert.match(liveJs, /RATIO_TITLE = \{ board: 2\.6, sets: 2\.6, bug: 5 \}/);
+});
+
+suite("пульт: вибраний вигляд потрапляє в адресу міні-табла", (t) => {
+  const WS = fakeSockets();
+  const c = control({ WebSocket: WS });
+  t.after(c.close);
+  createLink(c);
+  WS.open(WS.last(), "control");
+
+  const plain = c.text("linkBoard");
+  assert.match(plain, /live\.html\?room=[A-Z0-9]{6}$/, "типовий вигляд адресу не засмічує");
+
+  c.$("segLayout").querySelector('[data-layout="bug"]')
+    .dispatchEvent(new c.win.Event("click", { bubbles: true }));
+  assert.match(c.text("linkBoard"), /&layout=bug$/, "смуга — в адресі");
+  assert.equal(c.$("segLayout").querySelector('[data-layout="bug"]').getAttribute("aria-pressed"), "true");
+
+  c.$("inBoardTitle").checked = true;
+  c.$("inBoardTitle").dispatchEvent(new c.win.Event("change", { bubbles: true }));
+  assert.match(c.text("linkBoard"), /&layout=bug&title=1$/);
+  const saved = JSON.parse(c.win.localStorage.getItem("volleyball:prefs"));
+  assert.equal(saved.boardLayout, "bug", "вибір памʼятається");
+  assert.equal(saved.boardTitle, true);
+
+  let opened = null;
+  c.win.open = (url, name) => { opened = url; return {}; };
+  c.tap("menuBtn");
+  c.tap("mBoard");
+  assert.match(opened, /&layout=bug&title=1&size=100$/, "окреме вікно відкривається тим самим виглядом");
+});
+
+test("вигляд табла не летить глядачам через сервер — він у їхній адресі", () => {
+  const server = read("server.js");
+  const keys = server.match(/PREF_KEYS = \[([^\]]*)\]/)[1];
+  assert.equal(/boardLayout|boardTitle/.test(keys), false,
+    "кожне табло показує свій макет, тож пульт не нав'язує його всім");
+});
