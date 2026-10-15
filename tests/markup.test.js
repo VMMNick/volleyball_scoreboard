@@ -158,3 +158,12 @@ test("назви команд — до 30 символів", () => {
 test("офлайн-кеш береться з мережі, а не з HTTP-кешу браузера", () => {
   assert.match(sw, /cache: "reload"/, "інакше нова версія кешу може зберегти старі скрипти");
 });
+
+test("емблема ліги є на великому табло (арена і смуга) та на міні-пульті", () => {
+  const read = f => fs.readFileSync(path.join(__dirname, "..", f), "utf8");
+  const d = read("display.html"), m = read("mini.html");
+  assert.match(d, /<img class="a-logo" src="\.\/logo-uvl\.webp"/);
+  assert.match(d, /<img class="s-logo" src="\.\/logo-uvl\.webp"/);
+  assert.match(m, /<img class="m-logo" src="\.\/logo-uvl\.webp"/);
+  assert.match(read("sw.js"), /"\.\/logo-uvl\.webp"/);
+});
