@@ -115,6 +115,19 @@
   LAYOUTS.forEach(function (l) { document.body.classList.toggle("l-" + l, l === layout); });
   document.body.classList.toggle("show-title", withTitle);
   document.body.classList.toggle("logo", withLogo);
+
+  /* &info=1 — показати, скільки реальних пікселів дістається табло (для налаштування стріму). */
+  var showInfo = q.info === "1";
+  function paintInfo() {
+    if (!showInfo) return;
+    var r = $("board").getBoundingClientRect(), d = window.devicePixelRatio || 1;
+    $("lPx").textContent = "сторінка " + innerWidth + "×" + innerHeight + " · щільність " + d.toFixed(2) +
+      "\nтабло " + Math.round(r.width * d) + "×" + Math.round(r.height * d) + " px" +
+      (r.width * d < 400 ? " — мало, буде розмито" : " — чітко");
+  }
+  document.body.classList.toggle("show-info", showInfo);
+  window.addEventListener("resize", paintInfo);
+  setTimeout(paintInfo, 0);
   applySize();
 
   P.apply(document.documentElement, prefs.palette);

@@ -192,6 +192,14 @@
     width:var(--L);box-sizing:border-box;padding:calc(var(--L) * .06);background:var(--court-deep)}
   body.logo .board .logo img{display:block;width:100%;height:100%;object-fit:contain}
 
+  /*
+   * &info=1 — діагностика для стрім-додатків: скільки пікселів має сторінка і саме табло.
+   * Мало пікселів (табло вужче за ~400) — додаток розтягує картинку, і вона розмита.
+   */
+  .px-info{display:none}
+  body.show-info .px-info{display:block;position:fixed;right:6px;bottom:6px;z-index:9;padding:6px 10px;border-radius:8px;
+    background:rgba(0,0,0,.8);color:#FFD84D;font:600 14px/1.35 var(--font);white-space:pre;pointer-events:none}
+
   @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
@@ -229,6 +237,7 @@
     Для стріму, іншої програми чи пристрою візьміть посилання в пульті: <br><b>Меню → Посилання на матч → Міні-табло</b>.</span>
 </p>
 <div class="link-status" id="linkStatus"></div>
+<div class="px-info num" id="lPx" aria-hidden="true"></div>
 <a class="ctl-link" id="lCtl" href="./mini.html?view=controls" target="volley-mini">Керування ↗</a>
 <div id="live" aria-live="polite" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)"></div>
 
