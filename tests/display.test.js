@@ -10,13 +10,12 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const Match = require("../match.js");
+const Match = require("./helpers/site").load("match.js");
 
 let JSDOM;
 try { ({ JSDOM } = require("jsdom")); } catch (e) { JSDOM = null; }
 
-const root = path.join(__dirname, "..");
-const read = (f) => fs.readFileSync(path.join(root, f), "utf8");
+const { root, read, file } = require("./helpers/site");
 
 const html = read("display.html");
 const js = read("display.js");
@@ -27,7 +26,7 @@ const sounds = read("sounds.js");
 const remote = read("remote.js");
 const feed = read("feed.js");
 const controlHtml = read("index.html");
-const app = read("app.js");
+const app = read("pult.js");
 
 const ids = new Set([...html.matchAll(/id="([\w-]+)"/g)].map((m) => m[1]));
 
@@ -58,7 +57,7 @@ test("табло не містить логіки правил", () => {
 test("табло в тому ж стилі, що й пульт", () => {
   // Одна тема на двох: кольори й шрифт живуть лише в theme.css.
   [html, controlHtml].forEach((src) => {
-    assert.match(src, /href="\.\/theme\.css"/);
+    assert.match(src, /href="\.\/css\/theme\.css"/);
     assert.equal(/:root\{/.test(src), false, "токени не дублюються в розмітці");
     assert.match(src, /font-family:var\(--font\)/);
   });

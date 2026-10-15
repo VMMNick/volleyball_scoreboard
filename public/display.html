@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0E2A3F">
+<meta name="description" content="Табло для глядачів: рахунок матчу на проєкторі, другому моніторі чи ТБ. Оновлюється наживо з пульта на цьому ж пристрої.">
+<meta name="robots" content="noindex">
+<title>Табло для глядачів — волейбол</title>
+<link rel="icon" href="./assets/icons/icon-192.png">
+<link rel="preload" href="./assets/fonts/barlow-condensed-latin-800.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="./css/theme.css">
+<link rel="stylesheet" href="./css/pages/display.css">
+</head>
+<body data-layout="arena">
+
+<section class="layout" id="arena" aria-label="Табло">
+  <div class="a-head">
+    <span class="clock num" id="aClock">0:00</span>
+    <span class="title" id="aTitle"></span>
+    <span class="num" id="aFmt"></span>
+  </div>
+  <div class="a-court">
+    <div class="panel a" id="aPanelA">
+      <span class="serve" id="aServeA">подає</span>
+      <span class="rot" id="aRotA">ротація</span>
+      <span class="name" id="aNameA">Команда А</span>
+      <span class="score num" id="aScoreA">0</span>
+      <span class="pips" id="aPipsA"></span>
+    </div>
+    <div class="a-net">
+      <div class="a-logos">
+        <img class="a-logo" id="aLogo1" src="./assets/logos/uvl-new.webp" alt="Ужгородська волейбольна ліга" width="640" height="640">
+        <img class="a-logo off" id="aLogo2" src="./assets/logos/uvl-old.webp" alt="Ужгородська волейбольна ліга" width="640" height="640">
+      </div>
+      <div class="a-set" id="aSet">почати матч</div>
+      <div>
+        <div class="a-sets num" id="aSets"></div>
+        <div class="a-sets-cap" id="aSetsCap">сети</div>
+      </div>
+      <div class="a-hint" id="aHint"></div>
+    </div>
+    <div class="panel b" id="aPanelB">
+      <span class="serve" id="aServeB">подає</span>
+      <span class="rot" id="aRotB">ротація</span>
+      <span class="name" id="aNameB">Команда Б</span>
+      <span class="score num" id="aScoreB">0</span>
+      <span class="pips" id="aPipsB"></span>
+    </div>
+  </div>
+  <div class="history num" id="aHistory"></div>
+</section>
+
+<section class="layout" id="strip" aria-label="Смуга рахунку">
+  <div class="bug-wrap">
+  <img class="s-logo" id="sLogo1" src="./assets/logos/uvl-new.webp" alt="Ужгородська волейбольна ліга" width="640" height="640">
+  <div class="bug num">
+    <div class="bug-row">
+      <span class="bug-bar a"></span>
+      <span class="bug-name"><span class="label" id="sNameA">Команда А</span><span class="bug-serve" id="sServeA"></span></span>
+      <span class="bug-past" id="sPastA"></span>
+      <span class="bug-sets" id="sSetsA">0</span>
+      <span class="bug-pts a" id="sPtsA">0</span>
+    </div>
+    <div class="bug-row">
+      <span class="bug-bar b"></span>
+      <span class="bug-name"><span class="label" id="sNameB">Команда Б</span><span class="bug-serve" id="sServeB"></span></span>
+      <span class="bug-past" id="sPastB"></span>
+      <span class="bug-sets" id="sSetsB">0</span>
+      <span class="bug-pts b" id="sPtsB">0</span>
+    </div>
+    <div class="bug-foot"><span><b class="bug-title" id="sTitle"></b><span id="sInfo"></span></span><span class="hl" id="sHint"></span></div>
+  </div>
+  <img class="s-logo off" id="sLogo2" src="./assets/logos/uvl-old.webp" alt="Ужгородська волейбольна ліга" width="640" height="640">
+  </div>
+</section>
+
+<div class="overlay" id="toOverlay">
+  <div class="cap" id="toWho"></div>
+  <div class="big num" id="toClock">30</div>
+</div>
+
+<div class="overlay" id="final">
+  <div class="cap" id="finalCap">Матч завершено</div>
+  <div class="who" id="finalWho"></div>
+  <div class="tally num" id="finalTally"></div>
+</div>
+
+<div class="banner" id="banner" aria-hidden="true">
+  <div class="banner-inner">
+    <div class="cap" id="bannerCap"></div>
+    <div class="who" id="bannerWho"></div>
+    <div class="pts num" id="bannerPts"></div>
+  </div>
+</div>
+
+<div class="sound-hint" id="soundHint">звук вимкнено — клікніть будь-де</div>
+<div class="tip" id="tip">Подвійний клік або <b>F</b> — повний екран · <b>L</b> — макет</div>
+<div id="live" aria-live="polite" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)"></div>
+
+<script src="./js/core/match.js"></script>
+<script src="./js/core/palettes.js"></script>
+<script src="./js/shared/ui-common.js"></script>
+<script src="./js/shared/sounds.js"></script>
+<script src="./js/shared/feed.js"></script>
+<script src="./js/pages/display.js"></script>
+</body>
+</html>

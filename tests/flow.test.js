@@ -15,8 +15,7 @@ const path = require("node:path");
 let JSDOM;
 try { ({ JSDOM } = require("jsdom")); } catch (e) { JSDOM = null; }
 
-const root = path.join(__dirname, "..");
-const read = (f) => fs.readFileSync(path.join(root, f), "utf8");
+const { root, read, file } = require("./helpers/site");
 const scripts = ["match.js", "palettes.js", "ui-common.js", "remote.js"].map(read);
 
 function makeBus() {
@@ -54,11 +53,11 @@ const suite = JSDOM ? test : test.skip;
 
 suite("повний матч у залі: пульт і табло від першої подачі до протоколу", (t) => {
   const bus = makeBus();
-  const c = boot("index.html", ["app.js"], bus);
+  const c = boot("index.html", ["pult.js"], bus);
   const d = boot("display.html", ["sounds.js", "feed.js", "display.js"], bus);
   t.after(() => { c.close(); d.close(); });
   // Стан рахуємо ядром у самому Node: масиви з jsdom мають інший прототип і не проходять deepStrictEqual.
-  const M = require("../match.js");
+  const M = require("./helpers/site").load("match.js");
   const raw = () => c.win.localStorage.getItem("volleyball:match");
   const state = () => M.reduce(M.deserialize(raw()));
 
@@ -214,7 +213,7 @@ suite("повний матч у залі: пульт і табло від пер
   const c2 = boot("index.html", [], makeBus());
   t.after(() => c2.close());
   c2.win.localStorage.setItem("volleyball:match", saved);
-  c2.win.eval(read("app.js"));
+  c2.win.eval(read("pult.js"));
   assert.ok(c2.$("final").classList.contains("show"), "після перезавантаження — той самий фінал");
 
   assert.deepEqual(c.errors.concat(d.errors, c2.errors), [], "жодної помилки в консолі");

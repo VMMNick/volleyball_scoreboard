@@ -9,14 +9,13 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const Match = require("../match.js");
+const Match = require("./helpers/site").load("match.js");
 
 let JSDOM;
 try { ({ JSDOM } = require("jsdom")); } catch (e) { JSDOM = null; }
 const suite = JSDOM ? test : test.skip;
 
-const root = path.join(__dirname, "..");
-const read = (f) => fs.readFileSync(path.join(root, f), "utf8");
+const { root, read, file } = require("./helpers/site");
 const liveHtml = read("live.html");
 const liveJs = read("live.js");
 const base = ["match.js", "palettes.js", "ui-common.js", "remote.js"].map(read);
@@ -77,10 +76,10 @@ test("на жодній сторінці немає підпису сторон�
 });
 
 test("live у тому ж стилі й офлайн-кеші", () => {
-  assert.match(liveHtml, /href="\.\/theme\.css"/);
+  assert.match(liveHtml, /href="\.\/css\/theme\.css"/);
   assert.equal(/:root\{/.test(liveHtml), false);
   const sw = read("sw.js");
-  ["live.html", "live.js", "feed.js", "remote.js"].forEach((f) => assert.ok(sw.includes('"./' + f + '"'), f));
+  ["live.html", "js/pages/live.js", "js/shared/feed.js", "js/shared/remote.js", "css/pages/live.css"].forEach((f) => assert.ok(sw.includes('"./' + f + '"'), f));
 });
 
 /* ---------- той самий пристрій ---------- */
@@ -182,15 +181,15 @@ suite("live?room=…: невідомий код — зрозуміле пові�
 });
 
 test("ні QR-коду, ні OBS-накладки, ні «трансляції» — лише посилання на матч", () => {
-  ["index.html", "app.js", "live.html", "live.js", "display.html", "display.js"].forEach((f) => {
+  ["index.html", "pult.js", "live.html", "live.js", "display.html", "display.js"].forEach((f) => {
     assert.equal(/qrcode|OBS|bg=none|трансляц/i.test(read(f)), false, f);
   });
-  assert.equal(fs.existsSync(path.join(root, "vendor/qrcode.js")), false);
+  assert.equal(fs.existsSync(file("vendor/qrcode.js")), false);
 });
 
 /* ---------- пульт: посилання на матч ---------- */
 
-const control = (opts) => boot(read("index.html"), [read("app.js")],
+const control = (opts) => boot(read("index.html"), [read("pult.js")],
   Object.assign({ url: "https://tablo.example/index.html" }, opts));
 const judgeKey = (c) => JSON.parse(c.win.localStorage.getItem("volleyball:link")).key;
 
@@ -278,7 +277,7 @@ suite("пульт: посилання переживає перезаванта�
   assert.match(WS.last().url, /^wss:\/\/tablo-srv\.onrender\.com\/ws/);
   const board = c.text("linkBoard");
 
-  c.win.eval(read("app.js"));                                  // перезавантаження
+  c.win.eval(read("pult.js"));                                  // перезавантаження
   assert.equal(c.text("linkBoard"), board, "ті самі посилання");
 
   c.tap("linkStop");
@@ -376,7 +375,7 @@ suite("міні-табло для вбудовування: ?fit=keep трима
   t.after(plain.close);
   assert.equal(plain.win.document.body.classList.contains("keep"), false, "звичайне вікно — таблиця на все вікно");
 
-  const Remote = require("../remote.js");
+  const Remote = require("./helpers/site").load("remote.js");
   const code = Remote.embedCode("https://tablo.example/live.html?room=ABC234");
   assert.match(code, /^<iframe src="https:\/\/tablo\.example\/live\.html\?room=ABC234" width="640" height="200" /);
   assert.match(code, /background:transparent/);
@@ -539,7 +538,7 @@ suite("пульт: вибраний вигляд потрапляє в адре�
 });
 
 test("вигляд табла не летить глядачам через сервер — він у їхній адресі", () => {
-  const server = read("server.js");
+  const server = read("server/server.js");
   const keys = server.match(/PREF_KEYS = \[([^\]]*)\]/)[1];
   assert.equal(/boardLayout|boardTitle/.test(keys), false,
     "кожне табло показує свій макет, тож пульт не нав'язує його всім");
@@ -604,7 +603,7 @@ suite("емблема ліги на міні-таблі: типово лівор
   const body = l.win.document.body;
   assert.ok(body.classList.contains("logo"));
   const img = l.$("lLogo").querySelector("img");
-  assert.equal(img.getAttribute("src"), "./logo-uvl.webp");
+  assert.equal(img.getAttribute("src"), "./assets/logos/uvl-new.webp");
   assert.match(img.getAttribute("alt"), /Ужгородська волейбольна ліга/);
   assert.equal(body.style.getPropertyValue("--H"), "calc(30vw / 4.2)", "таблиця ширша рівно на квадрат емблеми");
 
@@ -612,8 +611,8 @@ suite("емблема ліги на міні-таблі: типово лівор
   t.after(off.close);
   assert.equal(off.win.document.body.classList.contains("logo"), false);
   assert.equal(off.win.document.body.style.getPropertyValue("--H"), "calc(30vw / 3.2)");
-  assert.ok(fs.existsSync(path.join(root, "logo-uvl.webp")), "файл емблеми в проєкті");
-  assert.match(read("sw.js"), /"\.\/logo-uvl\.webp"/, "емблема — в офлайн-кеші й на хостингу");
+  assert.ok(fs.existsSync(file("assets/logos/uvl-new.webp")), "файл емблеми в проєкті");
+  assert.match(read("sw.js"), /"\.\/assets\/logos\/uvl-new\.webp"/, "емблема — в офлайн-кеші й на хостингу");
 });
 
 suite("дві емблеми на міні-таблі: &logo=both — квадрат ліворуч і праворуч", (t) => {
@@ -622,11 +621,11 @@ suite("дві емблеми на міні-таблі: &logo=both — квадр
   const body = l.win.document.body;
   assert.ok(body.classList.contains("logo") && body.classList.contains("logo2"));
   assert.equal(l.$("lLogo2").classList.contains("off"), false);
-  assert.equal(l.$("lLogo2").querySelector("img").getAttribute("src"), "./logo-uvl-1.webp");
+  assert.equal(l.$("lLogo2").querySelector("img").getAttribute("src"), "./assets/logos/uvl-old.webp");
   assert.equal(body.style.getPropertyValue("--H"), "calc(30vw / 5.2)", "ширша ще на один квадрат");
 
   const old = live({ url: "https://tablo.example/live.html?room=ABC234&logo=old", WebSocket: fakeSockets() });
   t.after(old.close);
-  assert.equal(old.$("lLogo").querySelector("img").getAttribute("src"), "./logo-uvl-1.webp", "лише попередня — ліворуч");
+  assert.equal(old.$("lLogo").querySelector("img").getAttribute("src"), "./assets/logos/uvl-old.webp", "лише попередня — ліворуч");
   assert.ok(old.$("lLogo2").classList.contains("off"));
 });

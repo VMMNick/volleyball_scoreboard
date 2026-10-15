@@ -1,7 +1,7 @@
 /*
  * Сервер синхронізації табло.
  *
- * Роздає зібраний сайт (_site) і тримає WebSocket /ws — через нього працюють
+ * Роздає сайт (папка public/) і тримає WebSocket /ws — через нього працюють
  * «Посилання на матч»: міні-табло на будь-якому пристрої й пульт для
  * другого судді.
  *
@@ -34,14 +34,16 @@ const MIME = {
   ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8",
   ".css": "text/css; charset=utf-8", ".json": "application/json; charset=utf-8",
   ".webmanifest": "application/manifest+json", ".png": "image/png",
-  ".woff2": "font/woff2", ".svg": "image/svg+xml", ".ico": "image/x-icon"
+  ".woff2": "font/woff2", ".webp": "image/webp", ".svg": "image/svg+xml", ".ico": "image/x-icon"
 };
+
+const PUBLIC_DIR = path.join(__dirname, "..", "public");   // сайт роздається як є, без збирання
 
 const sha256 = (s) => crypto.createHash("sha256").update(s).digest("hex");
 
 function createServer(opts) {
   opts = opts || {};
-  const root = path.resolve(opts.root || path.join(__dirname, "_site"));
+  const root = path.resolve(opts.root || PUBLIC_DIR);
   const log = opts.log || (() => {});
   const rooms = new Map();   // code → { keyHash, state, prefs, clients:Set, touched }
 
@@ -204,16 +206,11 @@ function createServer(opts) {
   return server;
 }
 
-module.exports = { createServer, ROOM_RE };
+module.exports = { createServer, ROOM_RE, PUBLIC_DIR };
 
 if (require.main === module) {
   const port = Number(process.env.PORT) || 3000;
-  const root = path.join(__dirname, "_site");
-  if (!fs.existsSync(path.join(root, "index.html"))) {
-    console.error("Немає _site — спершу npm run build");
-    process.exit(1);
-  }
-  createServer({ root, log: (m) => console.log(m) }).listen(port, () => {
+  createServer({ log: (m) => console.log(m) }).listen(port, () => {
     console.log("Табло: http://localhost:" + port + "  (синхронізація — ws://localhost:" + port + "/ws)");
   });
 }

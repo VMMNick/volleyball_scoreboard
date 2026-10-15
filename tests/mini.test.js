@@ -10,14 +10,13 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const Match = require("../match.js");
+const Match = require("./helpers/site").load("match.js");
 
 let JSDOM;
 try { ({ JSDOM } = require("jsdom")); } catch (e) { JSDOM = null; }
 const suite = JSDOM ? test : test.skip;
 
-const root = path.join(__dirname, "..");
-const read = (f) => fs.readFileSync(path.join(root, f), "utf8");
+const { root, read, file } = require("./helpers/site");
 const miniHtml = read("mini.html");
 const miniJs = read("mini.js");
 const bugJs = read("scorebug.js");
@@ -38,8 +37,8 @@ test("міні-пульт: кожен id з mini.js і scorebug.js існує в
 test("міні-табло однакове в live.html і mini.html — спільні scorebug.css і scorebug.js", () => {
   const liveHtml = read("live.html");
   [liveHtml, miniHtml].forEach((h) => {
-    assert.match(h, /href="\.\/scorebug\.css"/);
-    assert.match(h, /src="\.\/scorebug\.js"/);
+    assert.match(h, /href="\.\/css\/scorebug\.css"/);
+    assert.match(h, /src="\.\/js\/shared\/scorebug\.js"/);
   });
   ["lNameA", "lPtsB", "lSetsA", "lServeB", "lTitle", "lInfo", "board"].forEach((id) => {
     assert.ok(ids(liveHtml).has(id) && ids(miniHtml).has(id), id);
@@ -49,9 +48,9 @@ test("міні-табло однакове в live.html і mini.html — спі�
 
 test("міні-пульт в офлайн-кеші, у меню пульта і в ярликах застосунку", () => {
   const sw = read("sw.js");
-  ["mini.html", "mini.js", "scorebug.css", "scorebug.js"].forEach((f) => assert.ok(sw.includes('"./' + f + '"'), f));
+  ["mini.html", "js/pages/mini.js", "css/scorebug.css", "js/shared/scorebug.js", "css/pages/mini.css"].forEach((f) => assert.ok(sw.includes('"./' + f + '"'), f));
   assert.match(read("index.html"), /id="mMini"/);
-  assert.match(read("app.js"), /mini\.html/);
+  assert.match(read("pult.js"), /mini\.html/);
   assert.ok(JSON.parse(read("manifest.webmanifest")).shortcuts.some((s) => s.url === "./mini.html"));
 });
 
@@ -103,7 +102,7 @@ function boot(html, files, opts = {}) {
 }
 
 const mini = (opts) => boot(miniHtml, ["scorebug.js", "remote.js", "mini.js"], opts);
-const control = (opts) => boot(read("index.html"), ["remote.js", "app.js"], Object.assign({ url: "https://tablo.example/index.html" }, opts));
+const control = (opts) => boot(read("index.html"), ["remote.js", "pult.js"], Object.assign({ url: "https://tablo.example/index.html" }, opts));
 const stored = (ui) => Match.reduce(Match.deserialize(ui.win.localStorage.getItem("volleyball:match")));
 
 suite("міні-пульт сам по собі: очки, зняти очко, тайм-аут, скасування", (t) => {

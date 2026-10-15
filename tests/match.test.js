@@ -2,7 +2,7 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const M = require("../match.js");
+const M = require("./helpers/site").load("match.js");
 
 /* Допоміжне: зіграти послідовність очок, напр. "AABBA". */
 function play(m, seq, startTs) {

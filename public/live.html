@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0E2A3F">
+<meta name="description" content="Рахунок волейбольного матчу наживо: команди, сети, очки.">
+<title>Міні-табло — волейбол</title>
+<link rel="icon" href="./assets/icons/icon-192.png">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="preload" href="./assets/fonts/barlow-condensed-latin-800.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="./css/theme.css">
+<link rel="stylesheet" href="./css/scorebug.css">
+<link rel="stylesheet" href="./css/pages/live.css">
+</head>
+<body>
+<main class="board" id="board" aria-label="Рахунок">
+  <span class="logo" id="lLogo"><img src="./assets/logos/uvl-new.webp" alt="Ужгородська волейбольна ліга" width="640" height="640"></span>
+  <span class="logo r off" id="lLogo2"><img src="./assets/logos/uvl-old.webp" alt="Ужгородська волейбольна ліга" width="640" height="640"></span>
+  <div class="cols" aria-hidden="true">
+    <span></span><span class="c-name" id="lCaption">команда</span><span></span><span class="c-sets">сети</span><span>очки</span>
+  </div>
+  <div class="row" id="rowA">
+    <span class="bar a"></span>
+    <span class="name"><span class="label" id="lNameA">Команда А</span></span>
+    <span class="serve" id="lServeA" title="подає"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10.5" fill="#F2EFE6"/><path d="M12 1.5c-2 4-2 9 0 10.5M12 12c4.6.4 8.5-1.2 10.3-4.6M12 12c-2.5 3.8-7 5.3-10.2 4.4" fill="none" stroke="#0E2A3F" stroke-width="1.6" stroke-linecap="round"/></svg></span>
+    <span class="per num" id="lPerA"></span>
+    <span class="sets num" id="lSetsA">0</span>
+    <span class="pts a num" id="lPtsA">0</span>
+  </div>
+  <div class="mid" id="lMid" aria-hidden="true"><span class="num" id="lMidA">0</span><i>:</i><span class="num" id="lMidB">0</span></div>
+  <div class="row" id="rowB">
+    <span class="bar b"></span>
+    <span class="name"><span class="label" id="lNameB">Команда Б</span></span>
+    <span class="serve" id="lServeB" title="подає"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10.5" fill="#F2EFE6"/><path d="M12 1.5c-2 4-2 9 0 10.5M12 12c4.6.4 8.5-1.2 10.3-4.6M12 12c-2.5 3.8-7 5.3-10.2 4.4" fill="none" stroke="#0E2A3F" stroke-width="1.6" stroke-linecap="round"/></svg></span>
+    <span class="per num" id="lPerB"></span>
+    <span class="sets num" id="lSetsB">0</span>
+    <span class="pts b num" id="lPtsB">0</span>
+  </div>
+  <div class="foot">
+    <span class="title" id="lTitle"></span>
+    <span class="info num" id="lInfo">почати матч</span>
+  </div>
+</main>
+<p class="empty" id="lEmpty">
+  <span class="room-only">Чекаємо на пульт судді… <br>Рахунок зʼявиться, щойно суддя почне матч.</span>
+  <span class="local-only" id="lEmptyLocal">Це табло показує рахунок лише з пульта, відкритого <b>в цьому ж браузері</b>. <br>
+    Для стріму, іншої програми чи пристрою візьміть посилання в пульті: <br><b>Меню → Посилання на матч → Міні-табло</b>.</span>
+</p>
+<div class="link-status" id="linkStatus"></div>
+<div class="px-info num" id="lPx" aria-hidden="true"></div>
+<a class="ctl-link" id="lCtl" href="./mini.html?view=controls" target="volley-mini">Керування ↗</a>
+<div id="live" aria-live="polite" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)"></div>
+
+<script src="./js/core/match.js"></script>
+<script src="./js/core/palettes.js"></script>
+<script src="./js/shared/ui-common.js"></script>
+<script src="./js/shared/scorebug.js"></script>
+<script src="./js/shared/remote.js"></script>
+<script src="./js/shared/feed.js"></script>
+<script src="./js/pages/live.js"></script>
+</body>
+</html>

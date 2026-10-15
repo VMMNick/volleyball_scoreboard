@@ -1,0 +1,101 @@
+/* Стилі сторінки mini.html (mini). Спільне — у theme.css і scorebug.css. */
+/*
+ * Міні-пульт: зверху міні-табло, під ним — кнопки. Окрема маленька вкладка
+ * чи вікно поруч із трансляцією або іншою програмою. Веде той самий матч,
+ * що й основний пульт: зміни йдуть в обидва боки.
+ */
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{min-height:100%;margin:0}
+body{
+  --u:clamp(14px,min(4.6vw,3.6vh),34px);
+  background:var(--court);color:var(--chalk);font-family:var(--font);
+  display:flex;flex-direction:column;align-items:center;gap:14px;
+  padding:max(12px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) max(12px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left));
+  user-select:none;-webkit-font-smoothing:antialiased;
+}
+.wrap{width:100%;max-width:720px;display:flex;flex-direction:column;gap:14px}
+.board{max-width:none;position:relative;box-sizing:border-box}
+/* Емблеми ліги — квадрат на всю висоту міні-табла: перша ліворуч, друга праворуч. */
+body.logo .board{padding-left:calc(var(--u)*3.6)}
+body.logo2 .board{padding-right:calc(var(--u)*3.6)}
+.m-logo{position:absolute;left:0;top:0;bottom:0;width:calc(var(--u)*3.6);height:100%;box-sizing:border-box;
+  padding:calc(var(--u)*.08);object-fit:contain;background:var(--court-deep)}
+.m-logo.r{left:auto;right:0}
+.m-logo.off{display:none}
+/* Дві емблеми — трохи вужчі, щоб лишити місце назвам команд. */
+body.logo2 .board{padding-left:calc(var(--u)*2.8);padding-right:calc(var(--u)*2.8)}
+body.logo2 .m-logo{width:calc(var(--u)*2.8)}
+body.logo2 .board .name{font-size:calc(var(--u)*.7)}
+body.logo2 .board .name .label{overflow-wrap:normal}
+/*
+ * Колонки зіграних сетів, як у волейбольних таблицях: очки кожного сету окремо
+ * (у переможця — яскравіше), у шапці — номер сету.
+ */
+.board .cols,.board .row{grid-template-columns:calc(var(--u)*.22) 1fr calc(var(--u)*.9) auto calc(var(--u)*1.5) calc(var(--u)*2)}
+.board .per{display:flex;align-items:stretch}
+.board .per b{display:flex;align-items:center;justify-content:center;width:calc(var(--u)*1.3);
+  border-left:1px solid rgba(143,166,184,.22);font-size:calc(var(--u)*.85);font-weight:600;color:var(--slate)}
+.board .per b.win{color:var(--chalk)}
+.board .cols .per b{border-left:0;font-size:inherit;font-weight:400}
+.board .pts{font-size:calc(var(--u)*1.3)}
+.board .sets{font-size:calc(var(--u)*1)}
+
+.teams{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.team{display:flex;flex-direction:column;gap:8px;padding:10px;border-radius:12px;
+  background:var(--court-deep);border:1px solid rgba(143,166,184,.25);border-top:4px solid var(--team-a);min-width:0}
+.team.b{border-top-color:var(--team-b)}
+.team h2{margin:0;font-size:17px;font-weight:600;letter-spacing:.03em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pm{display:grid;grid-template-columns:2fr 1fr;gap:8px}
+.btn{height:clamp(56px,10vh,96px);border-radius:10px;border:0;cursor:pointer;font:inherit;font-size:22px;font-weight:800;letter-spacing:.02em}
+.btn:active{filter:brightness(.9)}
+.btn[disabled]{opacity:.35;cursor:default}
+.plus.a{background:var(--team-a);color:var(--ink-a)}
+.plus.b{background:var(--team-b);color:var(--ink-b)}
+.minus{background:transparent;color:var(--chalk);border:1.5px solid rgba(242,239,230,.45)}
+.to{height:42px;border-radius:99px;background:transparent;color:var(--chalk);border:1.5px solid rgba(242,239,230,.35);
+  font:inherit;font-size:16px;letter-spacing:.04em;cursor:pointer}
+.to[disabled]{opacity:.35;cursor:default}
+
+/* Скасувати | Повторити, під ними — подача на всю ширину: назва команди вміщається. */
+.bar2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+#mServe{grid-column:1 / -1}
+.tool{height:46px;border-radius:10px;cursor:pointer;background:var(--court-deep);color:var(--chalk);
+  border:1px solid rgba(143,166,184,.3);font:inherit;font-size:16px;letter-spacing:.03em;padding:0 8px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tool[disabled]{opacity:.35;cursor:default}
+.tool:active{background:rgba(242,239,230,.12)}
+.foot2{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:14px;color:var(--slate);letter-spacing:.04em}
+.foot2 a,.linkbtn{color:var(--chalk);font:inherit;font-size:15px;letter-spacing:.04em}
+.linkbtn{background:none;border:0;padding:0;cursor:pointer;text-decoration:underline}
+.keys{margin:0;font-size:13px;color:var(--slate);letter-spacing:.04em}
+.stream{display:none;flex-direction:column;gap:6px;padding:10px 12px;border:1px solid rgba(143,166,184,.3);border-radius:10px;font-size:14px;color:var(--slate);letter-spacing:.04em}
+.stream.on{display:flex}
+.stream .su{color:var(--chalk);font-size:14px;word-break:break-all;opacity:.85}
+.stream .sr2{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.stream .hint2{font-size:12px;opacity:.85}
+.stream .ovrow{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.stream .ovsz{display:flex;align-items:center;gap:6px}
+.stream .ovsz b{min-width:72px;text-align:center;color:var(--chalk);font-size:16px}
+.stream .ovb{min-width:32px;height:30px;border-radius:7px;border:1px solid rgba(143,166,184,.4);
+  background:none;color:var(--chalk);font:inherit;font-size:16px;cursor:pointer;padding:0 6px}
+.stream .ovb:disabled{opacity:.35}
+.stream .st.live{color:#7CE3A1}
+.stream .st.live::before{content:"● "}
+.stream .st.offline,.stream .st.rejected{color:var(--team-b)}
+
+/* Рахунок у картках — лише коли табло сховане (сторінка «лише керування»). */
+.th{display:flex;justify-content:space-between;align-items:baseline;gap:8px;min-width:0}
+.tpts{display:none;flex:0 0 auto;font-size:30px;font-weight:800;line-height:1}
+body.controls .board{display:none}
+body.controls .tpts{display:block}
+
+
+/* Телефон вертикально: усе крупніше — вкладку тримають у руці. */
+@media (max-aspect-ratio:3/4){
+  body{--u:clamp(15px,6vw,34px)}
+  .team h2{font-size:19px}
+  .btn{font-size:26px}
+  .to,.tool{height:52px;font-size:17px}
+}
+@media (max-width:340px){.teams{grid-template-columns:1fr}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}

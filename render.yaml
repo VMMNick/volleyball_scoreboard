@@ -7,5 +7,5 @@ services:
     runtime: node
     plan: free
     buildCommand: npm install --omit=dev --no-audit --no-fund && npm run build
-    startCommand: node server.js
+    startCommand: npm start
     healthCheckPath: /healthz

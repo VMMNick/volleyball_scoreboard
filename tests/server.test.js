@@ -8,7 +8,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const http = require("node:http");
-const { createServer } = require("../server.js");
+const { createServer } = require("../server/server.js");
 
 let WebSocket;
 try { WebSocket = require("ws"); } catch (e) { WebSocket = null; }

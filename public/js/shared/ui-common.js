@@ -1,5 +1,5 @@
 /*
- * Спільні дрібниці інтерфейсу для пульта (app.js) і табло (display.js):
+ * Спільні дрібниці інтерфейсу для пульта (pult.js) і табло (display.js):
  * формат часу, екранування, кружечки сетів, Wake Lock, офлайн-кеш.
  */
 (function (root, factory) {
@@ -68,7 +68,7 @@
    * Обидві — нова ліворуч, попередня праворуч. Адреса може перекрити вибір пульта:
    * &logo=0 — без емблеми, &logo=new / old — лише одна, &logo=both — обидві.
    */
-  var LOGO_SRC = { "new": "./logo-uvl.webp", old: "./logo-uvl-1.webp" };
+  var LOGO_SRC = { "new": "./assets/logos/uvl-new.webp", old: "./assets/logos/uvl-old.webp" };
   function logoPick(prefs, urlVal) {
     var u = urlVal == null ? "" : String(urlVal).toLowerCase();
     if (u === "0" || u === "off" || u === "none") return [];

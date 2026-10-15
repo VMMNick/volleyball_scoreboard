@@ -55,7 +55,7 @@
    *   bug            — один рядок: назви по краях, рахунок за сетами посередині;
    *   table          — як у волейбольних таблицях: рахунок кожного сету окремою колонкою.
    * ?title=1 додає знизу смугу з назвою турніру. Пропорції таблиці повторюють
-   * --ratio у live.html: висоту маленького табла рахуємо тими самими числами.
+   * --ratio у css/pages/live.css: висоту маленького табла рахуємо тими самими числами.
    */
   var LAYOUTS = ["board", "sets", "bug", "table"];
   var RATIO = { board: 3.2, sets: 3.2, bug: 7.5, table: 3.2 };
@@ -73,7 +73,7 @@
     if (mode !== "mini" || !window.Remote) return;
     // Відсоток ширини екрана чи віджета: решта сторінки прозора.
     var pct = window.Remote.boardPctNorm(q.size || prefs.boardPct);
-    // Емблема — квадрат на всю висоту: кожна робить таблицю ширшою на +1, як і --ratio у live.html.
+    // Емблема — квадрат на всю висоту: кожна робить таблицю ширшою на +1, як і --ratio у css/pages/live.css.
     var ratio = (withTitle ? RATIO_TITLE : RATIO)[layout] + logos.length;
     document.body.style.setProperty("--W", pct + "vw");
     document.body.style.setProperty("--H", "calc(" + pct + "vw / " + ratio + ")");
