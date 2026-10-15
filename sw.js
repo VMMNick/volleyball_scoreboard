@@ -1,5 +1,5 @@
 /* Табло — волейбол. Офлайн-оболонка. */
-const CACHE = "volley-score-v25";
+const CACHE = "volley-score-v27";
 const SHELL = [
   "./",
   "./index.html",
@@ -17,6 +17,7 @@ const SHELL = [
   "./feed.js",
   "./live.js",
   "./scorebug.js",
+  "./logo-uvl.webp",
   "./mini.js",
   "./display.js",
   "./manifest.webmanifest",

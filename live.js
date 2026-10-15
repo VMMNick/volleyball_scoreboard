@@ -59,12 +59,14 @@
   var RATIO_TITLE = { board: 2.6, sets: 2.6, bug: 5, table: 2.6 };
   var layout = LAYOUTS.indexOf(q.layout) >= 0 ? q.layout : LAYOUTS[0];
   var withTitle = q.title === "1" || q.title === "on";
+  var withLogo = q.logo !== "0" && q.logo !== "off";      // емблема ліги ліворуч (типово є)
 
   function applySize() {
     if (mode !== "mini" || !window.Remote) return;
     // Відсоток ширини екрана чи віджета: решта сторінки прозора.
     var pct = window.Remote.boardPctNorm(q.size || prefs.boardPct);
-    var ratio = (withTitle ? RATIO_TITLE : RATIO)[layout];
+    // Емблема — квадрат на всю висоту: таблиця ширша рівно на нього (+1), як і --ratio у live.html.
+    var ratio = (withTitle ? RATIO_TITLE : RATIO)[layout] + (withLogo ? 1 : 0);
     document.body.style.setProperty("--W", pct + "vw");
     document.body.style.setProperty("--H", "calc(" + pct + "vw / " + ratio + ")");
   }
@@ -112,6 +114,7 @@
   });
   LAYOUTS.forEach(function (l) { document.body.classList.toggle("l-" + l, l === layout); });
   document.body.classList.toggle("show-title", withTitle);
+  document.body.classList.toggle("logo", withLogo);
   applySize();
 
   P.apply(document.documentElement, prefs.palette);

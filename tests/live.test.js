@@ -402,7 +402,7 @@ suite("окреме міні-табло одразу маленьке: % шир�
   assert.ok(doc.body.classList.contains("mini"), "за замовчуванням — маленьке табло");
   assert.ok(doc.documentElement.classList.contains("mini"), "поля прозорі");
   assert.equal(doc.body.style.getPropertyValue("--W"), "30vw", "типово — 30 % ширини екрана чи віджета");
-  assert.equal(doc.body.style.getPropertyValue("--H"), "calc(30vw / 3.2)", "пропорції 3,2 : 1");
+  assert.equal(doc.body.style.getPropertyValue("--H"), "calc(30vw / 4.2)", "пропорції 3,2 : 1 плюс квадрат емблеми");
 
   const ws = WS.last();
   WS.open(ws, "viewer");
@@ -461,7 +461,7 @@ suite("layout=sets: таблиця з колонкою виграних сеті
   assert.equal(body.classList.contains("l-board"), false, "класи макетів не змішуються");
   assert.equal(l.text("lSetsA"), "1");
   assert.equal(l.text("lPtsA"), "1");
-  assert.equal(body.style.getPropertyValue("--H"), "calc(30vw / 3.2)", "два рядки — ті самі пропорції");
+  assert.equal(body.style.getPropertyValue("--H"), "calc(30vw / 4.2)", "два рядки — ті самі пропорції (з емблемою)");
   assert.deepEqual(l.errors, []);
 });
 
@@ -475,7 +475,7 @@ suite("layout=bug: один рядок, рахунок за сетами пос�
   assert.equal(l.text("lMidA"), "1");
   assert.equal(l.text("lMidB"), "0");
   assert.equal(l.text("lPtsA"), "1");
-  assert.equal(l.win.document.body.style.getPropertyValue("--H"), "calc(30vw / 7.5)",
+  assert.equal(l.win.document.body.style.getPropertyValue("--H"), "calc(30vw / 8.5)",
     "один рядок — смуга 7,5 : 1, а не 3,2 : 1");
   assert.deepEqual(l.errors, []);
 });
@@ -487,7 +487,7 @@ suite("?title=1: смуга з назвою турніру; невідомий l
   t.after(withTitle.close);
   assert.ok(withTitle.win.document.body.classList.contains("show-title"));
   assert.equal(withTitle.text("lTitle"), "Кубок міста");
-  assert.equal(withTitle.win.document.body.style.getPropertyValue("--H"), "calc(30vw / 2.6)",
+  assert.equal(withTitle.win.document.body.style.getPropertyValue("--H"), "calc(30vw / 3.6)",
     "зі смугою таблиця вища");
 
   const junk = live({ url: "https://tablo.example/live.html?layout=неіснує&title=0",
@@ -596,4 +596,22 @@ suite("layout=table: як у волейбольних таблицях — ра�
   assert.equal(l.text("lPtsA"), "2", "очки поточного сету");
   assert.equal(l.text("lPtsB"), "1");
   assert.deepEqual(l.errors, []);
+});
+
+suite("емблема ліги на міні-таблі: типово ліворуч, &logo=0 прибирає", (t) => {
+  const l = live({ url: "https://tablo.example/live.html?room=ABC234", WebSocket: fakeSockets() });
+  t.after(l.close);
+  const body = l.win.document.body;
+  assert.ok(body.classList.contains("logo"));
+  const img = l.$("lLogo").querySelector("img");
+  assert.equal(img.getAttribute("src"), "./logo-uvl.webp");
+  assert.match(img.getAttribute("alt"), /Ужгородська волейбольна ліга/);
+  assert.equal(body.style.getPropertyValue("--H"), "calc(30vw / 4.2)", "таблиця ширша рівно на квадрат емблеми");
+
+  const off = live({ url: "https://tablo.example/live.html?room=ABC234&logo=0", WebSocket: fakeSockets() });
+  t.after(off.close);
+  assert.equal(off.win.document.body.classList.contains("logo"), false);
+  assert.equal(off.win.document.body.style.getPropertyValue("--H"), "calc(30vw / 3.2)");
+  assert.ok(fs.existsSync(path.join(root, "logo-uvl.webp")), "файл емблеми в проєкті");
+  assert.match(read("sw.js"), /"\.\/logo-uvl\.webp"/, "емблема — в офлайн-кеші й на хостингу");
 });

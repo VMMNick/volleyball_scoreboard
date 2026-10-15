@@ -33,7 +33,7 @@
   // boardLayout і boardTitle живуть у самій адресі міні-табла, тож на глядачів не летять
   // (сервер їх не пересилає) — пульт лише памʼятає, який вигляд копіювати.
   var prefs = { vibrate: true, timeoutSec: TIMEOUT_SEC, palette: PALETTES[0].id, showServe: true, sound: true,
-                boardPct: 30, boardLayout: "board", boardTitle: false, boardFill: false };
+                boardPct: 30, boardLayout: "board", boardTitle: false, boardFill: false, boardLogo: true };
   var rotTimer = null, toTimer = null, toEndsAt = 0;
 
   function $(id) { return document.getElementById(id); }
@@ -80,6 +80,7 @@
           if (BOARD_LAYOUTS.indexOf(p.boardLayout) >= 0) prefs.boardLayout = p.boardLayout;
           if (typeof p.boardTitle === "boolean") prefs.boardTitle = p.boardTitle;
           if (typeof p.boardFill === "boolean") prefs.boardFill = p.boardFill;
+          if (typeof p.boardLogo === "boolean") prefs.boardLogo = p.boardLogo;
           takeBoardPct(p);
         }
       } catch (e) {}
@@ -557,7 +558,8 @@
   function boardView() {
     return (prefs.boardLayout !== BOARD_LAYOUTS[0] ? "&layout=" + prefs.boardLayout : "") +
            (prefs.boardTitle ? "&title=1" : "") +
-           (prefs.boardFill ? "&fit=fill" : "");
+           (prefs.boardFill ? "&fit=fill" : "") +
+           (prefs.boardLogo ? "" : "&logo=0");                // емблема ліги — типово є
   }
 
   function boardUrl() { return R.viewerLink(link.server, "live.html", link.room) + boardView(); }
@@ -706,6 +708,7 @@
     });
     $("inBoardTitle").checked = prefs.boardTitle;
     $("inBoardFill").checked = prefs.boardFill;
+    $("inBoardLogo").checked = prefs.boardLogo;
     // На весь віджет відсотки не діють — розмір задає сам віджет.
     if (prefs.boardFill) { $("bwMinus").disabled = true; $("bwPlus").disabled = true; }
   }
@@ -714,6 +717,7 @@
     if (BOARD_LAYOUTS.indexOf(patch.layout) >= 0) prefs.boardLayout = patch.layout;
     if (patch.title !== undefined) prefs.boardTitle = !!patch.title;
     if (patch.fill !== undefined) prefs.boardFill = !!patch.fill;
+    if (patch.logo !== undefined) prefs.boardLogo = !!patch.logo;
     savePrefs();
     paintLink();                                         // у полі одразу нова адреса
   }
@@ -1033,6 +1037,7 @@
   });
   $("inBoardTitle").addEventListener("change", function () { setBoardView({ title: $("inBoardTitle").checked }); });
   $("inBoardFill").addEventListener("change", function () { setBoardView({ fill: $("inBoardFill").checked }); });
+  $("inBoardLogo").addEventListener("change", function () { setBoardView({ logo: $("inBoardLogo").checked }); });
   $("linkBoardEmbed").addEventListener("click", function () { copyText($("linkBoardEmbed"), R.embedCode(boardUrl()), "Код для вставки"); });
   $("linkJudgeCopy").addEventListener("click", function () { copyText($("linkJudgeCopy"), judgeUrl(), "Копіювати"); });
   $("segTeam").addEventListener("click", function (e) {
