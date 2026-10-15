@@ -504,8 +504,9 @@ test("макети описані і в CSS, і в live.js — однакові 
   assert.match(css, /body\.show-title\{--ratio:2\.6\}/);
   assert.match(css, /body\.l-sets \.board \.sets\{display:flex/, "колонка сетів показується лише в layout=sets");
   assert.match(css, /\.mid\{display:none\}/, "рахунок за сетами посередині — лише у смузі");
-  assert.match(liveJs, /RATIO = \{ board: 3\.2, sets: 3\.2, bug: 7\.5 \}/);
-  assert.match(liveJs, /RATIO_TITLE = \{ board: 2\.6, sets: 2\.6, bug: 5 \}/);
+  assert.match(liveJs, /RATIO = \{ board: 3\.2, sets: 3\.2, bug: 7\.5, table: 3\.2 \}/);
+  assert.match(liveJs, /RATIO_TITLE = \{ board: 2\.6, sets: 2\.6, bug: 5, table: 2\.6 \}/);
+  assert.match(css, /\.board \.per\{display:none\}/, "колонки сетів по черзі — лише в layout=table");
 });
 
 suite("пульт: вибраний вигляд потрапляє в адресу міні-табла", (t) => {
@@ -575,5 +576,24 @@ suite("fit=fill: таблиця займає всю сторінку, без п�
   assert.ok(body.classList.contains("fill"));
   assert.ok(body.classList.contains("l-bug"), "макет і режим не заважають один одному");
   assert.equal(body.style.getPropertyValue("--W"), "", "ширину задає вікно, а не відсотки");
+  assert.deepEqual(l.errors, []);
+});
+
+suite("layout=table: як у волейбольних таблицях — рахунок кожного сету окремою колонкою", (t) => {
+  let m = played(new Array(25).fill(0));                       // 1-й сет 25:0 — Імідж
+  for (let i = 0; i < 25; i++) m = Match.addPoint(m, 1, 2000);  // 2-й сет 0:25 — Ліцей
+  [0, 0, 1].forEach((x) => { m = Match.addPoint(m, x, 3000); });
+  const l = live({ url: "https://tablo.example/live.html?layout=table",
+                   seed: { "volleyball:match": Match.serialize(m) } });
+  t.after(l.close);
+  const body = l.win.document.body;
+  assert.ok(body.classList.contains("l-table"));
+  const cells = (id) => [...l.$(id).children].map((b) => [b.textContent, b.className]);
+  assert.deepEqual(cells("lPerA"), [["25", "win"], ["0", ""]], "по колонці на кожен зіграний сет");
+  assert.deepEqual(cells("lPerB"), [["0", ""], ["25", "win"]]);
+  assert.equal(l.text("lSetsA"), "1", "виграні сети");
+  assert.equal(l.text("lSetsB"), "1");
+  assert.equal(l.text("lPtsA"), "2", "очки поточного сету");
+  assert.equal(l.text("lPtsB"), "1");
   assert.deepEqual(l.errors, []);
 });

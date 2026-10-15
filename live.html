@@ -147,6 +147,25 @@
     font-size:min(calc(var(--H) * .46),calc(var(--W) * .036));font-weight:600}
   body.l-bug .mid i{font-style:normal;opacity:.45}
 
+  /*
+   * table: як у волейбольних таблицях — рахунок кожного зіграного сету окремою колонкою
+   * (у переможця сету — яскравіше), далі виграні сети й очки поточного сету.
+   */
+  .board .per{display:none}
+  body.l-table .board .per{display:flex;align-items:stretch}
+  body.l-table .board .per b{display:flex;align-items:center;justify-content:center;
+    width:min(calc(var(--H) * .3),calc(var(--W) * .075));border-left:1px solid rgba(143,166,184,.22);
+    font-size:min(calc(var(--H) * .22),calc(var(--W) * .055));font-weight:600;color:var(--slate)}
+  body.l-table .board .per b.win{color:var(--chalk)}
+  body.l-table .board .sets{display:flex;border-left:1px solid rgba(143,166,184,.22);background:var(--court);
+    font-size:min(calc(var(--H) * .24),calc(var(--W) * .07))}
+  /* Праворуч цифри трохи менші, ніж у звичайному табло, — поруч із колонками сетів вони не переважують. */
+  body.l-table .board .pts{font-size:min(calc(var(--H) * .3),calc(var(--W) * .095))}
+  body.l-table .board .row{
+    grid-template-columns:min(calc(var(--W) * .022),calc(var(--H) * .03)) 1fr
+      min(calc(var(--H) * .14),calc(var(--W) * .05)) auto min(calc(var(--W) * .09),calc(var(--H) * .28))
+      min(calc(var(--W) * .17),calc(var(--H) * .54))}
+
   /* Смуга з назвою турніру. */
   body.show-title .board .foot{display:flex;
     border-top:max(1px,calc(var(--H) * .004)) solid var(--court);
@@ -168,6 +187,7 @@
     <span class="bar a"></span>
     <span class="name"><span class="label" id="lNameA">Команда А</span></span>
     <span class="serve" id="lServeA" title="подає"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10.5" fill="#F2EFE6"/><path d="M12 1.5c-2 4-2 9 0 10.5M12 12c4.6.4 8.5-1.2 10.3-4.6M12 12c-2.5 3.8-7 5.3-10.2 4.4" fill="none" stroke="#0E2A3F" stroke-width="1.6" stroke-linecap="round"/></svg></span>
+    <span class="per num" id="lPerA"></span>
     <span class="sets num" id="lSetsA">0</span>
     <span class="pts a num" id="lPtsA">0</span>
   </div>
@@ -176,6 +196,7 @@
     <span class="bar b"></span>
     <span class="name"><span class="label" id="lNameB">Команда Б</span></span>
     <span class="serve" id="lServeB" title="подає"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10.5" fill="#F2EFE6"/><path d="M12 1.5c-2 4-2 9 0 10.5M12 12c4.6.4 8.5-1.2 10.3-4.6M12 12c-2.5 3.8-7 5.3-10.2 4.4" fill="none" stroke="#0E2A3F" stroke-width="1.6" stroke-linecap="round"/></svg></span>
+    <span class="per num" id="lPerB"></span>
     <span class="sets num" id="lSetsB">0</span>
     <span class="pts b num" id="lPtsB">0</span>
   </div>

@@ -49,13 +49,14 @@
    * Макет таблиці (?layout=) — вигляд задає сама адреса:
    *   board (типово) — назви команд і очки;
    *   sets           — ще й колонка виграних сетів;
-   *   bug            — один рядок: назви по краях, рахунок за сетами посередині.
+   *   bug            — один рядок: назви по краях, рахунок за сетами посередині;
+   *   table          — як у волейбольних таблицях: рахунок кожного сету окремою колонкою.
    * ?title=1 додає знизу смугу з назвою турніру. Пропорції таблиці повторюють
    * --ratio у live.html: висоту маленького табла рахуємо тими самими числами.
    */
-  var LAYOUTS = ["board", "sets", "bug"];
-  var RATIO = { board: 3.2, sets: 3.2, bug: 7.5 };
-  var RATIO_TITLE = { board: 2.6, sets: 2.6, bug: 5 };
+  var LAYOUTS = ["board", "sets", "bug", "table"];
+  var RATIO = { board: 3.2, sets: 3.2, bug: 7.5, table: 3.2 };
+  var RATIO_TITLE = { board: 2.6, sets: 2.6, bug: 5, table: 2.6 };
   var layout = LAYOUTS.indexOf(q.layout) >= 0 ? q.layout : LAYOUTS[0];
   var withTitle = q.title === "1" || q.title === "on";
 
@@ -70,6 +71,15 @@
 
   var bug = window.Scorebug.create(document, M);
 
+  /* Колонки зіграних сетів (layout=table): очки кожної команди в кожному сеті. */
+  function paintSetColumns(s) {
+    [0, 1].forEach(function (team) {
+      $("lPer" + (team === 0 ? "A" : "B")).innerHTML = s.setLog.map(function (set) {
+        return '<b class="' + (set.winner === team ? "win" : "") + '">' + Number(set.points[team]) + "</b>";
+      }).join("");
+    });
+  }
+
   function render() {
     document.body.classList.toggle("waiting", !match);
     clearTimeout(tick);
@@ -78,8 +88,9 @@
     var i = bug.render(s, prefs, dismissedTimeout);
     $("lMidA").textContent = s.sets[0];          // рахунок за сетами посередині смуги (layout=bug)
     $("lMidB").textContent = s.sets[1];
+    paintSetColumns(s);
     // У звичайному макеті колонки сетів немає — після кінця матчу лічильник показує рахунок за сетами.
-    if (s.done) { $("lPtsA").textContent = s.sets[0]; $("lPtsB").textContent = s.sets[1]; }
+    if (s.done && layout !== "sets" && layout !== "table") { $("lPtsA").textContent = s.sets[0]; $("lPtsB").textContent = s.sets[1]; }
     document.title = s.names[0] + " " + s.points[0] + ":" + s.points[1] + " " + s.names[1];
     $("live").textContent = s.names[0] + " " + s.points[0] + ", " + s.names[1] + " " + s.points[1];
     if (i.ticking) tick = setTimeout(render, 500);       // відлік тайм-ауту щосекунди
