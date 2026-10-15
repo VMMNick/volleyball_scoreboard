@@ -34,6 +34,23 @@
     var prevPts = null;
     function $(id) { return doc.getElementById(id); }
 
+    /*
+     * Колонки зіграних сетів, як у волейбольних таблицях: очки кожної команди в кожному сеті,
+     * у переможця сету — клас win. Малюються, лише якщо в розмітці є lPerA / lPerB
+     * (lPerHead — номери сетів у шапці).
+     */
+    function paintSetColumns(s) {
+      [0, 1].forEach(function (team) {
+        var el = $("lPer" + (team === 0 ? "A" : "B"));
+        if (!el) return;
+        el.innerHTML = s.setLog.map(function (set) {
+          return '<b class="' + (set.winner === team ? "win" : "") + '">' + Number(set.points[team]) + "</b>";
+        }).join("");
+      });
+      var head = $("lPerHead");
+      if (head) head.innerHTML = s.setLog.map(function (set, i) { return "<b>" + (i + 1) + "</b>"; }).join("");
+    }
+
     /* Рядки — у порядку команд (А зверху), а не сторін майданчика. Повертає info. */
     function render(s, prefs, dismissedTimeout) {
       $("board").classList.toggle("no-sets", s.rules.bestOf <= 1);
@@ -50,6 +67,7 @@
         el.textContent = pts;
       });
       prevPts = s.done ? null : [String(s.points[0]), String(s.points[1])];
+      paintSetColumns(s);
       $("lTitle").textContent = s.title;
       var i = info(M, s, prefs, dismissedTimeout);
       $("lInfo").textContent = i.text;

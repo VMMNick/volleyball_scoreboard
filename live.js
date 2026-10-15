@@ -71,14 +71,6 @@
 
   var bug = window.Scorebug.create(document, M);
 
-  /* Колонки зіграних сетів (layout=table): очки кожної команди в кожному сеті. */
-  function paintSetColumns(s) {
-    [0, 1].forEach(function (team) {
-      $("lPer" + (team === 0 ? "A" : "B")).innerHTML = s.setLog.map(function (set) {
-        return '<b class="' + (set.winner === team ? "win" : "") + '">' + Number(set.points[team]) + "</b>";
-      }).join("");
-    });
-  }
 
   function render() {
     document.body.classList.toggle("waiting", !match);
@@ -88,7 +80,6 @@
     var i = bug.render(s, prefs, dismissedTimeout);
     $("lMidA").textContent = s.sets[0];          // рахунок за сетами посередині смуги (layout=bug)
     $("lMidB").textContent = s.sets[1];
-    paintSetColumns(s);
     // У звичайному макеті колонки сетів немає — після кінця матчу лічильник показує рахунок за сетами.
     if (s.done && layout !== "sets" && layout !== "table") { $("lPtsA").textContent = s.sets[0]; $("lPtsB").textContent = s.sets[1]; }
     document.title = s.names[0] + " " + s.points[0] + ":" + s.points[1] + " " + s.names[1];

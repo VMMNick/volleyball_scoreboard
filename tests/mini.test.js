@@ -349,3 +349,21 @@ suite("основний пульт: «Міні-табло окремо» — т�
   c.tap("mBoard");
   assert.equal(WS.all.length, 1, "повторно — те саме посилання, без нового підключення");
 });
+
+suite("міні-пульт: у міні-табло — колонки зіграних сетів, як у волейбольних таблицях", (t) => {
+  let done = Match.createMatch({ names: ["Імідж", "Ліцей"] });
+  for (let i = 0; i < 25; i++) done = Match.addPoint(done, 0, 1000);
+  for (let i = 0; i < 23; i++) done = Match.addPoint(done, 1, 2000);
+  const m = mini({ seed: { "volleyball:match": Match.serialize(done) } });
+  t.after(m.close);
+  const cells = (id) => [...m.$(id).children].map((b) => [b.textContent, b.className]);
+  assert.deepEqual(cells("lPerA"), [["25", "win"]]);
+  assert.deepEqual(cells("lPerB"), [["0", ""]]);
+  assert.deepEqual(cells("lPerHead").map((c) => c[0]), ["1"], "у шапці — номер сету");
+  m.tap("mPlusB");
+  assert.equal(m.text("lPtsB"), "24", "поточний сет — окремо, праворуч");
+  assert.equal(cells("lPerA").length, 1, "незавершений сет у колонки не потрапляє");
+  m.tap("mPlusB");                                              // 0:25 — другий сет зіграно
+  assert.deepEqual(cells("lPerB"), [["0", ""], ["25", "win"]]);
+  assert.deepEqual(cells("lPerHead").map((c) => c[0]), ["1", "2"]);
+});
