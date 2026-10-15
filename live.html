@@ -184,12 +184,20 @@
    */
   .board .logo{display:none}
   body.logo .board{position:relative;box-sizing:border-box;padding-left:var(--L)}
+  body.logo2 .board{padding-right:var(--L)}
   body.logo{--L:min(var(--H),calc(var(--W) * .3));--ratio:4.2}
   body.logo.l-bug{--ratio:8.5}
   body.logo.show-title{--ratio:3.6}
   body.logo.l-bug.show-title{--ratio:6}
+  /* Дві емблеми — ще один квадрат праворуч. */
+  body.logo2{--ratio:5.2} body.logo2.l-bug{--ratio:9.5} body.logo2.show-title{--ratio:4.6} body.logo2.l-bug.show-title{--ratio:7}
   body.logo .board .logo{display:flex;align-items:center;justify-content:center;position:absolute;left:0;top:0;bottom:0;
-    width:var(--L);box-sizing:border-box;padding:calc(var(--L) * .06);background:var(--court-deep)}
+    width:var(--L);box-sizing:border-box;padding:calc(var(--L) * .02);background:var(--court-deep)}
+  body.logo .board .logo.r{left:auto;right:0}
+  body.logo .board .logo.off{display:none}
+  /* Емблеми забирають ширину — назви трохи дрібніші, щоб не ламалися на два рядки. */
+  body.logo:not(.l-bug) .board .name{font-size:min(calc(var(--H) * .24),calc(var(--W) * .06))}
+  body.logo2:not(.l-bug) .board .name{font-size:min(calc(var(--H) * .24),calc(var(--W) * .05))}
   body.logo .board .logo img{display:block;width:100%;height:100%;object-fit:contain}
 
   /*
@@ -206,6 +214,7 @@
 <body>
 <main class="board" id="board" aria-label="Рахунок">
   <span class="logo" id="lLogo"><img src="./logo-uvl.webp" alt="Ужгородська волейбольна ліга" width="640" height="640"></span>
+  <span class="logo r off" id="lLogo2"><img src="./logo-uvl-1.webp" alt="Ужгородська волейбольна ліга" width="640" height="640"></span>
   <div class="cols" aria-hidden="true">
     <span></span><span class="c-name" id="lCaption">команда</span><span></span><span class="c-sets">сети</span><span>очки</span>
   </div>

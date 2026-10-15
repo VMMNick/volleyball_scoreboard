@@ -62,5 +62,37 @@
     }
   }
 
-  return { fmtClock: fmtClock, esc: esc, pips: pips, keepAwake: keepAwake, registerSW: registerSW };
+  /*
+   * Дві емблеми ліги: нова (синьо-жовта) і попередня (із замком). Пульт вмикає кожну
+   * своєю галочкою (prefs.boardLogo / prefs.boardLogoOld), і всі табло одразу їх показують.
+   * Обидві — нова ліворуч, попередня праворуч. Адреса може перекрити вибір пульта:
+   * &logo=0 — без емблеми, &logo=new / old — лише одна, &logo=both — обидві.
+   */
+  var LOGO_SRC = { "new": "./logo-uvl.webp", old: "./logo-uvl-1.webp" };
+  function logoPick(prefs, urlVal) {
+    var u = urlVal == null ? "" : String(urlVal).toLowerCase();
+    if (u === "0" || u === "off" || u === "none") return [];
+    if (u === "new" || u === "1") return ["new"];
+    if (u === "old" || u === "2") return ["old"];
+    if (u === "both" || u === "12") return ["new", "old"];
+    var l = [];
+    if (!prefs || prefs.boardLogo !== false) l.push("new");
+    if (prefs && prefs.boardLogoOld === true) l.push("old");
+    return l;
+  }
+  /* slots — місця під емблему: [перше (ліворуч), друге (праворуч)]; зайве ховаємо класом off. */
+  function paintLogos(doc, list, slots) {
+    slots.forEach(function (el, i) {
+      if (!el) return;
+      var img = el.tagName === "IMG" ? el : el.querySelector("img");
+      var k = list[i];
+      el.classList.toggle("off", !k);
+      if (k && img && img.getAttribute("src") !== LOGO_SRC[k]) img.setAttribute("src", LOGO_SRC[k]);
+    });
+    doc.body.classList.toggle("logo", list.length > 0);
+    doc.body.classList.toggle("logo2", list.length > 1);
+  }
+
+  return { fmtClock: fmtClock, esc: esc, pips: pips, keepAwake: keepAwake, registerSW: registerSW,
+           LOGO_SRC: LOGO_SRC, logoPick: logoPick, paintLogos: paintLogos };
 });

@@ -41,7 +41,17 @@
       if (typeof p.palette === "string") prefs.palette = P.byId(p.palette).id;
       if (typeof p.showServe === "boolean") prefs.showServe = p.showServe;
       if (typeof p.sound === "boolean") prefs.sound = p.sound;
+      if (typeof p.boardLogo === "boolean") prefs.boardLogo = p.boardLogo;
+      if (typeof p.boardLogoOld === "boolean") prefs.boardLogoOld = p.boardLogoOld;
     } catch (e) {}
+    paintLogos();
+  }
+
+  /* Емблеми ліги — за галочками пульта або &logo= в адресі. */
+  function paintLogos() {
+    var list = U.logoPick(prefs, params().get("logo"));
+    U.paintLogos(document, list, [$("aLogo1"), $("aLogo2")]);
+    U.paintLogos(document, list, [$("sLogo1"), $("sLogo2")]);
   }
 
   function applyPrefs(p) {
@@ -327,6 +337,7 @@
 
   var q = params();
   setLayout(q.get("layout"), false);
+  paintLogos();
   U.keepAwake();
   wake();
   startFeed();

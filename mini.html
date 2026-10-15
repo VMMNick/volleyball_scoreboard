@@ -27,10 +27,19 @@
     user-select:none;-webkit-font-smoothing:antialiased;
   }
   .wrap{width:100%;max-width:720px;display:flex;flex-direction:column;gap:14px}
-  .board{max-width:none;position:relative;padding-left:calc(var(--u)*3.6);box-sizing:border-box}
-  /* Емблема ліги — квадрат ліворуч на всю висоту міні-табла. */
+  .board{max-width:none;position:relative;box-sizing:border-box}
+  /* Емблеми ліги — квадрат на всю висоту міні-табла: перша ліворуч, друга праворуч. */
+  body.logo .board{padding-left:calc(var(--u)*3.6)}
+  body.logo2 .board{padding-right:calc(var(--u)*3.6)}
   .m-logo{position:absolute;left:0;top:0;bottom:0;width:calc(var(--u)*3.6);height:100%;box-sizing:border-box;
-    padding:calc(var(--u)*.3);object-fit:contain;background:var(--court-deep)}
+    padding:calc(var(--u)*.08);object-fit:contain;background:var(--court-deep)}
+  .m-logo.r{left:auto;right:0}
+  .m-logo.off{display:none}
+  /* Дві емблеми — трохи вужчі, щоб лишити місце назвам команд. */
+  body.logo2 .board{padding-left:calc(var(--u)*2.8);padding-right:calc(var(--u)*2.8)}
+  body.logo2 .m-logo{width:calc(var(--u)*2.8)}
+  body.logo2 .board .name{font-size:calc(var(--u)*.7)}
+  body.logo2 .board .name .label{overflow-wrap:normal}
   /*
    * Колонки зіграних сетів, як у волейбольних таблицях: очки кожного сету окремо
    * (у переможця — яскравіше), у шапці — номер сету.
@@ -105,10 +114,11 @@
   @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
-<body>
+<body class="logo">
 <div class="wrap">
 <main class="board" id="board" aria-label="Рахунок">
-  <img class="m-logo" src="./logo-uvl.webp" alt="Ужгородська волейбольна ліга" width="640" height="640">
+  <img class="m-logo" id="mLogo1" src="./logo-uvl.webp" alt="Ужгородська волейбольна ліга" width="640" height="640">
+  <img class="m-logo r off" id="mLogo2" src="./logo-uvl-1.webp" alt="Ужгородська волейбольна ліга" width="640" height="640">
   <div class="cols" aria-hidden="true">
     <span></span><span class="c-name" id="lCaption">команда</span><span></span><span class="per c-per" id="lPerHead"></span><span class="c-sets">сети</span><span>очки</span>
   </div>

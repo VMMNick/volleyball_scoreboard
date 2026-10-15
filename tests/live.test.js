@@ -615,3 +615,18 @@ suite("емблема ліги на міні-таблі: типово лівор
   assert.ok(fs.existsSync(path.join(root, "logo-uvl.webp")), "файл емблеми в проєкті");
   assert.match(read("sw.js"), /"\.\/logo-uvl\.webp"/, "емблема — в офлайн-кеші й на хостингу");
 });
+
+suite("дві емблеми на міні-таблі: &logo=both — квадрат ліворуч і праворуч", (t) => {
+  const l = live({ url: "https://tablo.example/live.html?room=ABC234&logo=both", WebSocket: fakeSockets() });
+  t.after(l.close);
+  const body = l.win.document.body;
+  assert.ok(body.classList.contains("logo") && body.classList.contains("logo2"));
+  assert.equal(l.$("lLogo2").classList.contains("off"), false);
+  assert.equal(l.$("lLogo2").querySelector("img").getAttribute("src"), "./logo-uvl-1.webp");
+  assert.equal(body.style.getPropertyValue("--H"), "calc(30vw / 5.2)", "ширша ще на один квадрат");
+
+  const old = live({ url: "https://tablo.example/live.html?room=ABC234&logo=old", WebSocket: fakeSockets() });
+  t.after(old.close);
+  assert.equal(old.$("lLogo").querySelector("img").getAttribute("src"), "./logo-uvl-1.webp", "лише попередня — ліворуч");
+  assert.ok(old.$("lLogo2").classList.contains("off"));
+});

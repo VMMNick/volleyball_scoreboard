@@ -29,8 +29,11 @@
       if (typeof p.palette === "string") prefs.palette = P.byId(p.palette).id;
       if (typeof p.showServe === "boolean") prefs.showServe = p.showServe;
       if (typeof p.boardPct === "number") prefs.boardPct = p.boardPct;
+      if (typeof p.boardLogo === "boolean") prefs.boardLogo = p.boardLogo;
+      if (typeof p.boardLogoOld === "boolean") prefs.boardLogoOld = p.boardLogoOld;
     } catch (e) {}
     P.apply(document.documentElement, prefs.palette);
+    applyLogos();
     applySize();
   }
 
@@ -59,14 +62,19 @@
   var RATIO_TITLE = { board: 2.6, sets: 2.6, bug: 5, table: 2.6 };
   var layout = LAYOUTS.indexOf(q.layout) >= 0 ? q.layout : LAYOUTS[0];
   var withTitle = q.title === "1" || q.title === "on";
-  var withLogo = q.logo !== "0" && q.logo !== "off";      // емблема ліги ліворуч (типово є)
+  // Емблеми ліги: галочки пульта (нова — типово є), або &logo=0 / new / old / both в адресі.
+  var logos = [];
+  function applyLogos() {
+    logos = U.logoPick(prefs, q.logo);
+    U.paintLogos(document, logos, [$("lLogo"), $("lLogo2")]);
+  }
 
   function applySize() {
     if (mode !== "mini" || !window.Remote) return;
     // Відсоток ширини екрана чи віджета: решта сторінки прозора.
     var pct = window.Remote.boardPctNorm(q.size || prefs.boardPct);
-    // Емблема — квадрат на всю висоту: таблиця ширша рівно на нього (+1), як і --ratio у live.html.
-    var ratio = (withTitle ? RATIO_TITLE : RATIO)[layout] + (withLogo ? 1 : 0);
+    // Емблема — квадрат на всю висоту: кожна робить таблицю ширшою на +1, як і --ratio у live.html.
+    var ratio = (withTitle ? RATIO_TITLE : RATIO)[layout] + logos.length;
     document.body.style.setProperty("--W", pct + "vw");
     document.body.style.setProperty("--H", "calc(" + pct + "vw / " + ratio + ")");
   }
@@ -114,7 +122,7 @@
   });
   LAYOUTS.forEach(function (l) { document.body.classList.toggle("l-" + l, l === layout); });
   document.body.classList.toggle("show-title", withTitle);
-  document.body.classList.toggle("logo", withLogo);
+  applyLogos();
 
   /* &info=1 — показати, скільки реальних пікселів дістається табло (для налаштування стріму). */
   var showInfo = q.info === "1";

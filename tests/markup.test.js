@@ -159,11 +159,25 @@ test("офлайн-кеш береться з мережі, а не з HTTP-ке
   assert.match(sw, /cache: "reload"/, "інакше нова версія кешу може зберегти старі скрипти");
 });
 
-test("емблема ліги є на великому табло (арена і смуга) та на міні-пульті", () => {
+test("дві емблеми ліги: на великому табло (арена і смуга), на міні-пульті, у кеші; галочки в пульті", () => {
   const read = f => fs.readFileSync(path.join(__dirname, "..", f), "utf8");
-  const d = read("display.html"), m = read("mini.html");
-  assert.match(d, /<img class="a-logo" src="\.\/logo-uvl\.webp"/);
-  assert.match(d, /<img class="s-logo" src="\.\/logo-uvl\.webp"/);
-  assert.match(m, /<img class="m-logo" src="\.\/logo-uvl\.webp"/);
-  assert.match(read("sw.js"), /"\.\/logo-uvl\.webp"/);
+  const d = read("display.html"), m = read("mini.html"), sw = read("sw.js"), idx = read("index.html");
+  for (const id of ["aLogo1", "aLogo2", "sLogo1", "sLogo2"]) assert.match(d, new RegExp('id="' + id + '"'), id);
+  for (const id of ["mLogo1", "mLogo2"]) assert.match(m, new RegExp('id="' + id + '"'), id);
+  assert.match(sw, /"\.\/logo-uvl\.webp"/);
+  assert.match(sw, /"\.\/logo-uvl-1\.webp"/);
+  assert.ok(fs.existsSync(path.join(__dirname, "..", "logo-uvl-1.webp")), "файл попередньої емблеми");
+  assert.match(idx, /id="inBoardLogo"/);
+  assert.match(idx, /id="inBoardLogoOld"/);
+});
+
+test("вибір емблем: галочки пульта, адреса перекриває", () => {
+  const U = require("../ui-common.js");
+  assert.deepEqual(U.logoPick({}), ["new"], "типово — нова");
+  assert.deepEqual(U.logoPick({ boardLogo: true, boardLogoOld: true }), ["new", "old"]);
+  assert.deepEqual(U.logoPick({ boardLogo: false, boardLogoOld: true }), ["old"]);
+  assert.deepEqual(U.logoPick({ boardLogo: false }), []);
+  assert.deepEqual(U.logoPick({ boardLogoOld: true }, "0"), []);
+  assert.deepEqual(U.logoPick({}, "old"), ["old"]);
+  assert.deepEqual(U.logoPick({}, "both"), ["new", "old"]);
 });

@@ -112,7 +112,10 @@
       if (typeof p.showServe === "boolean") prefs.showServe = p.showServe;
       if (typeof p.vibrate === "boolean") prefs.vibrate = p.vibrate;
       if (R && p.boardPct !== undefined) prefs.boardPct = R.boardPctNorm(p.boardPct);
+      if (typeof p.boardLogo === "boolean") prefs.boardLogo = p.boardLogo;
+      if (typeof p.boardLogoOld === "boolean") prefs.boardLogoOld = p.boardLogoOld;
     } catch (e) {}
+    window.UI.paintLogos(document, window.UI.logoPick(prefs), [$("mLogo1"), $("mLogo2")]);
     P.apply(document.documentElement, prefs.palette);
     if (R) paintStream();                                // розмір і кут накладки могли змінитись
   }

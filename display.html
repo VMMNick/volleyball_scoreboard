@@ -101,11 +101,22 @@
       border-top:0;border-bottom:0;border-left:var(--net) solid var(--tape);border-right:var(--net) solid var(--tape)}
   }
 
-  /* Емблема ліги: в арені — над рахунком за сетами посередині, у смузі — квадрат ліворуч на всю висоту. */
-  .a-logo{display:block;width:clamp(48px,12vmin,200px);height:auto;aspect-ratio:1;filter:drop-shadow(0 .6vmin 1.6vmin rgba(0,0,0,.35))}
-  .bug-wrap{display:flex;align-items:stretch;gap:1.4vmin}
-  @media (min-aspect-ratio:1/1){.a-logo{width:clamp(64px,18vmin,260px)}}
-  .s-logo{display:block;flex:0 0 auto;align-self:center;width:calc(clamp(18px,4.2vmin,64px) * 3.4);height:auto;aspect-ratio:1}
+  /*
+   * Емблеми ліги (галочки в пульті; &logo=0 / new / old / both в адресі).
+   * Арена — посередині над рахунком за сетами; смуга — квадрат на всю висоту табла
+   * (перша ліворуч, друга праворуч).
+   */
+  .a-logos{display:flex;gap:1.6vmin;align-items:center;justify-content:center}
+  .a-logo{display:block;width:clamp(56px,15vmin,240px);height:auto;aspect-ratio:1;object-fit:contain;
+    filter:drop-shadow(0 .6vmin 1.6vmin rgba(0,0,0,.35))}
+  @media (min-aspect-ratio:1/1){
+    .a-logos{flex-direction:column}
+    .a-logo{width:clamp(80px,18vmin,280px)}
+    body.logo2 .a-logo{width:clamp(64px,15vmin,240px)}
+  }
+  .bug-wrap{display:flex;align-items:center;gap:1.4vmin;font-size:clamp(18px,4.2vmin,64px)}
+  .s-logo{display:block;flex:0 0 auto;width:4.1em;height:4.1em;object-fit:contain}
+  .a-logo.off,.s-logo.off{display:none}
 
   /* ---------- Смуга: компактний рядок для стріму чи кута проєктора ---------- */
   #strip{align-items:flex-start;justify-content:flex-start;padding:3vmin}
@@ -206,7 +217,10 @@
       <span class="pips" id="aPipsA"></span>
     </div>
     <div class="a-net">
-      <img class="a-logo" src="./logo-uvl.webp" alt="Ужгородська волейбольна ліга" width="640" height="640">
+      <div class="a-logos">
+        <img class="a-logo" id="aLogo1" src="./logo-uvl.webp" alt="Ужгородська волейбольна ліга" width="640" height="640">
+        <img class="a-logo off" id="aLogo2" src="./logo-uvl-1.webp" alt="Ужгородська волейбольна ліга" width="640" height="640">
+      </div>
       <div class="a-set" id="aSet">почати матч</div>
       <div>
         <div class="a-sets num" id="aSets"></div>
@@ -227,7 +241,7 @@
 
 <section class="layout" id="strip" aria-label="Смуга рахунку">
   <div class="bug-wrap">
-  <img class="s-logo" src="./logo-uvl.webp" alt="Ужгородська волейбольна ліга" width="640" height="640">
+  <img class="s-logo" id="sLogo1" src="./logo-uvl.webp" alt="Ужгородська волейбольна ліга" width="640" height="640">
   <div class="bug num">
     <div class="bug-row">
       <span class="bug-bar a"></span>
@@ -245,6 +259,7 @@
     </div>
     <div class="bug-foot"><span><b class="bug-title" id="sTitle"></b><span id="sInfo"></span></span><span class="hl" id="sHint"></span></div>
   </div>
+  <img class="s-logo off" id="sLogo2" src="./logo-uvl-1.webp" alt="Ужгородська волейбольна ліга" width="640" height="640">
   </div>
 </section>
 
