@@ -417,6 +417,23 @@
     return s.flipped ? 1 - side : side;
   }
 
+  /*
+   * Пауза після кінця матчу: FINAL_HOLD_MS після останнього очка табло ще показують рахунок
+   * останнього сету (напр. 25:23), і лише потім — фінальний екран. finalHoldLeft — скільки
+   * ще мс триває пауза (0 — її немає: матч не завершено або вона вже минула).
+   */
+  var FINAL_HOLD_MS = 10000;
+  function finalHoldLeft(s, now) {
+    if (!s.done || !s.lastAt || !s.setLog.length) return 0;
+    var hold = api.finalHoldMs;                 // можна змінити: Match.finalHoldMs = 5000 (0 — без паузи)
+    var left = s.lastAt + hold - (now || Date.now());
+    return left > 0 ? Math.min(left, hold) : 0;
+  }
+  /* Очки для показу: під час паузи — рахунок останнього сету, інакше поточні. */
+  function shownPoints(s, now) {
+    return finalHoldLeft(s, now) ? s.setLog[s.setLog.length - 1].points.slice() : [s.points[0], s.points[1]];
+  }
+
   function durationMs(s, now) {
     if (s.startedAt === null) return 0;
     return (s.done ? s.lastAt : (now || Date.now())) - s.startedAt;
@@ -523,7 +540,11 @@
     return m;
   }
 
-  return {
+  var api = {
+    FINAL_HOLD_MS: FINAL_HOLD_MS,
+    finalHoldMs: FINAL_HOLD_MS,
+    finalHoldLeft: finalHoldLeft,
+    shownPoints: shownPoints,
     DEFAULT_RULES: DEFAULT_RULES,
     PRESETS: PRESETS,
     presetById: presetById,
@@ -559,4 +580,5 @@
     serialize: serialize,
     deserialize: deserialize
   };
+  return api;
 });

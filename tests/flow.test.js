@@ -51,7 +51,7 @@ function boot(file, own, bus) {
 
 const suite = JSDOM ? test : test.skip;
 
-suite("повний матч у залі: пульт і табло від першої подачі до протоколу", (t) => {
+suite("повний матч у залі: пульт і табло від першої подачі до протоколу", async (t) => {
   const bus = makeBus();
   const c = boot("index.html", ["pult.js"], bus);
   const d = boot("display.html", ["sounds.js", "feed.js", "display.js"], bus);
@@ -173,12 +173,21 @@ suite("повний матч у залі: пульт і табло від пер
   playTo(13, 13);
   point(0);
   assert.match(c.text("netInfo"), /матчбол · Імідж/);
+  // Пауза після кінця матчу: ще 10 с видно рахунок останнього сету, фінал — потім.
+  // Тут пауза коротка, щоб тест не чекав 10 с.
+  c.win.Match.finalHoldMs = 120;
+  d.win.Match.finalHoldMs = 120;
   point(0);
 
   /* ---------- кінець матчу ---------- */
   const s = state();
   assert.equal(s.done, true);
   assert.equal(s.winner, 0);
+  assert.equal(c.$("final").classList.contains("show"), false, "одразу після очка — ще рахунок сету");
+  assert.equal(d.$("final").classList.contains("show"), false);
+  assert.deepEqual([c.text("scoreA"), c.text("scoreB")].sort(), ["13", "15"], "на пульті — рахунок останнього сету, а не 0:0");
+  assert.deepEqual([d.text("aScoreA"), d.text("aScoreB")].sort(), ["13", "15"], "на табло теж");
+  await new Promise((r) => setTimeout(r, 300));
   assert.ok(c.$("final").classList.contains("show"));
   assert.match(c.text("finalWho"), /Імідж виграла/);
   assert.ok(d.$("final").classList.contains("show"));
@@ -213,6 +222,7 @@ suite("повний матч у залі: пульт і табло від пер
   const c2 = boot("index.html", [], makeBus());
   t.after(() => c2.close());
   c2.win.localStorage.setItem("volleyball:match", saved);
+  c2.win.Match.finalHoldMs = 0;                      // перезавантаження вже після паузи
   c2.win.eval(read("pult.js"));
   assert.ok(c2.$("final").classList.contains("show"), "після перезавантаження — той самий фінал");
 

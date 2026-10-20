@@ -54,12 +54,15 @@
     /* Рядки — у порядку команд (А зверху), а не сторін майданчика. Повертає info. */
     function render(s, prefs, dismissedTimeout) {
       $("board").classList.toggle("no-sets", s.rules.bestOf <= 1);
+      // Перші 10 с після кінця матчу — ще рахунок останнього сету (див. Match.finalHoldLeft).
+      var hold = M.finalHoldLeft ? M.finalHoldLeft(s) : 0;
+      var shown = hold ? M.shownPoints(s) : s.points;
       [0, 1].forEach(function (team) {
         var t = team === 0 ? "A" : "B";
         $("lName" + t).textContent = s.names[team];
         $("lServe" + t).className = "serve" + (prefs.showServe && !s.done && s.serving === team ? " on" : "");
         $("lSets" + t).textContent = s.sets[team];
-        var pts = s.done ? "" : String(s.points[team]);
+        var pts = s.done && !hold ? "" : String(shown[team]);
         var el = $("lPts" + t);
         if (prevPts && pts !== "" && Number(pts) > Number(prevPts[team] || 0)) {
           el.classList.remove("flash"); void el.offsetWidth; el.classList.add("flash");
@@ -67,11 +70,13 @@
         el.textContent = pts;
       });
       prevPts = s.done ? null : [String(s.points[0]), String(s.points[1])];
+      if (hold) { prevPts = null; doc.body.classList.add("final-hold"); } else doc.body.classList.remove("final-hold");
       paintSetColumns(s);
       $("lTitle").textContent = s.title;
       var i = info(M, s, prefs, dismissedTimeout);
       $("lInfo").textContent = i.text;
       $("lInfo").className = "info num " + i.cls;
+      i.hold = hold;                                 // сторінка перемалює себе, коли пауза мине
       return i;
     }
 

@@ -150,7 +150,7 @@
     [0, 1].forEach(function (team) {
       var t = team === 0 ? "A" : "B";
       $("mName" + t).textContent = s.names[team];
-      $("mPts" + t).textContent = s.done ? s.sets[team] : s.points[team];
+      $("mPts" + t).textContent = s.done && !i.hold ? s.sets[team] : M.shownPoints(s)[team];
       $("mPlus" + t).disabled = s.done;
       $("mMinus" + t).disabled = s.done || s.points[team] === 0;
       var to = $("mTo" + t);
@@ -169,6 +169,7 @@
     document.title = s.names[0] + " " + s.points[0] + ":" + s.points[1] + " " + s.names[1] + " — міні-пульт";
     $("live").textContent = s.names[0] + " " + s.points[0] + ", " + s.names[1] + " " + s.points[1];
     if (i.ticking) tick = setTimeout(render, 500);
+    else if (i.hold) tick = setTimeout(render, i.hold + 50);   // кінець паузи після матчу
   }
 
   /* ---------- дії ---------- */

@@ -84,8 +84,13 @@
 
   /* ---------- малювання ---------- */
 
+  var holdTimer = null;
   function render() {
     var s = M.reduce(match);
+    // Перші 10 с після кінця матчу — ще рахунок останнього сету, фінальний екран — потім.
+    var hold = M.finalHoldLeft(s);
+    clearTimeout(holdTimer);
+    if (hold) holdTimer = setTimeout(render, hold + 50);
     // Як на пульті: ліва/верхня половина — та команда, що зараз на цій стороні майданчика.
     var sides = [M.teamOnSide(s, 0), M.teamOnSide(s, 1)];
     var setLabel = s.done ? "матч завершено"
@@ -197,7 +202,7 @@
     ["A", "B"].forEach(function (t, side) {
       var team = sides[side];
       $("aName" + t).textContent = s.names[team];
-      $("aScore" + t).textContent = s.points[team];
+      $("aScore" + t).textContent = M.shownPoints(s)[team];
       $("aServe" + t).className = "serve" + (prefs.showServe && s.serving === team ? " on" : "");
       if (s.rules.bestOf > 1) U.pips($("aPips" + t), s.sets[team], s.setsNeeded);
       else $("aPips" + t).innerHTML = "";
@@ -240,7 +245,7 @@
       $("sName" + t).textContent = s.names[team];
       $("sServe" + t).className = "bug-serve" + (prefs.showServe && s.serving === team ? " on" : "");
       $("sSets" + t).textContent = s.sets[team];
-      $("sPts" + t).textContent = s.done ? "" : s.points[team];
+      $("sPts" + t).textContent = s.done && !M.finalHoldLeft(s) ? "" : M.shownPoints(s)[team];
       $("sPast" + t).innerHTML = s.setLog.map(function (set) {
         return '<span class="' + (set.winner === team ? "won" : "") + '">' + set.points[team] + "</span>";
       }).join("");
@@ -271,8 +276,9 @@
   }
 
   function renderFinal(s) {
-    $("final").classList.toggle("show", s.done);
-    if (!s.done) return;
+    var show = s.done && !M.finalHoldLeft(s);
+    $("final").classList.toggle("show", show);
+    if (!show) return;
     var sides = [M.teamOnSide(s, 0), M.teamOnSide(s, 1)];
     $("finalCap").textContent = s.title || "Матч завершено";
     $("finalWho").textContent = s.names[s.winner] + " виграла";

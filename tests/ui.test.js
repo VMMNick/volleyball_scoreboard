@@ -94,11 +94,15 @@ suite("сетбол і матчбол зʼявляються в сітці", (t)
   assert.match(ui.text("netInfo"), /матчбол/);
 });
 
-suite("переможець показується на весь екран", (t) => {
+suite("переможець показується на весь екран — після паузи з рахунком останнього сету", async (t) => {
   const ui = boot();
   t.after(ui.close);
+  ui.win.Match.finalHoldMs = 120;                    // у житті — 10 с
 
   for (let s = 0; s < 3; s++) ui.runSide("sideA", 25);
+  assert.equal(ui.$("final").className.includes("show"), false, "одразу після очка — ще рахунок");
+  assert.deepEqual(ui.score(), [25, 0], "видно рахунок останнього сету");
+  await new Promise((r) => setTimeout(r, 300));
   assert.equal(ui.$("final").className.includes("show"), true);
   assert.match(ui.text("finalWho"), /Команда А виграла/);
   assert.match(ui.text("finalTally"), /3:0/);

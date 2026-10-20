@@ -93,10 +93,11 @@
     $("lMidA").textContent = s.sets[0];          // рахунок за сетами посередині смуги (layout=bug)
     $("lMidB").textContent = s.sets[1];
     // У звичайному макеті колонки сетів немає — після кінця матчу лічильник показує рахунок за сетами.
-    if (s.done && layout !== "sets" && layout !== "table") { $("lPtsA").textContent = s.sets[0]; $("lPtsB").textContent = s.sets[1]; }
+    if (s.done && !i.hold && layout !== "sets" && layout !== "table") { $("lPtsA").textContent = s.sets[0]; $("lPtsB").textContent = s.sets[1]; }
     document.title = s.names[0] + " " + s.points[0] + ":" + s.points[1] + " " + s.names[1];
     $("live").textContent = s.names[0] + " " + s.points[0] + ", " + s.names[1] + " " + s.points[1];
     if (i.ticking) tick = setTimeout(render, 500);       // відлік тайм-ауту щосекунди
+    else if (i.hold) tick = setTimeout(render, i.hold + 50);   // кінець паузи після матчу
   }
 
   var LINK_TEXT = {

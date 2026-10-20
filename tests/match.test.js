@@ -525,3 +525,20 @@ test("у залі технічного тайм-ауту немає", () => {
   for (let i = 0; i < 21; i++) m = M.addPoint(m, i % 2, 1000);
   assert.equal(M.techTimeoutDue(M.reduce(m)), false);
 });
+
+test("пауза після кінця матчу: 10 с рахунок останнього сету, потім фінал", () => {
+  let m = M.createMatch({ rules: { bestOf: 1 } });
+  for (let i = 0; i < 24; i++) m = M.addPoint(m, 0, 1000 + i);
+  m = M.addPoint(m, 1, 2000);
+  m = M.addPoint(m, 0, 5000);                       // 25:1 — матч завершено о 5000
+  const s = M.reduce(m);
+  assert.equal(s.done, true);
+  assert.equal(M.FINAL_HOLD_MS, 10000);
+  assert.equal(M.finalHoldLeft(s, 5000), 10000);
+  assert.equal(M.finalHoldLeft(s, 12000), 3000);
+  assert.equal(M.finalHoldLeft(s, 15000), 0, "через 10 с — фінал");
+  assert.deepEqual(M.shownPoints(s, 6000), [25, 1], "під час паузи — рахунок сету");
+  assert.deepEqual(M.shownPoints(s, 16000), [0, 0]);
+  assert.equal(M.finalHoldLeft(M.reduce(M.createMatch()), 5000), 0, "незавершений матч — без паузи");
+  assert.equal(M.finalHoldLeft(s, 1000), 10000, "годинник глядача позаду — не довше 10 с");
+});

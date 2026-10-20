@@ -208,15 +208,21 @@
     }).join('<span class="sep"> · </span>');
   }
 
+  var holdTimer = null;
   function render() {
     var s = M.reduce(match);
     var sides = [M.teamOnSide(s, 0), M.teamOnSide(s, 1)];
     var tags = ["A", "B"];
+    // Перші 10 с після кінця матчу — ще рахунок останнього сету (можна встигнути скасувати),
+    // фінальний екран — потім.
+    var hold = M.finalHoldLeft(s), shown = M.shownPoints(s);
+    clearTimeout(holdTimer);
+    if (hold) holdTimer = setTimeout(render, hold + 50);
 
     for (var side = 0; side < 2; side++) {
       var team = sides[side], t = tags[side];
       $("name" + t).textContent = s.names[team];
-      $("score" + t).textContent = s.points[team];
+      $("score" + t).textContent = shown[team];
       $("serve" + t).className = "serve" + (s.serving === team ? " on" : "");
 
       if (s.rules.bestOf > 1) U.pips($("pips" + t), s.sets[team], s.setsNeeded);
@@ -255,7 +261,7 @@
     $("undoBtn").disabled = !M.canUndo(match);
     $("redoBtn").disabled = !M.canRedo(match);
 
-    if (s.done) {
+    if (s.done && !hold) {
       $("finalWho").textContent = s.names[s.winner] + " виграла";
       $("finalWho").className = "who " + (M.teamOnSide(s, 0) === s.winner ? "ca" : "cb");
       $("finalTally").textContent = s.sets[0] + ":" + s.sets[1] + "  ·  " +
