@@ -28,7 +28,8 @@ const MAX_MESSAGE = 512 * 1024;           // повний матч із поді
 const ROOM_TTL_MS = 24 * 60 * 60 * 1000;  // кімната без жодного підключення живе добу
 const MAX_ROOMS = 2000;
 const PING_MS = 30000;
-const PREF_KEYS = ["palette", "showServe", "sound", "timeoutSec", "boardPct", "boardLogo", "boardLogoOld"];
+const PREF_KEYS = ["palette", "showServe", "sound", "timeoutSec", "boardPct", "boardLogo", "boardLogoOld",
+                   "colorA", "colorB", "colorBg", "colorFrame", "colorText"];
 
 const MIME = {
   ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8",

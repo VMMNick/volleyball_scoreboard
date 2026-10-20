@@ -7,7 +7,7 @@
 .num{font-variant-numeric:tabular-nums}
 
 .board{width:100%;max-width:1500px;border-radius:calc(var(--u)*.22);overflow:hidden;
-  background:var(--court-deep);border:var(--net) solid var(--tape);box-shadow:0 1vmin 5vmin rgba(0,0,0,.35)}
+  background:var(--court-deep);color:var(--chalk);border:var(--net) solid var(--tape);box-shadow:0 1vmin 5vmin rgba(0,0,0,.35)}
 
 .cols,.row{display:grid;grid-template-columns:calc(var(--u)*.22) 1fr calc(var(--u)*.9) calc(var(--u)*1.7) calc(var(--u)*2.3);align-items:stretch}
 .cols{font-size:calc(var(--u)*.32);letter-spacing:.14em;color:var(--slate);text-transform:lowercase}
@@ -28,6 +28,8 @@
 .pts.a{background:var(--team-a);color:var(--ink-a)}
 .pts.b{background:var(--team-b);color:var(--ink-b)}
 .no-sets .sets,.no-sets .c-sets{visibility:hidden}
+/* Свій світлий фон таблиці: білий мʼяч подачі — з темним контуром. */
+.board[data-light] .serve circle{stroke:#0A1F30;stroke-width:1.4}
 
 .foot{display:flex;justify-content:space-between;align-items:center;gap:calc(var(--u)*.4);
   padding:calc(var(--u)*.2) calc(var(--u)*.4);border-top:1px solid rgba(143,166,184,.22);

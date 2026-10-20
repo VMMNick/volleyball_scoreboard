@@ -31,8 +31,10 @@
       if (typeof p.boardPct === "number") prefs.boardPct = p.boardPct;
       if (typeof p.boardLogo === "boolean") prefs.boardLogo = p.boardLogo;
       if (typeof p.boardLogoOld === "boolean") prefs.boardLogoOld = p.boardLogoOld;
+      P.COLOR_KEYS.forEach(function (k) { if (typeof p[k] === "string") prefs[k] = p[k]; });   // свої кольори ("" — скинуто)
     } catch (e) {}
-    P.apply(document.documentElement, prefs.palette);
+    P.apply(document.documentElement, prefs.palette, prefs);
+    P.applyBoard($("board"), prefs);
     applyLogos();
     applySize();
   }
@@ -138,7 +140,7 @@
   setTimeout(paintInfo, 0);
   applySize();
 
-  P.apply(document.documentElement, prefs.palette);
+  P.apply(document.documentElement, prefs.palette, prefs);
   render();
   window.Feed.create({
     win: window,

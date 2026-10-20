@@ -186,3 +186,26 @@ test("структура: усе з public/ — в офлайн-кеші, і н�
   const out = execFileSync(process.execPath, [file("scripts/build.js")], { encoding: "utf8" });
   assert.match(out, /офлайн-кеш збігається/);
 });
+
+test("свої кольори: перевірка, текст на кольорі команди, кольори таблиці", () => {
+  const P = require("./helpers/site").load("palettes.js");
+  assert.deepEqual(P.pickColors({ colorA: "#ff0000", colorB: "red", colorBg: "", evil: "#000000" }), { colorA: "#FF0000" }, "лише #RRGGBB");
+  assert.equal(P.boardColors({}), null, "без своїх кольорів таблиця як у theme.css");
+  const fake = () => { const st = {}; return { style: { setProperty: (k, v) => { st[k] = v; }, removeProperty: (k) => { delete st[k]; } }, st };};
+  const el = fake();
+  const t = P.apply(el, "classic", { colorA: "#F7D23A", colorB: "#0A1F30" });
+  assert.equal(el.st["--team-a"], "#F7D23A");
+  assert.equal(t.inkA, "#0A1F30", "на жовтому — темний текст");
+  assert.equal(t.inkB, "#FFFFFF", "на темно-синьому — білий");
+  assert.equal(P.apply(fake(), "classic", {}).a, "#1668C9", "без своїх — палітра");
+  const light = P.boardColors({ colorBg: "#FFFFFF" });
+  assert.ok(P.contrast(light.text, light.bg) >= 7, "на білому фоні текст сам стає темним");
+  const dark = P.boardColors({ colorBg: "#000000" });
+  assert.ok(P.contrast(dark.text, dark.bg) >= 7);
+  assert.equal(P.boardColors({ colorFrame: "#F7D23A" }).bg, "#0A1F30", "лише рамка — фон лишається");
+  P.SWATCHES.forEach((c) => assert.ok(P.isHex(c), c));
+  const srv = read("server/server.js");
+  ["colorA", "colorB", "colorBg", "colorFrame", "colorText"].forEach((k) => assert.match(srv, new RegExp('"' + k + '"'), "сервер пересилає " + k));
+  assert.match(read("index.html"), /id="colorPickers"/);
+  assert.match(read("index.html"), /id="colorPreview"/);
+});

@@ -110,7 +110,7 @@ body[data-layout="strip"] #strip{display:flex}
 #strip{align-items:flex-start;justify-content:flex-start;padding:3vmin}
 .bug{
   display:grid;grid-auto-rows:auto;border-radius:1.2vmin;overflow:hidden;
-  border:var(--net) solid var(--tape);background:var(--court-deep);
+  border:var(--net) solid var(--tape);background:var(--court-deep);color:var(--chalk);
   font-size:clamp(18px,4.2vmin,64px);box-shadow:0 1vmin 4vmin rgba(0,0,0,.35);
 }
 .bug-row{display:flex;align-items:stretch}

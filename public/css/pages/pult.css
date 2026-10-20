@@ -170,6 +170,29 @@ body{
 }
 .pal i{flex:1;display:block}
 .pal[aria-pressed="true"]{border-color:var(--chalk)}
+
+/* Свої кольори: зразок таблиці й рядки вибору кольору. */
+.cprev{max-width:420px;border-radius:12px;overflow:hidden;border:3px solid var(--pv-frame);background:var(--pv-bg);color:var(--pv-text);margin:4px 0 12px}
+.pv-row{display:grid;grid-template-columns:6px 1fr 44px 58px;align-items:stretch;min-height:46px}
+.pv-row + .pv-row{border-top:1px solid rgba(143,166,184,.22)}
+.pv-bar.a{background:var(--pv-a)} .pv-bar.b{background:var(--pv-b)}
+.pv-row b{display:flex;align-items:center;padding:0 12px;font-size:20px;font-weight:600;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.field .cprev .pv-s{display:flex;align-items:center;justify-content:center;margin:0;letter-spacing:0;background:var(--pv-cell);color:var(--pv-text);font-size:20px;font-weight:600}
+.field .cprev .pv-p{display:flex;align-items:center;justify-content:center;margin:0;letter-spacing:0;font-size:26px;font-weight:800}
+.field .cprev .pv-p.a{background:var(--pv-a);color:var(--pv-ink-a)} .field .cprev .pv-p.b{background:var(--pv-b);color:var(--pv-ink-b)}
+.field .ch span,.field .swown span{display:inline;margin:0}
+.crow{margin:0 0 12px}
+.ch{display:flex;align-items:baseline;gap:10px;margin-bottom:6px}
+.cl{font-size:17px;color:var(--chalk)}
+.cv{font-size:13px;color:var(--slate);letter-spacing:.04em}
+.cx{margin-left:auto;background:none;border:0;color:var(--slate);font:inherit;font-size:14px;text-decoration:underline;cursor:pointer;padding:0}
+.sw{display:flex;flex-wrap:wrap;gap:6px}
+.swb{width:32px;height:32px;border-radius:8px;cursor:pointer;padding:0;border:1px solid rgba(143,166,184,.45)}
+.swb[aria-pressed="true"]{outline:3px solid var(--chalk);outline-offset:2px}
+.swown{position:relative;display:flex;align-items:center;gap:6px;height:32px;padding:0 10px 0 4px;border-radius:8px;cursor:pointer;
+  border:1px dashed rgba(143,166,184,.6);color:var(--slate);font-size:14px}
+.swown.on{outline:3px solid var(--chalk);outline-offset:2px;color:var(--chalk)}
+.swown input{width:26px;height:26px;padding:0;border:0;background:none;cursor:pointer}
 .reset{color:var(--danger);border-color:rgba(216,87,76,.5)}
 .hint{margin:16px 0 0;font-size:14px;color:var(--slate);letter-spacing:.04em;line-height:1.55}
 

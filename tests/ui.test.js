@@ -418,3 +418,41 @@ suite("збереження налаштувань не губить прави�
     assert.equal(rules[k], M.presetById("beach").rules[k], "правило " + k);
   });
 });
+
+suite("свої кольори в налаштуваннях: зразок, вибір, «як було», збереження й скасування", (t) => {
+  const ui = boot();
+  t.after(ui.close);
+  const doc = ui.win.document, root = doc.documentElement.style;
+  const click = (el) => el.dispatchEvent(new ui.win.Event("click", { bubbles: true }));
+  ui.tap("mSettings");
+  assert.equal(doc.querySelectorAll("#colorPickers .crow").length, 5, "команда А, Б, фон, рамка, текст");
+  // команда А — жовта: видно одразу на пульті й на зразку
+  click(doc.querySelector('#colorPickers .swb[data-k="colorA"][data-c="#F7D23A"]'));
+  assert.equal(root.getPropertyValue("--team-a"), "#F7D23A");
+  assert.equal(root.getPropertyValue("--ink-a"), "#0A1F30", "текст на жовтому темніє сам");
+  assert.match(ui.$("colorPreview").style.cssText, /--pv-a:\s*#F7D23A/i);
+  // фон таблиці — свій колір через палітру браузера
+  const inp = doc.querySelector('#colorPickers input[data-k="colorBg"]');
+  inp.value = "#123456";
+  inp.dispatchEvent(new ui.win.Event("change", { bubbles: true }));
+  assert.match(ui.$("colorPreview").style.cssText, /--pv-bg:\s*#123456/i);
+  // закрили без збереження — усе як було
+  ui.tap("sheetSave");
+  let p = JSON.parse(ui.win.localStorage.getItem("volleyball:prefs"));
+  assert.equal(p.colorA, "#F7D23A");
+  assert.equal(p.colorBg, "#123456");
+  ui.tap("mSettings");
+  click(doc.querySelector('#colorPickers .cx[data-k="colorA"]'));          // «як було»
+  assert.equal(root.getPropertyValue("--team-a"), "#1668C9");
+  ui.tap("sheetSave");
+  p = JSON.parse(ui.win.localStorage.getItem("volleyball:prefs"));
+  assert.equal(p.colorA, "", "скинуто");
+  assert.equal(p.colorBg, "#123456", "решта лишилась");
+  ui.tap("mSettings");
+  ui.tap("colorsReset");
+  click(doc.querySelector('#colorPickers .swb[data-k="colorB"][data-c="#E03127"]'));
+  doc.querySelector("#sheet").dispatchEvent(new ui.win.Event("click"));   // тап повз вікно — закрити без збереження
+  assert.equal(root.getPropertyValue("--team-b"), "#F5A310", "без «Зберегти» колір повертається");
+  assert.equal(JSON.parse(ui.win.localStorage.getItem("volleyball:prefs")).colorBg, "#123456");
+  assert.deepEqual(ui.errors, []);
+});

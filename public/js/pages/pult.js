@@ -12,9 +12,11 @@
   var PALETTES = window.Palettes.list;
   var paletteById = window.Palettes.byId;
 
-  function applyPalette(id) {
-    window.Palettes.apply(document.documentElement, id);
+  /* colors — свої кольори ({ colorA, … }); без них — збережені в налаштуваннях. */
+  function applyPalette(id, colors) {
+    window.Palettes.apply(document.documentElement, id, colors || prefs);
   }
+  var COLOR_KEYS = window.Palettes.COLOR_KEYS;
 
   /*
    * Звʼязок із табло для глядачів (display.html) на цьому ж пристрої.
@@ -33,7 +35,8 @@
   // boardLayout і boardTitle живуть у самій адресі міні-табла, тож на глядачів не летять
   // (сервер їх не пересилає) — пульт лише памʼятає, який вигляд копіювати.
   var prefs = { vibrate: true, timeoutSec: TIMEOUT_SEC, palette: PALETTES[0].id, showServe: true, sound: true,
-                boardPct: 30, boardLayout: "board", boardTitle: false, boardFill: false, boardLogo: true, boardLogoOld: false };
+                boardPct: 30, boardLayout: "board", boardTitle: false, boardFill: false, boardLogo: true, boardLogoOld: false,
+                colorA: "", colorB: "", colorBg: "", colorFrame: "", colorText: "" };
   var rotTimer = null, toTimer = null, toEndsAt = 0;
 
   function $(id) { return document.getElementById(id); }
@@ -82,6 +85,7 @@
           if (typeof p.boardFill === "boolean") prefs.boardFill = p.boardFill;
           if (typeof p.boardLogo === "boolean") prefs.boardLogo = p.boardLogo;
           if (typeof p.boardLogoOld === "boolean") prefs.boardLogoOld = p.boardLogoOld;
+          takeColors(p);
           takeBoardPct(p);
         }
       } catch (e) {}
@@ -278,9 +282,10 @@
     $(id).classList.add("show");
   }
   function closeSheets() {
-    if ($("sheet").classList.contains("show") && pendingPalette !== prefs.palette) {
-      applyPalette(prefs.palette);   // закрили без збереження — вертаємо колір
+    if ($("sheet").classList.contains("show")) {
+      applyPalette(prefs.palette);   // закрили без збереження — вертаємо кольори
       pendingPalette = prefs.palette;
+      pendingColors = null;
     }
     ["menu", "sheet", "proto", "serveAsk", "subsSheet", "linkSheet"].forEach(function (id) { $(id).classList.remove("show"); });
   }
@@ -488,6 +493,7 @@
       if (typeof p.palette === "string") prefs.palette = paletteById(p.palette).id;
       if (typeof p.showServe === "boolean") prefs.showServe = p.showServe;
       if (typeof p.sound === "boolean") prefs.sound = p.sound;
+      takeColors(p);
       takeBoardPct(p);
       applyPalette(prefs.palette);
       savePrefs(true);
@@ -868,7 +874,9 @@
     $("inVibrate").checked = prefs.vibrate;
     $("inShowServe").checked = prefs.showServe;
     $("inSound").checked = prefs.sound;
+    pendingColors = null;
     paintPalettes();
+    paintColors();
     pendingBestOf = s.rules.bestOf;
     pendingPreset = M.presetOf(s.rules);
     paintSeg();
@@ -892,12 +900,95 @@
       b.innerHTML = '<i style="background:' + p.a + '"></i><i style="background:' + p.b + '"></i>';
       b.addEventListener("click", function () {
         pendingPalette = p.id;
-        applyPalette(p.id);          // видно одразу, ще до збереження
+        if (pendingColors) { pendingColors.colorA = ""; pendingColors.colorB = ""; }   // готова палітра замість своїх
+        applyPalette(p.id, pendingColors);          // видно одразу, ще до збереження
         paintPalettes();
+        paintColors();
       });
       box.appendChild(b);
     });
   }
+
+  /* ---------- свої кольори: команди, фон, рамка й текст таблиці ---------- */
+
+  function takeColors(p) {
+    COLOR_KEYS.forEach(function (k) {
+      if (typeof p[k] === "string") prefs[k] = window.Palettes.isHex(p[k]) ? p[k].toUpperCase() : "";
+    });
+  }
+
+  var pendingColors = null;
+  var COLOR_ROWS = [
+    { key: "colorA", label: "Команда А" },
+    { key: "colorB", label: "Команда Б" },
+    { key: "colorBg", label: "Фон таблиці" },
+    { key: "colorFrame", label: "Рамка таблиці" },
+    { key: "colorText", label: "Текст таблиці" }
+  ];
+
+  /* Колір, який зараз діє для рядка: свій або той, що дає палітра / тема. */
+  function effectiveColor(key) {
+    var P = window.Palettes, team = P.apply(document.createElement("i"), pendingPalette || prefs.palette, pendingColors);
+    var board = P.boardColors(pendingColors) || { bg: "#0A1F30", frame: "#EDE9DE", text: "#F2EFE6" };
+    return { colorA: team.a, colorB: team.b, colorBg: board.bg, colorFrame: board.frame, colorText: board.text }[key];
+  }
+
+  function setColor(key, value) {
+    pendingColors[key] = value;
+    applyPalette(pendingPalette || prefs.palette, pendingColors);   // команди — видно одразу на пульті
+    paintColors();
+  }
+
+  function paintColors() {
+    var P = window.Palettes;
+    if (!pendingColors) {
+      pendingColors = {};
+      COLOR_KEYS.forEach(function (k) { pendingColors[k] = prefs[k] || ""; });
+    }
+    // Зразок таблиці — як на міні-табло.
+    var team = P.apply(document.createElement("i"), pendingPalette || prefs.palette, pendingColors);
+    var b = P.boardColors(pendingColors) || { bg: "#0A1F30", cell: "#0E2A3F", text: "#F2EFE6", muted: "#8FA6B8", frame: "#EDE9DE" };
+    var pv = $("colorPreview");
+    pv.style.cssText = "--pv-bg:" + b.bg + ";--pv-cell:" + b.cell + ";--pv-text:" + b.text + ";--pv-frame:" + b.frame +
+      ";--pv-a:" + team.a + ";--pv-b:" + team.b + ";--pv-ink-a:" + team.inkA + ";--pv-ink-b:" + team.inkB;
+    var s = M.reduce(match);
+    pv.querySelector(".pv-na").textContent = s.names[0];
+    pv.querySelector(".pv-nb").textContent = s.names[1];
+
+    var box = $("colorPickers");
+    box.innerHTML = "";
+    COLOR_ROWS.forEach(function (row) {
+      var cur = effectiveColor(row.key), own = !!pendingColors[row.key];
+      var r = document.createElement("div");
+      r.className = "crow";
+      var h = '<div class="ch"><span class="cl">' + row.label + '</span>' +
+        '<span class="cv num">' + cur + (own ? "" : " · типово") + '</span>' +
+        (own ? '<button type="button" class="cx" data-k="' + row.key + '">як було</button>' : "") + '</div><div class="sw">';
+      P.SWATCHES.forEach(function (c) {
+        h += '<button type="button" class="swb" data-k="' + row.key + '" data-c="' + c + '" title="' + c + '" aria-label="' +
+          row.label + ': ' + c + '" aria-pressed="' + String(own && pendingColors[row.key] === c) + '" style="background:' + c + '"></button>';
+      });
+      h += '<label class="swown' + (own && P.SWATCHES.indexOf(pendingColors[row.key]) < 0 ? " on" : "") + '" title="Свій колір">' +
+        '<input type="color" data-k="' + row.key + '" value="' + cur.toLowerCase() + '" aria-label="' + row.label + ': свій колір">' +
+        '<span>свій</span></label></div>';
+      r.innerHTML = h;
+      box.appendChild(r);
+    });
+  }
+
+  $("colorPickers").addEventListener("click", function (e) {
+    var t = e.target.closest ? e.target.closest("[data-k]") : null;
+    if (!t || t.tagName === "INPUT") return;
+    setColor(t.dataset.k, t.classList.contains("cx") ? "" : t.dataset.c);
+  });
+  $("colorPickers").addEventListener("change", function (e) {
+    if (e.target.type === "color") setColor(e.target.dataset.k, String(e.target.value).toUpperCase());
+  });
+  $("colorsReset").addEventListener("click", function () {
+    COLOR_KEYS.forEach(function (k) { pendingColors[k] = ""; });
+    applyPalette(pendingPalette || prefs.palette, pendingColors);
+    paintColors();
+  });
 
   function paintSeg() {
     var box = $("segPreset");
@@ -960,6 +1051,7 @@
     prefs.showServe = $("inShowServe").checked;
     prefs.sound = $("inSound").checked;
     if (pendingPalette) prefs.palette = pendingPalette;
+    if (pendingColors) COLOR_KEYS.forEach(function (k) { prefs[k] = pendingColors[k] || ""; });
     applyPalette(prefs.palette);
     savePrefs();
     closeSheets();

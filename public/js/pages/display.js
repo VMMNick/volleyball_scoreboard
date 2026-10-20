@@ -43,8 +43,10 @@
       if (typeof p.sound === "boolean") prefs.sound = p.sound;
       if (typeof p.boardLogo === "boolean") prefs.boardLogo = p.boardLogo;
       if (typeof p.boardLogoOld === "boolean") prefs.boardLogoOld = p.boardLogoOld;
+      P.COLOR_KEYS.forEach(function (k) { if (typeof p[k] === "string") prefs[k] = p[k]; });   // свої кольори ("" — скинуто)
     } catch (e) {}
     paintLogos();
+    P.applyBoard(document.querySelector("#strip .bug"), prefs);    // фон, рамка й текст — лише смуга
   }
 
   /* Емблеми ліги — за галочками пульта або &logo= в адресі. */
@@ -56,7 +58,7 @@
 
   function applyPrefs(p) {
     takePrefs(p);
-    P.apply(document.documentElement, prefs.palette);
+    P.apply(document.documentElement, prefs.palette, prefs);
     render();
   }
 

@@ -114,9 +114,11 @@
       if (R && p.boardPct !== undefined) prefs.boardPct = R.boardPctNorm(p.boardPct);
       if (typeof p.boardLogo === "boolean") prefs.boardLogo = p.boardLogo;
       if (typeof p.boardLogoOld === "boolean") prefs.boardLogoOld = p.boardLogoOld;
+      P.COLOR_KEYS.forEach(function (k) { if (typeof p[k] === "string") prefs[k] = p[k]; });   // свої кольори ("" — скинуто)
     } catch (e) {}
     window.UI.paintLogos(document, window.UI.logoPick(prefs), [$("mLogo1"), $("mLogo2")]);
-    P.apply(document.documentElement, prefs.palette);
+    P.apply(document.documentElement, prefs.palette, prefs);
+    P.applyBoard($("board"), prefs);
     if (R) paintStream();                                // розмір і кут накладки могли змінитись
   }
 
@@ -300,7 +302,7 @@
     take(localStorage.getItem(KEY));
     takePrefs(localStorage.getItem(PREF));
   } catch (e) {}
-  P.apply(document.documentElement, prefs.palette);
+  P.apply(document.documentElement, prefs.palette, prefs);
   setView(initialView(), false);
   render();
   if (R) connectLink(R.loadLink(localStorage));

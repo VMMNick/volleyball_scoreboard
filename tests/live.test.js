@@ -629,3 +629,20 @@ suite("дві емблеми на міні-таблі: &logo=both — квадр
   assert.equal(old.$("lLogo").querySelector("img").getAttribute("src"), "./assets/logos/uvl-old.webp", "лише попередня — ліворуч");
   assert.ok(old.$("lLogo2").classList.contains("off"));
 });
+
+suite("свої кольори з пульта: команди — всюди, фон/рамка/текст — лише таблиця", (t) => {
+  const prefs = { colorA: "#F7D23A", colorBg: "#FFFFFF", colorFrame: "#2F4BA6" };
+  const l = live({ seed: { "volleyball:prefs": JSON.stringify(prefs) } });
+  t.after(l.close);
+  const root = l.win.document.documentElement.style, board = l.$("board");
+  assert.equal(root.getPropertyValue("--team-a"), "#F7D23A");
+  assert.equal(root.getPropertyValue("--ink-a"), "#0A1F30");
+  assert.equal(board.style.getPropertyValue("--court-deep"), "#FFFFFF");
+  assert.equal(board.style.getPropertyValue("--tape"), "#2F4BA6");
+  assert.equal(board.style.getPropertyValue("--chalk"), "#0A1F30", "текст сам темніє на білому");
+  assert.ok(board.hasAttribute("data-light"));
+  assert.equal(root.getPropertyValue("--court-deep"), "", "сторінка поза таблицею — без змін");
+  const d = live({});
+  t.after(d.close);
+  assert.equal(d.$("board").style.getPropertyValue("--court-deep"), "", "типово — нічого не змінюється");
+});
