@@ -187,7 +187,7 @@ Service worker і встановлення застосунку працюють
 ## Тести
 
 ```bash
-npm test               # 170 тестів (1 пропущено й 1 todo — пляжний волейбол відкладено)
+npm test               # 176 тестів (1 пропущено й 1 todo — пляжний волейбол відкладено)
 npm run check          # синтаксис усіх скриптів
 ```
 
@@ -218,6 +218,7 @@ public/                     — САЙТ: усе, що отримує брауз
 ├── live.html               — міні-табло: для стріму (Prism Live) і телефонів глядачів
 ├── mini.html               — міні-пульт: міні-табло + кнопки в окремому вікні
 ├── sw.js                   — офлайн-кеш (лежить у корені сайту, щоб діяти на всі сторінки)
+├── js/config.js            — налаштування хостингу: адреса сервера посилань (для GitHub Pages)
 ├── manifest.webmanifest    — встановлення як застосунку
 ├── css/
 │   ├── theme.css           — спільна тема: кольори, шрифти
@@ -233,6 +234,7 @@ public/                     — САЙТ: усе, що отримує брауз
     └── logos/              — емблеми ліги: uvl-new.webp, uvl-old.webp
 server/server.js            — сервер: роздає public/ + WebSocket /ws (кімнати матчів)
 scripts/build.js            — перевірка: кожен файл public/ є в офлайн-кеші й навпаки
+scripts/pages-config.js     — вписує SYNC_SERVER у js/config.js під час деплою на GitHub Pages
 tests/                      — node:test (+ helpers/site.js — де лежать файли)
 docs/                       — INSTRUCTION (для суддів), TESTING, ARCHITECTURE
 render.yaml                 — деплой на Render
@@ -266,6 +268,21 @@ render.yaml                 — деплой на Render
 
 На безкоштовному плані сервіс засинає без відвідувачів і прокидається ~30–60 с.
 Перед матчем відкрийте пульт заздалегідь — далі все працює без затримок.
+
+### GitHub Pages
+
+Сайт можна викласти й на GitHub Pages — `https://<користувач>.github.io/volleyball_scoreboard/`.
+Workflow `.github/workflows/pages.yml` на кожен пуш у `main` проганяє тести й публікує папку `public/`.
+
+1. GitHub → репозиторій → **Settings → Pages → Build and deployment → Source: GitHub Actions**.
+2. **Settings → Secrets and variables → Actions → Variables → New repository variable**:
+   `SYNC_SERVER` = адреса сервісу на Render (напр. `https://volleyball-scoreboard.onrender.com`).
+3. Пуш у `main` (або **Actions → pages → Run workflow**). Адреса сайту — у підсумку запуску.
+
+GitHub Pages віддає лише статичні файли, тому синхронізація між пристроями («Посилання на
+матч») іде через сервер на Render: workflow вписує `SYNC_SERVER` у `public/js/config.js`.
+Посилання для стріму й другого судді тоді ведуть на Render. Без `SYNC_SERVER` на Pages працює
+все, крім посилань: пульт, велике табло й міні-табло на одному пристрої, офлайн, встановлення.
 
 GitHub Actions (`.github/workflows/deploy.yml`) на кожен пуш перевіряє синтаксис, офлайн-кеш
 й тести. Render деплоїть пуш у `main` сам.

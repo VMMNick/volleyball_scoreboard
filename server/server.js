@@ -54,7 +54,8 @@ function createServer(opts) {
     try { urlPath = decodeURIComponent(new URL(req.url, "http://x").pathname); }
     catch (e) { res.writeHead(400).end(); return; }
     if (urlPath === "/healthz") {
-      res.writeHead(200, { "Content-Type": "application/json" });
+      // Пульт на іншому домені (GitHub Pages) теж має змогу перевірити, що сервер живий.
+      res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
       res.end(JSON.stringify({ ok: true, rooms: rooms.size }));
       return;
     }

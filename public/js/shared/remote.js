@@ -28,9 +28,20 @@
   function newKey(c) { return random(KEY_CHARS, 32, c || (typeof crypto !== "undefined" ? crypto : null)); }
   function isRoom(code) { return /^[A-HJ-NP-Z2-9]{6}$/.test(String(code || "")); }
 
-  /* Адреса сервера за замовчуванням — той самий сайт, якщо він відкритий по http(s). */
-  function defaultServer(loc) {
-    return loc && /^https?:$/.test(loc.protocol) ? loc.origin : "";
+  /*
+   * Адреса сервера за замовчуванням:
+   *   1) syncServer із js/config.js (сайт на GitHub Pages, сервер — на Render);
+   *   2) інакше той самий сайт, якщо він відкритий по http(s);
+   *   3) GitHub Pages без налаштування — сервера немає (там лише статика).
+   * cfg — для тестів; у браузері береться window.VOLLEY_CONFIG.
+   */
+  function defaultServer(loc, cfg) {
+    if (cfg === undefined) cfg = (typeof self !== "undefined" && self.VOLLEY_CONFIG) || null;
+    var s = cfg && cfg.syncServer ? String(cfg.syncServer).trim().replace(/\/+$/, "") : "";
+    if (/^https?:\/\/[^\s/]+/i.test(s)) return s;
+    if (!loc || !/^https?:$/.test(loc.protocol)) return "";
+    if (/\.github\.io$/i.test(loc.hostname || "")) return "";
+    return loc.origin;
   }
 
   function wsUrl(server, params) {

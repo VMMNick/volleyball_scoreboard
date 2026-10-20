@@ -627,13 +627,15 @@
     }
     if (location.protocol === "file:") {
       why.push("Сайт відкрито як файл із комп'ютера — посилання працюють лише з адреси сервера.");
-    } else if (/^https?:$/.test(location.protocol) && hostOf(link.server) !== location.host) {
+    } else if (/^https?:$/.test(location.protocol) && hostOf(link.server) !== location.host &&
+               link.server !== R.defaultServer(location)) {          // сервер із js/config.js — так і задумано
       why.push("Посилання створене для сервера " + hostOf(link.server) + ", а сайт відкрито з " + location.host +
         ". Якщо сервер змінився — зупиніть посилання й створіть нове.");
     }
     if (linkProbe === "static") {
       why.unshift("Сайт на " + hostOf(link.server) + " працює, але сервера посилань там немає — розгорнуто лише статичні файли. " +
-        "На Render потрібен Web Service (Node, команда запуску «node server.js»), а не Static Site.");
+        "На Render потрібен Web Service (Node, команда запуску «npm start»), а не Static Site. " +
+        "GitHub Pages — теж лише статика: адресу сервера на Render задає змінна SYNC_SERVER.");
       return why;
     }
     if (linkProbe === "ok") {

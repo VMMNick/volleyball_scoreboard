@@ -361,7 +361,7 @@ suite("пульт: сайт відповідає, а сервера посила
   await new Promise((r) => setTimeout(r, 0));
   await new Promise((r) => setTimeout(r, 0));
   assert.match(c.text("linkTroubleWhy"), /Static Site/);
-  assert.match(c.text("linkTroubleWhy"), /node server\.js/);
+  assert.match(c.text("linkTroubleWhy"), /npm start/);
   c.tap("mLink");
   assert.equal(asked.length, 1, "перевіряємо один раз, а не на кожне відкриття");
 });

@@ -159,8 +159,10 @@ suite("статика, health і захист від ../", async (t) => {
   assert.equal(js.headers["cache-control"], "no-cache", "скрипти теж свіжі — інакше після деплою сторінка нова, а скрипт старий");
   assert.equal((await get(s.port, "/")).status, 200, "/ → index.html");
   assert.equal((await get(s.port, "/nope.js")).status, 404);
-  assert.notEqual((await get(s.port, "/../server.js")).status, 200);
-  assert.notEqual((await get(s.port, "/%2e%2e/server.js")).status, 200);
-  const h = JSON.parse((await get(s.port, "/healthz")).body);
+  assert.notEqual((await get(s.port, "/../server/server.js")).status, 200);
+  assert.notEqual((await get(s.port, "/%2e%2e/server/server.js")).status, 200);
+  const hz = await get(s.port, "/healthz");
+  const h = JSON.parse(hz.body);
   assert.equal(h.ok, true);
+  assert.equal(hz.headers["access-control-allow-origin"], "*", "пульт з GitHub Pages перевіряє сервер з іншого домену");
 });

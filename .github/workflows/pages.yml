@@ -1,0 +1,46 @@
+name: pages
+
+# Публікує сайт (папку public/) на GitHub Pages: https://<користувач>.github.io/<репозиторій>/
+# Один раз: Settings → Pages → Source: «GitHub Actions».
+# Посилання на матч (синхронізація між пристроями) потребують сервера — на Pages його немає,
+# тож задайте Settings → Secrets and variables → Actions → Variables → SYNC_SERVER
+# = адреса сервісу на Render (напр. https://volleyball-scoreboard.onrender.com).
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install --no-audit --no-fund
+      - run: npm run build
+      - run: npm test
+      - name: Адреса сервера посилань на матч
+        run: node scripts/pages-config.js
+        env:
+          SYNC_SERVER: ${{ vars.SYNC_SERVER }}
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
+      - id: deployment
+        uses: actions/deploy-pages@v4

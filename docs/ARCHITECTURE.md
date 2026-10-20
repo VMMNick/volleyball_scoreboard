@@ -98,12 +98,28 @@ pult.js / mini.js ──localStorage "volleyball:match"──┐
 Після будь-якої зміни файлів у `public/` піднімайте версію `CACHE` у `public/sw.js`,
 інакше встановлені застосунки лишаться на старій версії.
 
+## Хостинг: Render і GitHub Pages
+
+| | Render (Web Service) | GitHub Pages |
+|---|---|---|
+| що віддає | `public/` + сервер посилань (`server/`) | лише `public/` |
+| посилання на матч | той самий сайт | через сервер на Render (`SYNC_SERVER`) |
+| деплой | `render.yaml`, пуш у `main` | `.github/workflows/pages.yml`, пуш у `main` |
+
+Адресу сервера посилань задає `public/js/config.js` (`syncServer`), він підключається першим
+на кожній сторінці. У репозиторії там порожньо — тоді сервер той самий сайт (Render).
+Під час деплою на Pages `scripts/pages-config.js` вписує туди змінну `SYNC_SERVER`.
+Логіку вибору сервера містить `Remote.defaultServer` (`js/shared/remote.js`): `syncServer` →
+той самий сайт → на `*.github.io` без налаштування сервера немає. Усі адреси на сторінках
+відносні (`./…`), тож сайт працює й у підпапці `github.io/<репозиторій>/`.
+
 ## Сервер
 
 `server/server.js` — один процес на Render:
 
 - роздає `public/` як є (сторінки, скрипти й стилі — `no-cache`, решта — на годину);
-- `GET /healthz` — перевірка, що це саме сервер, а не Static Site;
+- `GET /healthz` — перевірка, що це саме сервер, а не Static Site (з `Access-Control-Allow-Origin: *`,
+  щоб пульт із GitHub Pages міг перевірити сервер на Render);
 - `WS /ws` — кімнати матчів: перший пульт закріплює хеш ключа судді, глядачі лише читають,
   кімната без підключень живе добу.
 
