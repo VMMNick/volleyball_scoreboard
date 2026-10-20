@@ -20,13 +20,23 @@
     { id: "kit",     label: "малина / трава",    a: "#D61C6B", b: "#3FA82B", inkA: "#FFFFFF", inkB: "#FFFFFF" }
   ];
 
-  /* Кольори для швидкого вибору; будь-який інший — через «Свій колір». */
-  var SWATCHES = [
-    "#FFFFFF", "#F2EFE6", "#C9CED6", "#8FA6B8", "#4A4F57", "#000000",
-    "#0A1F30", "#1B2F7A", "#1668C9", "#2F4BA6", "#0E7C86", "#17B0A6",
-    "#0F3D2E", "#3FA82B", "#BEF224", "#F7D23A", "#F5A310", "#E8590C",
-    "#E03127", "#9B1C1C", "#D61C6B", "#7B3FE4"
+  /*
+   * Палітра для вибору: сітка 10 стовпців, як у Google Docs. Перший рядок — кольори табла
+   * й ліги, далі сірі, яскраві, три світліші й три темніші відтінки кожного тону.
+   * Будь-який інший колір — через «Свій колір».
+   */
+  var SWATCH_ROWS = [
+    { label: "табло й ліга", colors: ["#0A1F30", "#0E2A3F", "#1B2F7A", "#2F4BA6", "#1668C9", "#F7D23A", "#F5A310", "#E03127", "#17B0A6", "#F2EFE6"] },
+    { label: "сірі",         colors: ["#000000", "#434343", "#666666", "#999999", "#B7B7B7", "#CCCCCC", "#D9D9D9", "#EFEFEF", "#F3F3F3", "#FFFFFF"] },
+    { label: "яскраві",      colors: ["#980000", "#FF0000", "#FF9900", "#FFFF00", "#00FF00", "#00FFFF", "#4A86E8", "#0000FF", "#9900FF", "#FF00FF"] },
+    { label: "світлі 3",     colors: ["#E6B8AF", "#F4CCCC", "#FCE5CD", "#FFF2CC", "#D9EAD3", "#D0E0E3", "#C9DAF8", "#CFE2F3", "#D9D2E9", "#EAD1DC"] },
+    { label: "світлі 2",     colors: ["#DD7E6B", "#EA9999", "#F9CB9C", "#FFE599", "#B6D7A8", "#A2C4C9", "#A4C2F4", "#9FC5E8", "#B4A7D6", "#D5A6BD"] },
+    { label: "світлі 1",     colors: ["#CC4125", "#E06666", "#F6B26B", "#FFD966", "#93C47D", "#76A5AF", "#6D9EEB", "#6FA8DC", "#8E7CC3", "#C27BA0"] },
+    { label: "темні 1",      colors: ["#A61C00", "#CC0000", "#E69138", "#F1C232", "#6AA84F", "#45818E", "#3C78D8", "#3D85C6", "#674EA7", "#A64D79"] },
+    { label: "темні 2",      colors: ["#85200C", "#990000", "#B45F06", "#BF9000", "#38761D", "#134F5C", "#1155CC", "#0B5394", "#351C75", "#741B47"] },
+    { label: "темні 3",      colors: ["#5B0F00", "#660000", "#783F04", "#7F6000", "#274E13", "#0C343D", "#1C4587", "#073763", "#20124D", "#4C1130"] }
   ];
+  var SWATCHES = SWATCH_ROWS.reduce(function (all, r) { return all.concat(r.colors); }, []);
   var COLOR_KEYS = ["colorA", "colorB", "colorBg", "colorFrame", "colorText"];
   /* Таблиця без своїх кольорів — як у theme.css. */
   var BOARD_DEFAULT = { bg: "#0A1F30", text: "#F2EFE6", frame: "#EDE9DE" };
@@ -97,6 +107,6 @@
   }
 
   return { list: PALETTES, byId: byId, apply: apply,
-           SWATCHES: SWATCHES, COLOR_KEYS: COLOR_KEYS, isHex: isHex, ink: ink, contrast: contrast,
+           SWATCHES: SWATCHES, SWATCH_ROWS: SWATCH_ROWS, COLOR_KEYS: COLOR_KEYS, isHex: isHex, ink: ink, contrast: contrast,
            pickColors: pickColors, boardColors: boardColors, applyBoard: applyBoard };
 });

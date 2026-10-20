@@ -881,6 +881,7 @@
     $("inShowServe").checked = prefs.showServe;
     $("inSound").checked = prefs.sound;
     pendingColors = null;
+    openColorRow = null;
     paintPalettes();
     paintColors();
     pendingBestOf = s.rules.bestOf;
@@ -964,25 +965,38 @@
     var box = $("colorPickers");
     box.innerHTML = "";
     COLOR_ROWS.forEach(function (row) {
-      var cur = effectiveColor(row.key), own = !!pendingColors[row.key];
+      var cur = effectiveColor(row.key), own = !!pendingColors[row.key], open = openColorRow === row.key;
       var r = document.createElement("div");
-      r.className = "crow";
-      var h = '<div class="ch"><span class="cl">' + row.label + '</span>' +
-        '<span class="cv num">' + cur + (own ? "" : " · типово") + '</span>' +
+      r.className = "crow" + (open ? " open" : "");
+      // Рядок згорнутий: кружок поточного кольору; натиснули — відкривається вся палітра.
+      var h = '<div class="ch"><button type="button" class="ctog" data-open="' + row.key + '" aria-expanded="' + open + '">' +
+        '<i class="cdot" style="background:' + cur + '"></i><span class="cl">' + row.label + '</span>' +
+        '<span class="cv num">' + cur + (own ? "" : " · типово") + '</span><span class="carr">' + (open ? "▴" : "▾") + '</span></button>' +
         (own ? '<button type="button" class="cx" data-k="' + row.key + '">як було</button>' : "") + '</div><div class="sw">';
-      P.SWATCHES.forEach(function (c) {
-        h += '<button type="button" class="swb" data-k="' + row.key + '" data-c="' + c + '" title="' + c + '" aria-label="' +
-          row.label + ': ' + c + '" aria-pressed="' + String(own && pendingColors[row.key] === c) + '" style="background:' + c + '"></button>';
+      P.SWATCH_ROWS.forEach(function (sr) {
+        h += '<div class="swrow" title="' + sr.label + '">';
+        sr.colors.forEach(function (c) {
+          h += '<button type="button" class="swb" data-k="' + row.key + '" data-c="' + c + '" title="' + c + '" aria-label="' +
+            row.label + ': ' + c + '" aria-pressed="' + String(own && pendingColors[row.key] === c) + '" style="background:' + c + '"></button>';
+        });
+        h += "</div>";
       });
       h += '<label class="swown' + (own && P.SWATCHES.indexOf(pendingColors[row.key]) < 0 ? " on" : "") + '" title="Свій колір">' +
         '<input type="color" data-k="' + row.key + '" value="' + cur.toLowerCase() + '" aria-label="' + row.label + ': свій колір">' +
-        '<span>свій</span></label></div>';
+        '<span>свій колір — будь-який</span></label></div>';
       r.innerHTML = h;
       box.appendChild(r);
     });
   }
+  var openColorRow = null;                  // яка палітра зараз розгорнута (одна за раз)
 
   $("colorPickers").addEventListener("click", function (e) {
+    var tog = e.target.closest ? e.target.closest("[data-open]") : null;
+    if (tog) {
+      openColorRow = openColorRow === tog.dataset.open ? null : tog.dataset.open;
+      paintColors();
+      return;
+    }
     var t = e.target.closest ? e.target.closest("[data-k]") : null;
     if (!t || t.tagName === "INPUT") return;
     setColor(t.dataset.k, t.classList.contains("cx") ? "" : t.dataset.c);

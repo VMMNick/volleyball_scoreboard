@@ -460,3 +460,24 @@ suite("свої кольори в налаштуваннях: зразок, ви
   assert.equal(JSON.parse(ui.win.localStorage.getItem("volleyball:prefs")).colorBg, "#123456");
   assert.deepEqual(ui.errors, []);
 });
+
+suite("палітра кольорів: 9 рядків по 10 кольорів, розгортається по одній", (t) => {
+  const ui = boot();
+  t.after(ui.close);
+  const doc = ui.win.document, P = ui.win.Palettes;
+  const click = (el) => el.dispatchEvent(new ui.win.Event("click", { bubbles: true }));
+  assert.equal(P.SWATCH_ROWS.length, 9);
+  P.SWATCH_ROWS.forEach((r) => assert.equal(r.colors.length, 10, r.label));
+  assert.equal(new Set(P.SWATCHES).size, P.SWATCHES.length, "кольори не повторюються");
+  ui.tap("mSettings");
+  assert.equal(doc.querySelectorAll('#colorPickers .swb[data-k="colorBg"]').length, 90);
+  assert.equal(doc.querySelectorAll("#colorPickers .crow.open").length, 0, "спершу всі згорнуті");
+  click(doc.querySelector('#colorPickers [data-open="colorFrame"]'));
+  assert.deepEqual([...doc.querySelectorAll("#colorPickers .crow.open .ctog")].map((b) => b.dataset.open), ["colorFrame"]);
+  click(doc.querySelector('#colorPickers [data-open="colorA"]'));
+  assert.deepEqual([...doc.querySelectorAll("#colorPickers .crow.open .ctog")].map((b) => b.dataset.open), ["colorA"], "відкрита лише одна");
+  click(doc.querySelector('#colorPickers .swb[data-k="colorA"][data-c="#674EA7"]'));
+  assert.equal(doc.documentElement.style.getPropertyValue("--team-a"), "#674EA7");
+  assert.ok(doc.querySelector("#colorPickers .crow.open"), "після вибору палітра лишається відкритою");
+  assert.deepEqual(ui.errors, []);
+});

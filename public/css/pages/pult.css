@@ -182,14 +182,24 @@ body{
 .field .cprev .pv-p.a{background:var(--pv-a);color:var(--pv-ink-a)} .field .cprev .pv-p.b{background:var(--pv-b);color:var(--pv-ink-b)}
 .field .ch span,.field .swown span{display:inline;margin:0}
 .crow{margin:0 0 12px}
-.ch{display:flex;align-items:baseline;gap:10px;margin-bottom:6px}
+.ch{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.ctog{flex:1;display:flex;align-items:center;gap:10px;min-height:44px;padding:4px 12px 4px 6px;border-radius:10px;cursor:pointer;
+  background:var(--court-deep);border:1px solid rgba(143,166,184,.3);color:var(--chalk);font:inherit;text-align:left}
+.crow.open .ctog{border-color:var(--chalk)}
+.cdot{flex:0 0 auto;width:32px;height:32px;border-radius:50%;border:2px solid rgba(242,239,230,.6)}
+.carr{margin-left:auto;color:var(--slate)}
+.crow:not(.open) .sw{display:none}
 .cl{font-size:17px;color:var(--chalk)}
 .cv{font-size:13px;color:var(--slate);letter-spacing:.04em}
 .cx{margin-left:auto;background:none;border:0;color:var(--slate);font:inherit;font-size:14px;text-decoration:underline;cursor:pointer;padding:0}
-.sw{display:flex;flex-wrap:wrap;gap:6px}
-.swb{width:32px;height:32px;border-radius:8px;cursor:pointer;padding:0;border:1px solid rgba(143,166,184,.45)}
+/* Палітра: 10 стовпців, рядки тонів; на телефоні клітинки стискаються, а не переносяться. */
+.sw{display:flex;flex-direction:column;gap:4px;padding:10px;border-radius:10px;background:rgba(0,0,0,.18);max-width:420px}
+.swrow{display:grid;grid-template-columns:repeat(10,1fr);gap:4px}
+.swrow:first-child{margin-bottom:6px}
+.swrow:nth-child(2),.swrow:nth-child(3){margin-bottom:4px}
+.swb{width:100%;aspect-ratio:1;min-width:0;border-radius:50%;cursor:pointer;padding:0;border:1px solid rgba(143,166,184,.45)}
 .swb[aria-pressed="true"]{outline:3px solid var(--chalk);outline-offset:2px}
-.swown{position:relative;display:flex;align-items:center;gap:6px;height:32px;padding:0 10px 0 4px;border-radius:8px;cursor:pointer;
+.swown{position:relative;align-self:flex-start;margin-top:6px;display:flex;align-items:center;gap:6px;height:32px;padding:0 10px 0 4px;border-radius:8px;cursor:pointer;
   border:1px dashed rgba(143,166,184,.6);color:var(--slate);font-size:14px}
 .swown.on{outline:3px solid var(--chalk);outline-offset:2px;color:var(--chalk)}
 .swown input{width:26px;height:26px;padding:0;border:0;background:none;cursor:pointer}
