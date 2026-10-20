@@ -1,5 +1,5 @@
 /* Табло — волейбол. Офлайн-оболонка. */
-const CACHE = "volley-score-v39";
+const CACHE = "volley-score-v40";
 const SHELL = [
   "./",
   "./display.html",

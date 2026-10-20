@@ -39,7 +39,7 @@
   var SWATCHES = SWATCH_ROWS.reduce(function (all, r) { return all.concat(r.colors); }, []);
   var COLOR_KEYS = ["colorA", "colorB", "colorBg", "colorFrame", "colorText"];
   /* Таблиця без своїх кольорів — як у theme.css. */
-  var BOARD_DEFAULT = { bg: "#0A1F30", text: "#F2EFE6", frame: "#EDE9DE" };
+  var BOARD_DEFAULT = { bg: "#0A1F30", cell: "#0E2A3F", text: "#F2EFE6", muted: "#8FA6B8", frame: "#EDE9DE" };
 
   function isHex(c) { return typeof c === "string" && /^#[0-9A-Fa-f]{6}$/.test(c); }
 
@@ -107,6 +107,6 @@
   }
 
   return { list: PALETTES, byId: byId, apply: apply,
-           SWATCHES: SWATCHES, SWATCH_ROWS: SWATCH_ROWS, COLOR_KEYS: COLOR_KEYS, isHex: isHex, ink: ink, contrast: contrast,
+           BOARD_DEFAULT: BOARD_DEFAULT, SWATCHES: SWATCHES, SWATCH_ROWS: SWATCH_ROWS, COLOR_KEYS: COLOR_KEYS, isHex: isHex, ink: ink, contrast: contrast,
            pickColors: pickColors, boardColors: boardColors, applyBoard: applyBoard };
 });

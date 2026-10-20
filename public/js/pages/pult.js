@@ -936,7 +936,7 @@
   /* Колір, який зараз діє для рядка: свій або той, що дає палітра / тема. */
   function effectiveColor(key) {
     var P = window.Palettes, team = P.apply(document.createElement("i"), pendingPalette || prefs.palette, pendingColors);
-    var board = P.boardColors(pendingColors) || { bg: "#0A1F30", frame: "#EDE9DE", text: "#F2EFE6" };
+    var board = P.boardColors(pendingColors) || P.BOARD_DEFAULT;
     return { colorA: team.a, colorB: team.b, colorBg: board.bg, colorFrame: board.frame, colorText: board.text }[key];
   }
 
@@ -954,7 +954,7 @@
     }
     // Зразок таблиці — як на міні-табло.
     var team = P.apply(document.createElement("i"), pendingPalette || prefs.palette, pendingColors);
-    var b = P.boardColors(pendingColors) || { bg: "#0A1F30", cell: "#0E2A3F", text: "#F2EFE6", muted: "#8FA6B8", frame: "#EDE9DE" };
+    var b = P.boardColors(pendingColors) || P.BOARD_DEFAULT;
     var pv = $("colorPreview");
     pv.style.cssText = "--pv-bg:" + b.bg + ";--pv-cell:" + b.cell + ";--pv-text:" + b.text + ";--pv-frame:" + b.frame +
       ";--pv-a:" + team.a + ";--pv-b:" + team.b + ";--pv-ink-a:" + team.inkA + ";--pv-ink-b:" + team.inkB;

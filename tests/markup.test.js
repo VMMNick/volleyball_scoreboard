@@ -209,3 +209,23 @@ test("свої кольори: перевірка, текст на кольор�
   assert.match(read("index.html"), /id="colorPickers"/);
   assert.match(read("index.html"), /id="colorPreview"/);
 });
+
+test("архітектура: feed.js потребує remote.js — кожна сторінка з feed.js підключає remote.js раніше", () => {
+  ["display.html", "live.html"].forEach((p) => {
+    const h = read(p), feed = h.indexOf('src="./js/shared/feed.js"'), rem = h.indexOf('src="./js/shared/remote.js"');
+    assert.ok(feed > -1, p);
+    assert.ok(rem > -1 && rem < feed, p + ": remote.js перед feed.js — інакше ?room= мовчки не працює");
+  });
+});
+
+test("архітектура: ядро без DOM, спільне не залежить від сторінок", () => {
+  const fs = require("node:fs"), path = require("node:path");
+  const dir = (d) => fs.readdirSync(file(d)).map((f) => d + "/" + f);
+  dir("js/core").forEach((f) => {
+    const code = read(f).replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, "");
+    assert.equal(/\b(document|localStorage|navigator)\b|window\./.test(code), false, f + ": ядро не знає про браузер");
+  });
+  dir("js/shared").forEach((f) => {
+    assert.equal(/js\/pages\/|Pult|pult\.js/.test(read(f).replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, "")), false, f);
+  });
+});
