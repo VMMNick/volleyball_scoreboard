@@ -18,7 +18,7 @@ const pub = path.join(root, "public");
 const MAP = {
   "match.js": "js/core/match.js", "palettes.js": "js/core/palettes.js",
   "ui-common.js": "js/shared/ui-common.js", "sounds.js": "js/shared/sounds.js",
-  "scorebug.js": "js/shared/scorebug.js", "remote.js": "js/shared/remote.js", "link.js": "js/shared/link.js", "archive.js": "js/shared/archive.js", "feed.js": "js/shared/feed.js",
+  "scorebug.js": "js/shared/scorebug.js", "remote.js": "js/shared/remote.js", "link.js": "js/shared/link.js", "i18n.js": "js/shared/i18n.js", "archive.js": "js/shared/archive.js", "feed.js": "js/shared/feed.js",
   "pult.js": "js/pages/pult.js", "display.js": "js/pages/display.js",
   "live.js": "js/pages/live.js", "mini.js": "js/pages/mini.js",
   "theme.css": "css/theme.css", "scorebug.css": "css/scorebug.css"

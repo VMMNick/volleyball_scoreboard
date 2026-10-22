@@ -29,7 +29,7 @@
   <div class="court">
     <button class="side a" id="sideA" aria-label="Додати очко команді зверху">
       <span class="rotate" id="rotA">ротація</span>
-      <span class="name"><span class="label" id="nameA">Команда А</span><span class="serve" id="serveA">подає</span></span>
+      <span class="name"><span translate="no" class="label" id="nameA">Команда А</span><span class="serve" id="serveA">подає</span></span>
       <span class="score" id="scoreA">0</span>
       <span class="pips" id="pipsA"></span>
       <span class="to" id="toA" role="button">тайм-аут ●●</span>
@@ -45,7 +45,7 @@
 
     <button class="side b" id="sideB" aria-label="Додати очко команді знизу">
       <span class="rotate" id="rotB">ротація</span>
-      <span class="name"><span class="label" id="nameB">Команда Б</span><span class="serve" id="serveB">подає</span></span>
+      <span class="name"><span translate="no" class="label" id="nameB">Команда Б</span><span class="serve" id="serveB">подає</span></span>
       <span class="score" id="scoreB">0</span>
       <span class="pips" id="pipsB"></span>
       <span class="to" id="toB" role="button">тайм-аут ●●</span>
@@ -95,8 +95,8 @@
   <div class="sheet-inner">
     <h2>Заміни й картки</h2>
     <div class="seg" id="segTeam">
-      <button data-team="0" id="teamBtnA">Команда А</button>
-      <button data-team="1" id="teamBtnB">Команда Б</button>
+      <button translate="no" data-team="0" id="teamBtnA">Команда А</button>
+      <button translate="no" data-team="1" id="teamBtnB">Команда Б</button>
     </div>
     <div id="subBox">
       <div class="grid2 gap-top">
@@ -237,6 +237,13 @@
       <div class="seg" id="segPreset"></div>
     </div>
     <div class="field">
+      <span>Мова / Language</span>
+      <div class="seg" id="segLang">
+        <button data-lang="uk" translate="no">Українська</button>
+        <button data-lang="en" translate="no">English</button>
+      </div>
+    </div>
+    <div class="field">
       <span>Формат</span>
       <div class="seg" id="segFmt">
         <button data-bo="1">1 сет</button>
@@ -280,6 +287,7 @@
 <div class="sr" id="live" aria-live="polite"></div>
 
 <script src="./js/config.js"></script>
+<script src="./js/shared/i18n.js"></script>
 <script src="./js/core/match.js"></script>
 <script src="./js/core/palettes.js"></script>
 <script src="./js/shared/ui-common.js"></script>

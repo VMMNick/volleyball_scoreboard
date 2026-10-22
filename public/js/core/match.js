@@ -99,7 +99,7 @@
       mid: opts.mid || newId(),                      // який це матч: новий матч — новий mid
       created: typeof opts.created === "number" ? opts.created : clock(),
       metaAt: 0,                                     // коли востаннє міняли назви, турнір чи правила
-      names: (opts.names || DEFAULT_NAMES).slice(),
+      names: (opts.names || DEFAULT_NAMES.map(L)).slice(),   // типові назви — мовою інтерфейсу
       title: typeof opts.title === "string" ? opts.title : "",   // назва турніру чи матчу
       rules: rules,
       events: [],                                    // події, що діють, по черзі
@@ -544,22 +544,28 @@
     return trail;
   }
 
+  /* Підписи CSV — мовою інтерфейсу, якщо на сторінці є I18n (js/shared/i18n.js); назви команд — як є. */
+  function L(text) {
+    var I = typeof self !== "undefined" && self.I18n;
+    return I && I.t ? I.t(text) : text;
+  }
+
   function toCSV(m) {
     var s = reduce(m);
-    var rows = [["сет", s.names[0], s.names[1], "розіграшів", "хвилин"]];
+    var rows = [[L("сет"), s.names[0], s.names[1], L("розіграшів"), L("хвилин")]];
     s.setLog.forEach(function (set, i) {
       var min = set.endedAt && set.startedAt ? Math.round((set.endedAt - set.startedAt) / 60000) : "";
       rows.push([i + 1, set.points[0], set.points[1], set.rallies, min]);
     });
     if (!s.done && (s.points[0] || s.points[1])) {
-      rows.push([s.setNumber + " (триває)", s.points[0], s.points[1], s.setRallies, ""]);
+      rows.push([L(s.setNumber + " (триває)"), s.points[0], s.points[1], s.setRallies, ""]);
     }
-    rows.push(["сети", s.sets[0], s.sets[1], "", ""]);
+    rows.push([L("сети"), s.sets[0], s.sets[1], "", ""]);
     s.subLog.forEach(function (x) {
-      rows.push(["заміна", s.names[x.team], x.out + " → " + x["in"], "сет " + x.set, x.score[0] + ":" + x.score[1]]);
+      rows.push([L("заміна"), s.names[x.team], x.out + " → " + x["in"], L("сет " + x.set), x.score[0] + ":" + x.score[1]]);
     });
     s.cards.forEach(function (c) {
-      rows.push(["картка: " + CARD_NAMES[c.kind], s.names[c.team], c.player || "команда", "сет " + c.set, c.score[0] + ":" + c.score[1]]);
+      rows.push([L("картка: " + CARD_NAMES[c.kind]), s.names[c.team], c.player || L("команда"), L("сет " + c.set), c.score[0] + ":" + c.score[1]]);
     });
     return rows.map(function (row) {
       return row.map(function (cell) {
@@ -654,7 +660,7 @@
 
   function cleanName(v, i) {
     var n = typeof v === "string" ? v.trim().slice(0, LIMITS.name) : "";
-    return n || DEFAULT_NAMES[i];
+    return n || L(DEFAULT_NAMES[i]);
   }
 
   function cleanRules(r) {

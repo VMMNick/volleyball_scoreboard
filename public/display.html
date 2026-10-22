@@ -24,7 +24,7 @@
     <div class="panel a" id="aPanelA">
       <span class="serve" id="aServeA">подає</span>
       <span class="rot" id="aRotA">ротація</span>
-      <span class="name" id="aNameA">Команда А</span>
+      <span translate="no" class="name" id="aNameA">Команда А</span>
       <span class="score num" id="aScoreA">0</span>
       <span class="pips" id="aPipsA"></span>
     </div>
@@ -43,7 +43,7 @@
     <div class="panel b" id="aPanelB">
       <span class="serve" id="aServeB">подає</span>
       <span class="rot" id="aRotB">ротація</span>
-      <span class="name" id="aNameB">Команда Б</span>
+      <span translate="no" class="name" id="aNameB">Команда Б</span>
       <span class="score num" id="aScoreB">0</span>
       <span class="pips" id="aPipsB"></span>
     </div>
@@ -57,14 +57,14 @@
   <div class="bug num">
     <div class="bug-row">
       <span class="bug-bar a"></span>
-      <span class="bug-name"><span class="label" id="sNameA">Команда А</span><span class="bug-serve" id="sServeA"></span></span>
+      <span class="bug-name"><span translate="no" class="label" id="sNameA">Команда А</span><span class="bug-serve" id="sServeA"></span></span>
       <span class="bug-past" id="sPastA"></span>
       <span class="bug-sets" id="sSetsA">0</span>
       <span class="bug-pts a" id="sPtsA">0</span>
     </div>
     <div class="bug-row">
       <span class="bug-bar b"></span>
-      <span class="bug-name"><span class="label" id="sNameB">Команда Б</span><span class="bug-serve" id="sServeB"></span></span>
+      <span class="bug-name"><span translate="no" class="label" id="sNameB">Команда Б</span><span class="bug-serve" id="sServeB"></span></span>
       <span class="bug-past" id="sPastB"></span>
       <span class="bug-sets" id="sSetsB">0</span>
       <span class="bug-pts b" id="sPtsB">0</span>
@@ -89,7 +89,7 @@
 <div class="banner" id="banner" aria-hidden="true">
   <div class="banner-inner">
     <div class="cap" id="bannerCap"></div>
-    <div class="who" id="bannerWho"></div>
+    <div translate="no" class="who" id="bannerWho"></div>
     <div class="pts num" id="bannerPts"></div>
   </div>
 </div>
@@ -99,6 +99,7 @@
 <div id="live" aria-live="polite" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)"></div>
 
 <script src="./js/config.js"></script>
+<script src="./js/shared/i18n.js"></script>
 <script src="./js/core/match.js"></script>
 <script src="./js/core/palettes.js"></script>
 <script src="./js/shared/ui-common.js"></script>
