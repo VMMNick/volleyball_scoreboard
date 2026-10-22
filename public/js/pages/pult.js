@@ -420,7 +420,7 @@
    */
   var LINK_KEY = "volleyball:link";
   var R = window.Remote;
-  var link = null;            // { server, room, key, guest }
+  var link = null;            // { server, room, key, guest, proof? }
   var linkConn = null;
   var LINK_LONG_MS = 45000;   // стільки чекаємо (Render прокидається до хвилини), перш ніж пояснювати
   var linkLostAt = 0;         // відколи немає звʼязку (0 — є або посилання вимкнене)
@@ -462,6 +462,7 @@
     if (status === "live" && !link.guest) linkSendAll();
     if (status === "rejected" && info === "wrong-key" && !link.guest) {
       link.room = R.newRoom();                      // код зайняв хтось інший — беремо новий
+      delete link.proof;                            // доказ був для старого коду
       saveLink();
       setTimeout(startLinkConn, 0);
     }
@@ -512,9 +513,10 @@
   function startLinkConn() {
     if (linkConn) linkConn.close();
     linkConn = R.connect({
-      server: link.server, room: link.room, role: "control", key: link.key,
+      server: link.server, room: link.room, role: "control", key: link.key, proof: link.proof,
       WebSocket: window.WebSocket,
       onStatus: linkStatus,
+      onProof: function (p) { if (link) { link.proof = p; saveLink(); } },
       onMessage: adoptRemote
     });
   }

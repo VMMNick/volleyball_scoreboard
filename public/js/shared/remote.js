@@ -60,14 +60,17 @@
   }
 
   /*
-   * opts: server, room, role ("control" | "viewer"), key, onMessage(msg), onStatus(status, info),
-   *       WebSocket (для тестів), setTimeout.
+   * opts: server, room, role ("control" | "viewer"), key, proof, onMessage(msg), onStatus(status, info),
+   *       onProof(proof), WebSocket (для тестів), setTimeout.
+   * proof — доказ власності кімнати від сервера (приходить у hello). Його треба зберегти
+   * разом із посиланням: після перезапуску сервера він повертає кімнату саме цьому судді.
    * status: "connecting" | "live" | "offline" | "rejected"
    */
   function connect(opts) {
     var WS = opts.WebSocket || (typeof WebSocket !== "undefined" ? WebSocket : null);
     var later = opts.setTimeout || setTimeout;
     var ws = null, stopped = false, delay = 1000, status = "", timer = null;
+    var proof = opts.proof || "";
 
     function setStatus(s, info) {
       status = s;
@@ -79,13 +82,19 @@
       if (!WS || !opts.server) { setStatus("offline", "no-server"); return; }
       setStatus("connecting");
       try {
-        ws = new WS(wsUrl(opts.server, { room: opts.room, role: opts.role, key: opts.key }));
+        ws = new WS(wsUrl(opts.server, { room: opts.room, role: opts.role, key: opts.key, proof: proof }));
       } catch (e) { retry(); return; }
       ws.onopen = function () { delay = 1000; };
       ws.onmessage = function (e) {
         var msg;
         try { msg = JSON.parse(e.data); } catch (err) { return; }
-        if (msg && msg.type === "hello") setStatus("live");
+        if (msg && msg.type === "hello") {
+          if (typeof msg.proof === "string" && msg.proof && msg.proof !== proof) {
+            proof = msg.proof;
+            if (opts.onProof) opts.onProof(proof);
+          }
+          setStatus("live");
+        }
         if (opts.onMessage) opts.onMessage(msg);
       };
       ws.onclose = function (e) {
@@ -149,7 +158,7 @@
 
   /*
    * Посилання на матч, збережене в цьому браузері (спільне для пульта й міні-пульта):
-   * { server, room, key, guest }. null — посилання немає.
+   * { server, room, key, guest, proof? }. null — посилання немає.
    */
   var LINK_KEY = "volleyball:link";
 

@@ -646,3 +646,24 @@ suite("свої кольори з пульта: команди — всюди, �
   t.after(d.close);
   assert.equal(d.$("board").style.getPropertyValue("--court-deep"), "", "типово — нічого не змінюється");
 });
+
+suite("пульт зберігає доказ власності кімнати й показує його після перезавантаження", (t) => {
+  const WS = fakeSockets();
+  const c = control({ WebSocket: WS });
+  t.after(c.close);
+  createLink(c);
+  const ws = WS.last();
+  const PROOF = "1700000000000." + "P".repeat(43);
+  ws.readyState = 1;
+  WS.serve(ws, { type: "hello", role: "control", proof: PROOF });
+  const saved = JSON.parse(c.win.localStorage.getItem("volleyball:link"));
+  assert.equal(saved.proof, PROOF, "доказ — разом із посиланням");
+  assert.equal(c.text("linkBoard").includes(PROOF), false, "у посилання для глядачів доказ не потрапляє");
+  assert.equal(c.text("linkJudge").includes(PROOF), false, "і в посилання для другого судді теж");
+
+  const WS2 = fakeSockets();
+  const again = control({ WebSocket: WS2, seed: { "volleyball:link": JSON.stringify(saved) } });
+  t.after(again.close);
+  assert.match(WS2.last().url, new RegExp("&proof=" + encodeURIComponent(PROOF).replace(/\./g, "\\.") + "$"),
+    "після перезавантаження пульт показує доказ серверу");
+});

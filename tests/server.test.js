@@ -278,3 +278,94 @@ suite("сервер не пропускає зіпсовану подію — т
   assert.equal((await late.wait("state")).match, STATE, "у кімнаті лишився останній правильний стан");
   [ctl, v, late].forEach((c) => c.close());
 });
+
+/* ---------- доказ власності кімнати ---------- */
+
+const SECRET = "s".repeat(64);
+const Remote = require("./helpers/site").load("remote.js");
+
+suite("пульт отримує доказ власності, глядач — ні", async (t) => {
+  const s = await start(t, { secret: SECRET });
+  const ctl = client(s.url("room=PRF234&role=control&key=" + KEY));
+  await ctl.open();
+  const hello = await ctl.wait("hello");
+  assert.match(hello.proof, /^\d+\.[\w-]{43}$/);
+  const v = client(s.url("room=PRF234"));
+  await v.open();
+  assert.equal("proof" in (await v.wait("hello")), false, "глядачу доказ не потрібен");
+  const again = client(s.url("room=PRF234&role=control&key=" + KEY + "&proof=" + hello.proof));
+  await again.open();
+  assert.equal((await again.wait("hello")).proof, hello.proof, "доказ не змінюється від підключення до підключення");
+  [ctl, v, again].forEach((c) => c.close());
+});
+
+suite("після рестарту сервера кімната повертається судді, самозванця відключено", async (t) => {
+  const a = await start(t, { secret: SECRET });
+  const ctl = client(a.url("room=BACK23&role=control&key=" + KEY));
+  await ctl.open();
+  const proof = (await ctl.wait("hello")).proof;
+  ctl.close();
+  await ctl.closed;
+
+  // «Рестарт»: новий сервер із тим самим секретом і порожньою памʼяттю.
+  const b = await start(t, { secret: SECRET });
+  const thief = client(b.url("room=BACK23&role=control&key=" + OTHER));
+  await thief.open();
+  const thiefProof = (await thief.wait("hello")).proof;
+  thief.send({ type: "state", match: STATE.replace("Імідж", "Хакер") });
+
+  const v = client(b.url("room=BACK23"));
+  await v.open();
+  await v.wait("hello");
+  assert.match((await v.wait("state")).match, /Хакер/, "поки судді немає, самозванець встиг показати своє");
+
+  const owner = client(b.url("room=BACK23&role=control&key=" + KEY + "&proof=" + proof));
+  await owner.open();
+  assert.equal((await owner.wait("hello")).role, "control", "справжній суддя повернув кімнату");
+  assert.equal(await thief.closed, 4003, "самозванця відключено");
+  owner.send({ type: "state", match: STATE });
+  assert.match((await v.wait("state")).match, /Імідж/);
+
+  const back = client(b.url("room=BACK23&role=control&key=" + OTHER + "&proof=" + thiefProof));
+  assert.equal(await back.closed, 4003, "новіший доказ самозванця не допомагає");
+  const forged = client(b.url("room=BACK23&role=control&key=" + OTHER + "&proof=1." + "A".repeat(43)));
+  assert.equal(await forged.closed, 4003, "підроблений «давній» доказ не проходить");
+  [owner, v].forEach((c) => c.close());
+});
+
+suite("без того самого секрету доказ не діє — як і раніше, кімната за першим", async (t) => {
+  const a = await start(t, { secret: SECRET });
+  const ctl = client(a.url("room=NOSEC2&role=control&key=" + KEY));
+  await ctl.open();
+  const proof = (await ctl.wait("hello")).proof;
+  ctl.close();
+  const b = await start(t, { secret: "інший".repeat(10) });
+  const first = client(b.url("room=NOSEC2&role=control&key=" + OTHER));
+  await first.open();
+  await first.wait("hello");
+  const owner = client(b.url("room=NOSEC2&role=control&key=" + KEY + "&proof=" + proof));
+  assert.equal(await owner.closed, 4003);
+  first.close();
+});
+
+suite("Remote.connect зберігає доказ і показує його при перепідключенні", async (t) => {
+  const s = await start(t, { secret: SECRET });
+  const server = "http://127.0.0.1:" + s.port;
+  const got = [];
+  const statuses = [];
+  const c1 = Remote.connect({ server, room: "RCON23", role: "control", key: KEY, WebSocket,
+    onProof: (p) => got.push(p), onStatus: (st) => statuses.push(st) });
+  await until(() => statuses.includes("live"));
+  assert.equal(got.length, 1, "доказ прийшов у hello");
+  c1.close();
+
+  const urls = [];
+  class Spy extends WebSocket { constructor(u) { super(u); urls.push(u); } }
+  const st2 = [];
+  const c2 = Remote.connect({ server, room: "RCON23", role: "control", key: KEY, proof: got[0], WebSocket: Spy,
+    onProof: (p) => got.push(p), onStatus: (st) => st2.push(st) });
+  await until(() => st2.includes("live"));
+  assert.match(urls[0], new RegExp("&proof=" + encodeURIComponent(got[0]).replace(/[.]/g, "\\.") + "$"));
+  assert.equal(got.length, 1, "той самий доказ — onProof удруге не кличемо");
+  c2.close();
+});

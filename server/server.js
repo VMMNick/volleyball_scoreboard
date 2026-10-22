@@ -14,6 +14,13 @@
  * глядачі — без ключа і лише читають. Стан у памʼяті: після перезапуску
  * сервера пульт сам надішле його знову, щойно перепідключиться.
  *
+ * Після перезапуску кімнати повертаються до справжніх власників: при першому
+ * підключенні сервер видає пульту доказ власності — підпис HMAC(ROOM_SECRET,
+ * код:хеш ключа:час створення). Пульт зберігає його й показує при кожному
+ * підключенні. Якщо кімнату після рестарту встиг зайняти хтось інший, давніший
+ * доказ виграє, а самозванця відключає. Без ROOM_SECRET секрет випадковий
+ * на кожен запуск — тоді все працює як раніше, лише без цього захисту.
+ *
  * Захист від засмічення: кімната, яку створив глядач (без пульта), зникає,
  * щойно вийде останній глядач, а з однієї IP-адреси обмежено і кількість
  * зʼєднань, і кількість нових кімнат за хвилину.
@@ -52,6 +59,7 @@ const MIME = {
 const PUBLIC_DIR = path.join(__dirname, "..", "public");   // сайт роздається як є, без збирання
 
 const sha256 = (s) => crypto.createHash("sha256").update(s).digest("hex");
+const PROOF_RE = /^(\d{1,15})\.([A-Za-z0-9_-]{43})$/;
 
 function createServer(opts) {
   opts = opts || {};
@@ -63,6 +71,7 @@ function createServer(opts) {
   // За проксі Render справжня адреса — останній запис X-Forwarded-For (його дописує сам Render;
   // перші записи клієнт може підробити). Локально проксі немає — беремо адресу сокета.
   const trustProxy = opts.trustProxy !== undefined ? !!opts.trustProxy : !!process.env.RENDER;
+  const secret = opts.secret || process.env.ROOM_SECRET || crypto.randomBytes(32).toString("hex");
   const conns = new Map();   // ip → кількість відкритих зʼєднань
   const created = new Map(); // ip → [час створення кімнати, …] за останнє вікно
 
@@ -72,6 +81,20 @@ function createServer(opts) {
       if (xff.length) return xff[xff.length - 1];
     }
     return (req && req.socket && req.socket.remoteAddress) || "?";
+  }
+
+  /* Доказ власності кімнати: «час.підпис». Час — коли ключ уперше закріпив кімнату. */
+  function sign(code, keyHash, since) {
+    return since + "." + crypto.createHmac("sha256", secret).update(code + ":" + keyHash + ":" + since).digest("base64url");
+  }
+
+  /* Час із правильного доказу для цієї кімнати й цього ключа, інакше null. */
+  function proofSince(proof, code, keyHash) {
+    const m = PROOF_RE.exec(String(proof || ""));
+    if (!m) return null;
+    const want = Buffer.from(sign(code, keyHash, m[1]));
+    const got = Buffer.from(String(proof));
+    return want.length === got.length && crypto.timingSafeEqual(want, got) ? Number(m[1]) : null;
   }
 
   /* Чи можна цій адресі створити ще одну кімнату (і, якщо так, — врахувати її). */
@@ -161,14 +184,30 @@ function createServer(opts) {
     let room = rooms.get(code);
     if (role === "control") {
       if (!KEY_RE.test(key)) { ws.close(4001, "bad key"); return; }
+      const kh = sha256(key);
+      const since = proofSince(url.searchParams.get("proof"), code, kh);   // null — доказу немає
       if (!room) {
         if (rooms.size >= MAX_ROOMS) { ws.close(4029, "too many rooms"); return; }
         if (!takeRoomSlot(ip)) { ws.close(TRY_LATER, "slow down"); return; }
-        room = { keyHash: sha256(key), state: null, prefs: null, clients: new Set(), touched: Date.now() };
+        room = { keyHash: kh, since: since !== null ? since : Date.now(), state: null, prefs: null,
+                 clients: new Set(), touched: Date.now() };
         rooms.set(code, room);
-        log("кімната " + code + " створена");
-      } else if (room.keyHash !== null && room.keyHash !== sha256(key)) {
-        ws.close(4003, "wrong key"); return;      // кімната чужа
+        log("кімната " + code + (since !== null ? " повернулась власнику" : " створена"));
+      } else if (room.keyHash === null) {
+        // Пульт прийшов у кімнату, створену глядачем, — закріплює ключ.
+        room.keyHash = kh;
+        room.since = since !== null ? since : Date.now();
+      } else if (room.keyHash !== kh) {
+        if (since === null || since >= room.since) { ws.close(4003, "wrong key"); return; }   // кімната чужа
+        // Давніший власник повертає кімнату, яку після рестарту зайняв хтось інший.
+        room.keyHash = kh;
+        room.since = since;
+        room.state = null;
+        room.prefs = null;
+        room.clients.forEach((c) => { if (c.role === "control") c.close(4003, "wrong key"); });
+        log("кімната " + code + " повернулась власнику, самозванця відключено");
+      } else if (since !== null && since < room.since) {
+        room.since = since;                       // той самий ключ, давніший доказ
       }
     } else if (!room) {
       // Глядач прийшов раніше за пульт — чекаємо в порожній кімнаті без ключа.
@@ -178,16 +217,15 @@ function createServer(opts) {
       rooms.set(code, room);
     }
 
-    // Пульт, що прийшов у кімнату, створену глядачем, — закріплює ключ.
-    if (role === "control" && room.keyHash === null) room.keyHash = sha256(key);
-
     ws.role = role;
     ws.alive = true;
     conns.set(ip, (conns.get(ip) || 0) + 1);
     room.clients.add(ws);
     room.touched = Date.now();
 
-    send(ws, { type: "hello", room: code, role: role });
+    const hello = { type: "hello", room: code, role: role };
+    if (role === "control") hello.proof = sign(code, room.keyHash, room.since);   // глядачам — ні
+    send(ws, hello);
     if (room.state) send(ws, { type: "state", match: room.state });
     if (room.prefs) send(ws, { type: "prefs", prefs: room.prefs });
 

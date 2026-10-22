@@ -9,3 +9,8 @@ services:
     buildCommand: npm install --omit=dev --no-audit --no-fund && npm run build
     startCommand: npm start
     healthCheckPath: /healthz
+    envVars:
+      # Секрет для доказів власності кімнат: після перезапуску сервера кімната
+      # повертається своєму судді. Render згенерує його сам і більше не міняє.
+      - key: ROOM_SECRET
+        generateValue: true

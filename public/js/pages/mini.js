@@ -65,8 +65,12 @@
     link = l;
     if (!l || !R) { paintStream(); return; }
     conn = R.connect({
-      server: l.server, room: l.room, role: "control", key: l.key,
+      server: l.server, room: l.room, role: "control", key: l.key, proof: l.proof,
       WebSocket: window.WebSocket,
+      onProof: function (p) {
+        l.proof = p;                                   // доказ власності кімнати — разом із посиланням
+        try { localStorage.setItem(R.LINK_KEY, JSON.stringify(l)); } catch (e) {}
+      },
       onStatus: function (st) {
         // Як і основний пульт: після (пере)підключення — увесь стан. Другий суддя — ні, він бере матч із сервера.
         if (st === "live" && !l.guest && conn) {
