@@ -245,7 +245,7 @@ suite("за проксі Render адресу беремо з останньог�
   const open = (xff) => {
     const ws = new WebSocket(s.url("room=PROXY2"), { headers: { "X-Forwarded-For": xff } });
     return new Promise((r) => {
-      ws.on("message", () => r({ ok: true, ws }));
+      ws.on("message", (d) => { if (JSON.parse(String(d)).type === "hello") r({ ok: true, ws }); });
       ws.on("close", (code) => r({ ok: false, code }));
     });
   };
@@ -368,4 +368,60 @@ suite("Remote.connect зберігає доказ і показує його п�
   assert.match(urls[0], new RegExp("&proof=" + encodeURIComponent(got[0]).replace(/[.]/g, "\\.") + "$"));
   assert.equal(got.length, 1, "той самий доказ — onProof удруге не кличемо");
   c2.close();
+});
+
+/* ---------- проксі хостингу губить коди закриття (Render: лише 1006 через ~20 с) ---------- */
+
+suite("відмова приходить ще й звичайним повідомленням — до того, як закриється сокет", async (t) => {
+  const s = await start(t);
+  const bad = client(s.url("room=ABC0O1"));
+  assert.equal(await bad.closed, 4000);
+  assert.deepEqual(bad.inbox.map((m) => [m.type, m.code]), [["error", 4000]], "причина — в повідомленні");
+
+  const ctl = client(s.url("room=REJ234&role=control&key=" + KEY));
+  await ctl.open();
+  await ctl.wait("hello");
+  const thief = client(s.url("room=REJ234&role=control&key=" + OTHER));
+  assert.equal(await thief.closed, 4003);
+  assert.equal(thief.inbox.find((m) => m.type === "error").code, 4003);
+  ctl.close();
+});
+
+suite("«bye» прибирає зʼєднання одразу, не чекаючи, чи дійде close", async (t) => {
+  const s = await start(t);
+  const v = client(s.url("room=BYE234"));
+  await v.open();
+  await v.wait("hello");
+  assert.equal(s.server.rooms.has("BYE234"), true);
+  v.send({ type: "bye" });
+  await until(() => !s.server.rooms.has("BYE234"), 1000);
+  await v.closed;
+});
+
+suite("Remote.connect: відмова з повідомлення — «rejected» без нескінченних спроб; close() каже «bye»", async (t) => {
+  const s = await start(t);
+  const server = "http://127.0.0.1:" + s.port;
+  // Як на Render: коди закриття губляться — клієнт бачить лише 1006.
+  class Lossy extends WebSocket {
+    constructor(u) { super(u); this.addEventListener = this.addEventListener.bind(this); }
+    set onclose(fn) { super.onclose = fn ? (e) => fn({ code: 1006 }) : null; }
+    get onclose() { return super.onclose; }
+  }
+  const statuses = [];
+  const opened = [];
+  const later = (fn, ms) => { opened.push(ms); return setTimeout(fn, ms); };
+  const c = Remote.connect({ server, room: "ABC0O1", role: "viewer", WebSocket: Lossy, setTimeout: later,
+    onStatus: (st, info) => statuses.push(st + (info ? ":" + info : "")) });
+  await until(() => statuses.some((x) => x.startsWith("rejected")));
+  assert.ok(statuses.includes("rejected:bad-room"));
+  await new Promise((r) => setTimeout(r, 200));
+  assert.deepEqual(opened, [], "повторних спроб немає");
+  c.close();
+
+  const st2 = [];
+  const v = Remote.connect({ server, room: "BYE345", role: "viewer", WebSocket, onStatus: (x) => st2.push(x) });
+  await until(() => st2.includes("live"));
+  assert.equal(s.server.rooms.has("BYE345"), true);
+  v.close();
+  await until(() => !s.server.rooms.has("BYE345"), 1000);
 });

@@ -160,6 +160,18 @@ function createServer(opts) {
     if (ws.readyState === 1) ws.send(JSON.stringify(msg));
   }
 
+  /*
+   * Відмова з поясненням. Код закриття (4003 тощо) проксі хостингу може загубити —
+   * на Render браузер бачить лише 1006 через ~20 с. Тому причину спершу шлемо
+   * звичайним повідомленням (воно доходить завжди), а сокет добиваємо, якщо клієнт
+   * не закрився сам.
+   */
+  function reject(ws, code, reason) {
+    send(ws, { type: "error", code: code, reason: reason });
+    try { ws.close(code, reason); } catch (e) {}
+    setTimeout(() => { try { ws.terminate(); } catch (e) {} }, 2000).unref();
+  }
+
   function broadcast(room, msg, except) {
     room.clients.forEach((c) => { if (c !== except) send(c, msg); });
   }
@@ -174,21 +186,21 @@ function createServer(opts) {
 
   wss.on("connection", (ws, url, req) => {
     const ip = clientIp(req);
-    if ((conns.get(ip) || 0) >= limits.connPerIp) { ws.close(TRY_LATER, "too many connections"); return; }
+    if ((conns.get(ip) || 0) >= limits.connPerIp) { reject(ws, TRY_LATER, "too many connections"); return; }
     const code = (url.searchParams.get("room") || "").toUpperCase();
     const role = url.searchParams.get("role") === "control" ? "control" : "viewer";
     const key = url.searchParams.get("key") || "";
 
-    if (!ROOM_RE.test(code)) { ws.close(4000, "bad room"); return; }
+    if (!ROOM_RE.test(code)) { reject(ws, 4000, "bad room"); return; }
 
     let room = rooms.get(code);
     if (role === "control") {
-      if (!KEY_RE.test(key)) { ws.close(4001, "bad key"); return; }
+      if (!KEY_RE.test(key)) { reject(ws, 4001, "bad key"); return; }
       const kh = sha256(key);
       const since = proofSince(url.searchParams.get("proof"), code, kh);   // null — доказу немає
       if (!room) {
-        if (rooms.size >= MAX_ROOMS) { ws.close(4029, "too many rooms"); return; }
-        if (!takeRoomSlot(ip)) { ws.close(TRY_LATER, "slow down"); return; }
+        if (rooms.size >= MAX_ROOMS) { reject(ws, 4029, "too many rooms"); return; }
+        if (!takeRoomSlot(ip)) { reject(ws, TRY_LATER, "slow down"); return; }
         room = { keyHash: kh, since: since !== null ? since : Date.now(), state: null, prefs: null,
                  clients: new Set(), touched: Date.now() };
         rooms.set(code, room);
@@ -198,21 +210,21 @@ function createServer(opts) {
         room.keyHash = kh;
         room.since = since !== null ? since : Date.now();
       } else if (room.keyHash !== kh) {
-        if (since === null || since >= room.since) { ws.close(4003, "wrong key"); return; }   // кімната чужа
+        if (since === null || since >= room.since) { reject(ws, 4003, "wrong key"); return; }   // кімната чужа
         // Давніший власник повертає кімнату, яку після рестарту зайняв хтось інший.
         room.keyHash = kh;
         room.since = since;
         room.state = null;
         room.prefs = null;
-        room.clients.forEach((c) => { if (c.role === "control") c.close(4003, "wrong key"); });
+        room.clients.forEach((c) => { if (c.role === "control") { room.clients.delete(c); reject(c, 4003, "wrong key"); } });
         log("кімната " + code + " повернулась власнику, самозванця відключено");
       } else if (since !== null && since < room.since) {
         room.since = since;                       // той самий ключ, давніший доказ
       }
     } else if (!room) {
       // Глядач прийшов раніше за пульт — чекаємо в порожній кімнаті без ключа.
-      if (rooms.size >= MAX_ROOMS) { ws.close(4029, "too many rooms"); return; }
-      if (!takeRoomSlot(ip)) { ws.close(TRY_LATER, "slow down"); return; }
+      if (rooms.size >= MAX_ROOMS) { reject(ws, 4029, "too many rooms"); return; }
+      if (!takeRoomSlot(ip)) { reject(ws, TRY_LATER, "slow down"); return; }
       room = { keyHash: null, state: null, prefs: null, clients: new Set(), touched: Date.now() };
       rooms.set(code, room);
     }
@@ -232,10 +244,16 @@ function createServer(opts) {
     ws.on("pong", () => { ws.alive = true; });
 
     ws.on("message", (data) => {
-      if (role !== "control") return;             // глядачі нічого не змінюють
       let msg;
       try { msg = JSON.parse(String(data)); } catch (e) { return; }
       if (!msg || typeof msg !== "object") return;
+      if (msg.type === "bye") {                   // клієнт іде: прибираємо одразу, не чекаючи, чи дійде close
+        leave();
+        try { ws.close(1000, "bye"); } catch (e) {}
+        setTimeout(() => { try { ws.terminate(); } catch (e) {} }, 2000).unref();
+        return;
+      }
+      if (role !== "control") return;             // глядачі нічого не змінюють
       room.touched = Date.now();
       if (msg.type === "state") {
         const st = cleanState(msg.match);
@@ -252,7 +270,10 @@ function createServer(opts) {
       }
     });
 
-    ws.on("close", () => {
+    let left = false;
+    function leave() {
+      if (left) return;
+      left = true;
       room.clients.delete(ws);
       room.touched = Date.now();
       const n = (conns.get(ip) || 1) - 1;
@@ -260,7 +281,8 @@ function createServer(opts) {
       // Кімнату без пульта (її створив глядач) не тримаємо: інакше тисячі відкрити-закрити
       // на випадкові коди забили б MAX_ROOMS на добу. Прийде глядач знову — створиться нова.
       if (!room.clients.size && room.keyHash === null && rooms.get(code) === room) rooms.delete(code);
-    });
+    }
+    ws.on("close", leave);
   });
 
   /* Пінги прибирають мертві зʼєднання, а прибирання — покинуті кімнати. */

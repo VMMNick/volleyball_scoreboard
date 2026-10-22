@@ -71,6 +71,7 @@
     var later = opts.setTimeout || setTimeout;
     var ws = null, stopped = false, delay = 1000, status = "", timer = null;
     var proof = opts.proof || "";
+    var fatal = "";                 // сервер відмовив назавжди — більше не перепідключаємось
 
     function setStatus(s, info) {
       status = s;
@@ -88,6 +89,15 @@
       ws.onmessage = function (e) {
         var msg;
         try { msg = JSON.parse(e.data); } catch (err) { return; }
+        if (msg && msg.type === "error") {
+          // Причину відмови сервер шле повідомленням: код закриття проксі хостингу губить.
+          var dead = ws;
+          ws = null;
+          if (dead) { dead.onclose = null; try { dead.close(); } catch (err) {} }
+          if (FATAL[msg.code]) { fatal = FATAL[msg.code]; setStatus("rejected", fatal); }
+          else retry();                                 // напр. 1013 «спробуйте пізніше»
+          return;
+        }
         if (msg && msg.type === "hello") {
           if (typeof msg.proof === "string" && msg.proof && msg.proof !== proof) {
             proof = msg.proof;
@@ -99,7 +109,7 @@
       };
       ws.onclose = function (e) {
         ws = null;
-        if (stopped) return;
+        if (stopped || fatal) return;
         if (e && FATAL[e.code]) { setStatus("rejected", FATAL[e.code]); return; }   // повтор не допоможе
         retry();
       };
@@ -123,7 +133,11 @@
       close: function () {
         stopped = true;
         clearTimeout(timer);
-        if (ws) try { ws.close(); } catch (e) {}
+        if (ws) {
+          // «До побачення» — щоб сервер прибрав зʼєднання одразу, навіть якщо close загубиться.
+          try { if (ws.readyState === 1) ws.send(JSON.stringify({ type: "bye" })); } catch (e) {}
+          try { ws.close(); } catch (e) {}
+        }
         setStatus("closed");
       },
       status: function () { return status; }
