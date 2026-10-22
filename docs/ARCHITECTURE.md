@@ -32,7 +32,7 @@ volleyball_scoreboard/
 ```
 js/pages/    pult.js   display.js   live.js   mini.js        ← екран, жести, DOM
                 │          │          │         │
-js/shared/   ui-common · scorebug · remote · link · feed · sounds    ← спільні модулі сторінок
+js/shared/   ui-common · scorebug · remote · link · archive · feed · sounds  ← спільні модулі
                 │
 js/core/     match.js · palettes.js                           ← ядро без DOM
 ```
@@ -61,6 +61,9 @@ js/core/     match.js · palettes.js                           ← ядро бе
     другого судді, адреси міні-табла, відлік часу без звʼязку (`lossTracker`), перевірка
     `/healthz` і причини збою (`reasons`). `pult.js` лише малює й тримає зʼєднання;
     тести — `tests/link.test.js`, без браузера.
+  - `archive.js` — архів матчів на цьому пристрої (`volleyball:archive`, до 30): матч потрапляє
+    туди, коли закінчився або коли суддя почав новий; той самий `mid` оновлюється, не дублюється;
+    брак місця — викидає найстаріші. Пульт показує список, протокол і CSV архівного матчу.
   - `feed.js` — звідки табло бере рахунок: цей пристрій або кімната на сервері.
   - `sounds.js` — звуки великого табло (Web Audio).
 - **`js/pages/`** — по одному файлу на сторінку. Тут лише робота з екраном.

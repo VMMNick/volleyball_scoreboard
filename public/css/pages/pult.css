@@ -150,6 +150,16 @@ body{
 .menu-list button:active{background:rgba(242,239,230,.12)}
 .menu-list .danger{color:var(--danger);border-color:rgba(216,87,76,.45)}
 
+/* Архів матчів */
+.arch-list{display:flex;flex-direction:column;gap:10px;max-height:56vh;overflow:auto}
+.arch-item{padding:12px 14px;border-radius:12px;background:var(--court-deep);border:1px solid rgba(143,166,184,.25)}
+.arch-teams{font-size:19px;letter-spacing:.03em;display:flex;justify-content:space-between;gap:12px}
+.arch-teams b{font-variant-numeric:tabular-nums;white-space:nowrap}
+.arch-meta{font-size:14px;color:var(--slate);margin-top:4px;letter-spacing:.04em;font-variant-numeric:tabular-nums}
+.arch-item .row{margin-top:10px}
+.arch-item .row button{height:40px;font-size:15px;padding:0 12px}
+.arch-empty{color:var(--slate);font-size:17px;padding:8px 0}
+
 .field{margin-bottom:14px}
 .field span{display:block;font-size:15px;color:var(--slate);letter-spacing:.06em;margin-bottom:6px}
 .field input[type=text],.field input[type=number]{

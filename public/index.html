@@ -75,6 +75,7 @@
     <h2>Матч</h2>
     <div class="menu-list">
       <button id="mProto">Протокол і статистика</button>
+      <button id="mArchive">Архів матчів</button>
       <button id="mDisplay">Табло для глядачів</button>
       <button id="mMini">Міні-табло з керуванням</button>
       <button id="mBoard">Міні-табло окремо</button>
@@ -195,9 +196,20 @@
   </div>
 </div>
 
+<div class="sheet" id="archiveSheet">
+  <div class="sheet-inner">
+    <h2>Архів матчів</h2>
+    <div class="arch-list" id="archiveList"></div>
+    <p class="hint">Зберігається лише на цьому пристрої — до 30 останніх матчів. Матч потрапляє сюди, коли закінчився або коли ви почали новий.</p>
+    <div class="row">
+      <button class="ghost" id="archiveClear">Очистити архів</button>
+    </div>
+  </div>
+</div>
+
 <div class="sheet" id="proto">
   <div class="sheet-inner">
-    <h2>Протокол</h2>
+    <h2 id="protoTitle">Протокол</h2>
     <div class="proto-head" id="protoHead"></div>
     <table class="proto" id="protoSets"></table>
     <table class="proto" id="protoStats"></table>
@@ -271,6 +283,7 @@
 <script src="./js/shared/ui-common.js"></script>
 <script src="./js/shared/remote.js"></script>
 <script src="./js/shared/link.js"></script>
+<script src="./js/shared/archive.js"></script>
 <script src="./js/pages/pult.js"></script>
 </body>
 </html>

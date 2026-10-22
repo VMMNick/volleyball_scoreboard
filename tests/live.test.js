@@ -18,7 +18,7 @@ const suite = JSDOM ? test : test.skip;
 const { root, read, file } = require("./helpers/site");
 const liveHtml = read("live.html");
 const liveJs = read("live.js");
-const base = ["match.js", "palettes.js", "ui-common.js", "remote.js", "link.js"].map(read);
+const base = ["match.js", "palettes.js", "ui-common.js", "remote.js", "link.js", "archive.js"].map(read);
 
 /* Фальшивий WebSocket: запамʼятовує надіслане, сервер «відповідає» вручну. */
 function fakeSockets() {

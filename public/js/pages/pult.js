@@ -117,6 +117,7 @@
     var before = M.reduce(match);
     match = next;
     var after = M.reduce(match);
+    if (after.done && !before.done) archiveMatch(match);
     render();
     save();
     if (opts && opts.feedback) feedback(before, after);
@@ -293,7 +294,7 @@
       pendingPalette = prefs.palette;
       pendingColors = null;
     }
-    ["menu", "sheet", "proto", "serveAsk", "subsSheet", "linkSheet"].forEach(function (id) { $(id).classList.remove("show"); });
+    ["menu", "sheet", "proto", "archiveSheet", "serveAsk", "subsSheet", "linkSheet"].forEach(function (id) { $(id).classList.remove("show"); });
   }
   Array.prototype.forEach.call(document.querySelectorAll(".sheet"), function (el) {
     el.addEventListener("click", function (e) { if (e.target === el) closeSheets(); });
@@ -490,6 +491,7 @@
     render();
     save(fromRemote);
     var after = M.reduce(match);
+    if (after.done && !before.done) archiveMatch(match);
     var lt = after.lastTimeout;
     if (lt && !after.done && (!before.lastTimeout || before.lastTimeout.ts !== lt.ts)) {
       var endsAt = lt.ts + prefs.timeoutSec * 1000;
@@ -683,11 +685,62 @@
     if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done).catch(function () {});
   }
 
+  /* ---------- архів матчів ---------- */
+
+  var A = window.Archive;
+
+  /* Матч у архів: закінчився або суддя починає новий, а в старому вже були розіграші. */
+  function archiveMatch(m) {
+    try { A.save(localStorage, A.put(A.load(localStorage), m)); } catch (e) {}
+  }
+
+  function fmtDate(ts) {
+    if (!ts) return "";
+    var d = new Date(ts), p = function (n) { return (n < 10 ? "0" : "") + n; };
+    return p(d.getDate()) + "." + p(d.getMonth() + 1) + "." + d.getFullYear() + " " + p(d.getHours()) + ":" + p(d.getMinutes());
+  }
+
+  function renderArchive() {
+    var list = A.load(localStorage);
+    $("archiveClear").disabled = !list.length;
+    if (!list.length) {
+      $("archiveList").innerHTML = '<div class="arch-empty">Поки порожньо — тут зʼявляться завершені матчі.</div>';
+      return;
+    }
+    $("archiveList").innerHTML = list.map(function (e) {
+      var meta = [fmtDate(e.startedAt || e.savedAt), e.title, e.done ? "" : "не дограний"].filter(Boolean).join(" · ");
+      return '<div class="arch-item" data-mid="' + U.esc(e.mid) + '">' +
+        '<div class="arch-teams"><span>' + U.esc(e.names[0]) + " — " + U.esc(e.names[1]) + "</span><b>" +
+          e.sets[0] + ":" + e.sets[1] + "</b></div>" +
+        '<div class="arch-meta">' + U.esc(A.scoreLine(e) || "—") + (meta ? " · " + U.esc(meta) : "") + "</div>" +
+        '<div class="row">' +
+          '<button class="ghost" data-act="proto">Протокол</button>' +
+          '<button class="ghost" data-act="csv">CSV</button>' +
+          '<button class="ghost" data-act="del">Видалити</button>' +
+        "</div></div>";
+    }).join("");
+  }
+
   /* ---------- протокол ---------- */
 
+  /*
+   * Протокол поточного матчу або матчу з архіву (protoView). CSV і JSON — того, що показано.
+   */
+  var protoView = null;
+  function protoMatch() { return protoView || match; }
+
+  function showProtocol(m) {
+    protoView = m || null;
+    renderProtocol();
+    openSheet("proto");
+  }
+
   function renderProtocol() {
-    var p = M.protocol(match);
-    var s = M.reduce(match);
+    var pm = protoMatch();
+    var s = M.reduce(pm);
+    // Матч з архіву вже не йде: час — до останнього розіграшу, а не до «зараз».
+    var p = M.protocol(pm, protoView ? (s.lastAt || s.startedAt || 0) : undefined);
+    $("protoTitle").textContent = protoView ? "Протокол · з архіву" : "Протокол";
     var rows = "";
 
     p.setLog.forEach(function (set, i) {
@@ -699,7 +752,7 @@
     if (p.current && (p.current.points[0] || p.current.points[1])) {
       rows += "<tr class=\"live\"><td>" + p.current.setNumber + "</td>" +
         cell(p.current.points[0], "ca") + cell(p.current.points[1], "cb") +
-        "<td>" + s.setRallies + "</td><td>триває</td></tr>";
+        "<td>" + s.setRallies + "</td><td>" + (protoView ? "перервано" : "триває") + "</td></tr>";
     }
     if (!rows) rows = "<tr><td colspan=\"5\">Ще жодного розіграшу</td></tr>";
 
@@ -719,7 +772,7 @@
 
     // Після кінця матчу показуємо перебіг останнього сету, а не порожній наступний.
     var trailSet = p.done ? p.setLog.length - 1 : p.setLog.length;
-    var trail = M.rallyTrail(match, Math.max(0, trailSet));
+    var trail = M.rallyTrail(pm, Math.max(0, trailSet));
     $("protoTrail").textContent = trail.length
       ? trail.map(function (x) { return x[0] + ":" + x[1]; }).join("  ")
       : "—";
@@ -745,8 +798,9 @@
   }
 
   function downloadCSV() {
-    var s = M.reduce(match);
-    var blob = new Blob(["\uFEFF" + M.toCSV(match)], { type: "text/csv;charset=utf-8" });
+    var pm = protoMatch();
+    var s = M.reduce(pm);
+    var blob = new Blob(["\uFEFF" + M.toCSV(pm)], { type: "text/csv;charset=utf-8" });
     var url = URL.createObjectURL(blob);
     var a = document.createElement("a");
     a.href = url;
@@ -758,7 +812,7 @@
   }
 
   function copyProtocol() {
-    var text = JSON.stringify(M.protocol(match), null, 2);
+    var text = JSON.stringify(M.protocol(protoMatch()), null, 2);
     var done = function () {
       var b = $("protoCopy");
       b.textContent = "Скопійовано";
@@ -996,7 +1050,7 @@
     });
 
     // Зміна формату перекроює сітку сетів — починаємо матч наново.
-    if (pendingBestOf !== M.reduce(match).rules.bestOf) next = M.restart(next);
+    if (pendingBestOf !== M.reduce(match).rules.bestOf) { archiveMatch(match); next = M.restart(next); }
 
     prefs.vibrate = $("inVibrate").checked;
     prefs.showServe = $("inShowServe").checked;
@@ -1024,7 +1078,29 @@
 
   $("toStop").addEventListener("click", function () { stopTimeoutClock(); });
 
-  $("mProto").addEventListener("click", function () { renderProtocol(); openSheet("proto"); });
+  $("mProto").addEventListener("click", function () { showProtocol(null); });
+  $("mArchive").addEventListener("click", function () { renderArchive(); openSheet("archiveSheet"); });
+  $("archiveList").addEventListener("click", function (e) {
+    var b = e.target.closest("button[data-act]");
+    var item = b && b.closest(".arch-item");
+    if (!item) return;
+    var list = A.load(localStorage), mid = item.dataset.mid;
+    if (b.dataset.act === "del") {
+      if (!confirm("Видалити цей матч з архіву?")) return;
+      A.save(localStorage, A.remove(list, mid));
+      renderArchive();
+      return;
+    }
+    var m = A.open(list, mid);
+    if (!m) return;
+    if (b.dataset.act === "proto") showProtocol(m);
+    else { protoView = m; downloadCSV(); protoView = null; }
+  });
+  $("archiveClear").addEventListener("click", function () {
+    if (!confirm("Очистити весь архів матчів на цьому пристрої?")) return;
+    A.save(localStorage, []);
+    renderArchive();
+  });
   $("mSubs").addEventListener("click", openSubs);
   $("mMini").addEventListener("click", function () {
     closeSheets();
@@ -1119,8 +1195,9 @@
 
   $("mNew").addEventListener("click", function () {
     var s = M.reduce(match);
-    if ((s.rallies || s.setLog.length) && !confirm("Почати новий матч? Поточний рахунок зникне.")) return;
+    if ((s.rallies || s.setLog.length) && !confirm("Почати новий матч? Поточний збережеться в архіві.")) return;
     closeSheets();
+    archiveMatch(match);
     commit(M.restart(match));
   });
 
@@ -1129,8 +1206,9 @@
 
   $("sheetSave").addEventListener("click", applySettings);
   $("sheetReset").addEventListener("click", function () {
-    if (!confirm("Обнулити рахунок матчу?")) return;
+    if (!confirm("Обнулити рахунок матчу? Поточний збережеться в архіві.")) return;
     closeSheets();
+    archiveMatch(match);
     commit(M.restart(match));
   });
   $("segPreset").addEventListener("click", function (e) {
@@ -1144,9 +1222,9 @@
     paintSeg();
   });
 
-  $("finalNew").addEventListener("click", function () { commit(M.restart(match)); });
+  $("finalNew").addEventListener("click", function () { archiveMatch(match); commit(M.restart(match)); });
   $("finalUndo").addEventListener("click", function () { commit(M.undo(match)); });
-  $("finalProto").addEventListener("click", function () { renderProtocol(); openSheet("proto"); });
+  $("finalProto").addEventListener("click", function () { showProtocol(null); });
 
   document.addEventListener("keydown", function (e) {
     if (document.activeElement && /INPUT|TEXTAREA/.test(document.activeElement.tagName)) return;

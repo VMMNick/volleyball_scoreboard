@@ -25,6 +25,7 @@ const common = read("ui-common.js");
 const sounds = read("sounds.js");
 const remote = read("remote.js");
 const linkJs = read("link.js");
+const archiveJs = read("archive.js");
 const feed = read("feed.js");
 const controlHtml = read("index.html");
 const app = read("pult.js");
@@ -107,7 +108,7 @@ function boot(markup, scripts, opts) {
 }
 
 const display = (opts) => boot(html, [core, palettes, common, sounds, feed, js], opts);
-const control = (opts) => boot(controlHtml, [core, palettes, common, remote, linkJs, app], opts);
+const control = (opts) => boot(controlHtml, [core, palettes, common, remote, linkJs, archiveJs, app], opts);
 
 function played(points) {
   let m = Match.createMatch({ names: ["Імідж", "Ліцей"] });

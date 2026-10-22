@@ -16,7 +16,7 @@ let JSDOM;
 try { ({ JSDOM } = require("jsdom")); } catch (e) { JSDOM = null; }
 
 const { root, read, file } = require("./helpers/site");
-const scripts = ["match.js", "palettes.js", "ui-common.js", "remote.js", "link.js"].map(read);
+const scripts = ["match.js", "palettes.js", "ui-common.js", "remote.js", "link.js", "archive.js"].map(read);
 
 function makeBus() {
   const members = new Set();

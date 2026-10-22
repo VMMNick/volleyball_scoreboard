@@ -20,6 +20,7 @@ const palettes = read("palettes.js");
 const common = read("ui-common.js");
 const remoteJs = read("remote.js");
 const linkJs = read("link.js");
+const archiveJs = read("archive.js");
 const app = read("pult.js");
 
 /* Піднімає застосунок у чистому DOM і повертає зручні хелпери. */
@@ -33,6 +34,7 @@ function boot() {
   win.eval(common);
   win.eval(remoteJs);
   win.eval(linkJs);
+  win.eval(archiveJs);
   win.eval(app);
 
   const $ = (id) => win.document.getElementById(id);
