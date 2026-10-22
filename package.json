@@ -9,7 +9,7 @@
     "dev": "node server/server.js",
     "test": "node --test tests/*.test.js",
     "check": "node --check public/js/core/match.js && node --check public/js/core/palettes.js && node --check public/js/shared/ui-common.js && node --check public/js/shared/sounds.js && node --check public/js/shared/scorebug.js && node --check public/js/shared/remote.js && node --check public/js/shared/feed.js && node --check public/js/pages/pult.js && node --check public/js/pages/display.js && node --check public/js/pages/live.js && node --check public/js/pages/mini.js && node --check public/sw.js && node --check server/server.js && node --check scripts/build.js && node --check public/js/config.js && node --check scripts/pages-config.js",
-    "build": "node scripts/build.js"
+    "build": "node scripts/build.js --stamp"
   },
   "devDependencies": {
     "jsdom": "^26.0.0"

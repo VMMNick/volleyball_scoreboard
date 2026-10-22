@@ -64,7 +64,29 @@ test("service worker кешує всі файли оболонки", () => {
 });
 
 test("версія кешу задана", () => {
-  assert.match(sw, /CACHE\s*=\s*"volley-score-v\d+"/);
+  assert.match(sw, /CACHE\s*=\s*"volley-score-[\w-]+"/);
+});
+
+test("версія кешу рахується з вмісту: та сама — для тих самих файлів, нова — після будь-якої зміни", () => {
+  const fs = require("node:fs"), os = require("node:os"), path = require("node:path");
+  const B = require(file("scripts/build.js"));
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "pub-"));
+  fs.cpSync(require("./helpers/site").pub, tmp, { recursive: true });
+  const v1 = B.cacheVersion(tmp);
+  assert.match(v1, /^volley-score-[0-9a-f]{10}$/);
+  assert.equal(B.cacheVersion(tmp), v1, "детерміновано");
+
+  const stamped = B.stamp(tmp);
+  assert.equal(stamped, v1);
+  assert.match(fs.readFileSync(path.join(tmp, "sw.js"), "utf8"), new RegExp('const CACHE = "' + v1 + '";'));
+  assert.equal(B.cacheVersion(tmp), v1, "вписана версія не змінює сам хеш");
+
+  fs.appendFileSync(path.join(tmp, "js/core/match.js"), "\n// зміна\n");
+  assert.notEqual(B.cacheVersion(tmp), v1, "змінився скрипт — нова версія");
+  const v2 = B.cacheVersion(tmp);
+  fs.appendFileSync(path.join(tmp, "sw.js"), "\n// зміна самого sw.js\n");
+  assert.notEqual(B.cacheVersion(tmp), v2, "змінився sw.js — теж нова версія");
+  fs.rmSync(tmp, { recursive: true, force: true });
 });
 
 test("маніфест придатний для встановлення", () => {

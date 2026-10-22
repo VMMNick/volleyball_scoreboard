@@ -29,3 +29,6 @@ const out = src.replace(/syncServer: "[^"]*"/, "syncServer: " + JSON.stringify(u
 if (out === src && !src.includes(JSON.stringify(url))) { console.error("не знайдено syncServer у " + file); process.exit(1); }
 fs.writeFileSync(file, out);
 console.log("сервер посилань на матч: " + url);
+// config.js змінився вже після npm run build — перераховуємо версію офлайн-кешу,
+// інакше встановлені застосунки не помітили б нову адресу сервера.
+if (!process.argv[2]) console.log("версія кешу: " + require("./build.js").stamp());

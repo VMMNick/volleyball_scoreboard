@@ -99,8 +99,10 @@ pult.js / mini.js ──localStorage "volleyball:match"──┐
 це **усі** файли `public/`. `npm run build` (`scripts/build.js`) падає, якщо список і папка
 розійшлися, а Render і CI запускають його перед кожним деплоєм.
 
-Після будь-якої зміни файлів у `public/` піднімайте версію `CACHE` у `public/sw.js`,
-інакше встановлені застосунки лишаться на старій версії.
+Версію `CACHE` у `public/sw.js` `npm run build` рахує сама: це хеш усіх файлів `SHELL` і самого
+`sw.js` (`volley-score-<10 hex>`). Змінився хоч байт — нова версія, і встановлені застосунки
+оновляться. Вписує її прапорець `--stamp` (його передає `npm run build`); `node scripts/build.js`
+без прапорця лише перевіряє. На Pages після `pages-config.js` версія перераховується ще раз.
 
 ## Хостинг: Render і GitHub Pages
 
@@ -158,5 +160,5 @@ pult.js / mini.js ──localStorage "volleyball:match"──┐
 | стиль однієї сторінки | `css/pages/<сторінка>.css` |
 | спільний колір чи шрифт | `css/theme.css` |
 | картинка, шрифт, іконка | `public/assets/…` |
-| новий файл у `public/` | додайте його в `SHELL` у `public/sw.js` і підніміть `CACHE` |
+| новий файл у `public/` | додайте його в `SHELL` у `public/sw.js` (`CACHE` оновить `npm run build`) |
 | нове налаштування, яке має дійти до табло | `PREF_KEYS` у `server/server.js` |
