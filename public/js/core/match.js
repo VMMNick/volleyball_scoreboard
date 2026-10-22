@@ -524,6 +524,91 @@
     }).join("\n");
   }
 
+  /* ---------- перевірка даних ---------- */
+
+  /*
+   * Матч приходить з localStorage, з іншої вкладки чи з сервера від другого судді.
+   * Одна зіпсована подія (null, team: 7) інакше валила б reduce на всіх табло.
+   * validate — сувора перевірка для сервера: будь-яка проблема → стан не приймаємо.
+   * deserialize — поблажлива: викидає лише зіпсоване, щоб старі збереження відкривались.
+   * Невідомі типи подій пропускаємо (reduce їх ігнорує) — так нова версія пульта
+   * не зламає старе табло.
+   */
+  var LIMITS = { events: 5000, name: 60, title: 120, player: 12, type: 30 };
+  var RULE_RANGE = {
+    bestOf: [1, 7], target: [1, 99], decider: [1, 99], winBy: [1, 10], cap: [0, 199], capDecider: [0, 199],
+    timeouts: [0, 10], deciderSwapAt: [0, 99], swapEvery: [0, 99], swapEveryDecider: [0, 99],
+    subs: [0, 30], techTimeoutAt: [0, 199]
+  };
+  var TEAM_EVENTS = { point: 1, timeout: 1, serve: 1, sub: 1, card: 1 };
+
+  function isTeam(t) { return t === 0 || t === 1; }
+  function shortStr(v, max) { return typeof v === "string" && v.length <= max; }
+
+  /* Що не так з подією, або null — усе гаразд. */
+  function eventProblem(ev) {
+    if (!ev || typeof ev !== "object" || Array.isArray(ev)) return "подія не обʼєкт";
+    if (!shortStr(ev.type, LIMITS.type) || !ev.type) return "немає типу події";
+    if (ev.ts !== undefined && !(typeof ev.ts === "number" && isFinite(ev.ts) && ev.ts >= 0)) return "неправильний час події";
+    if (TEAM_EVENTS[ev.type] && !isTeam(ev.team)) return ev.type + ": team має бути 0 або 1";
+    if (ev.type === "sub" && !(shortStr(ev.out, LIMITS.player) && shortStr(ev["in"], LIMITS.player))) return "sub: номери гравців";
+    if (ev.type === "card") {
+      if (CARDS.indexOf(ev.kind) < 0) return "card: невідома картка";
+      if (ev.player !== undefined && !shortStr(ev.player, LIMITS.player)) return "card: номер гравця";
+    }
+    return null;
+  }
+
+  function ruleOk(k, v) {
+    var r = RULE_RANGE[k];
+    if (!r) return true;                                     // невідоме правило — не наше, ігноруємо
+    if (typeof v !== "number" || v % 1 !== 0 || v < r[0] || v > r[1]) return false;
+    return k !== "bestOf" || v % 2 === 1;
+  }
+
+  /* Сувора перевірка: список проблем (порожній — можна приймати). */
+  function validate(data) {
+    var out = [];
+    if (!data || typeof data !== "object") return ["матч не обʼєкт"];
+    if (!Array.isArray(data.events)) out.push("немає списку подій");
+    else if (data.events.length > LIMITS.events) out.push("забагато подій");
+    if (data.undone !== undefined && !Array.isArray(data.undone)) out.push("undone не список");
+    [["events", data.events], ["undone", data.undone]].forEach(function (pair) {
+      if (!Array.isArray(pair[1])) return;
+      for (var i = 0; i < pair[1].length; i++) {
+        var p = eventProblem(pair[1][i]);
+        if (p) { out.push(pair[0] + "[" + i + "]: " + p); break; }
+      }
+    });
+    if (!Array.isArray(data.names) || data.names.length !== 2 ||
+        !shortStr(data.names[0], LIMITS.name) || !shortStr(data.names[1], LIMITS.name)) out.push("назви команд");
+    if (data.title !== undefined && !shortStr(data.title, LIMITS.title)) out.push("назва турніру");
+    if (data.rules !== undefined) {
+      if (!data.rules || typeof data.rules !== "object") out.push("правила не обʼєкт");
+      else for (var k in RULE_RANGE) if (k in data.rules && !ruleOk(k, data.rules[k])) out.push("правило " + k);
+    }
+    return out;
+  }
+
+  function cleanEvents(list) {
+    if (!Array.isArray(list)) return [];
+    var out = [];
+    for (var i = 0; i < list.length && out.length < LIMITS.events; i++) if (!eventProblem(list[i])) out.push(list[i]);
+    return out;
+  }
+
+  function cleanName(v, i) {
+    var n = typeof v === "string" ? v.trim().slice(0, LIMITS.name) : "";
+    return n || DEFAULT_NAMES[i];
+  }
+
+  function cleanRules(r) {
+    var out = {};
+    if (!r || typeof r !== "object") return out;
+    for (var k in RULE_RANGE) if (k in r && ruleOk(k, r[k])) out[k] = r[k];
+    return out;
+  }
+
   /* ---------- збереження ---------- */
 
   function serialize(m) {
@@ -534,9 +619,14 @@
     if (!raw) return null;
     var data = typeof raw === "string" ? JSON.parse(raw) : raw;
     if (!data || !Array.isArray(data.events)) return null;
-    var m = createMatch({ names: data.names, rules: data.rules, title: data.title });
-    m.events = data.events;
-    m.undone = Array.isArray(data.undone) ? data.undone : [];
+    var names = Array.isArray(data.names) ? data.names : [];
+    var m = createMatch({
+      names: [cleanName(names[0], 0), cleanName(names[1], 1)],
+      rules: cleanRules(data.rules),
+      title: typeof data.title === "string" ? data.title.slice(0, LIMITS.title) : ""
+    });
+    m.events = cleanEvents(data.events);
+    m.undone = cleanEvents(data.undone);
     return m;
   }
 
@@ -578,7 +668,9 @@
     rallyTrail: rallyTrail,
     toCSV: toCSV,
     serialize: serialize,
-    deserialize: deserialize
+    deserialize: deserialize,
+    validate: validate,
+    eventProblem: eventProblem
   };
   return api;
 });

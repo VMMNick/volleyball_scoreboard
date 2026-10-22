@@ -13,6 +13,10 @@
  * його (зберігається лише хеш). Інші пульти — тільки з тим самим ключем,
  * глядачі — без ключа і лише читають. Стан у памʼяті: після перезапуску
  * сервера пульт сам надішле його знову, щойно перепідключиться.
+ *
+ * Захист від засмічення: кімната, яку створив глядач (без пульта), зникає,
+ * щойно вийде останній глядач, а з однієї IP-адреси обмежено і кількість
+ * зʼєднань, і кількість нових кімнат за хвилину.
  */
 "use strict";
 
@@ -21,6 +25,7 @@ const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
 const { WebSocketServer } = require("ws");
+const Match = require("../public/js/core/match.js");   // ті самі правила перевірки, що й у браузері
 
 const ROOM_RE = /^[A-Z2-9]{6}$/;          // без I, O, 0, 1 — щоб не плутати на слух і на екрані
 const KEY_RE = /^[A-Za-z0-9_-]{16,64}$/;
@@ -28,6 +33,12 @@ const MAX_MESSAGE = 512 * 1024;           // повний матч із поді
 const ROOM_TTL_MS = 24 * 60 * 60 * 1000;  // кімната без жодного підключення живе добу
 const MAX_ROOMS = 2000;
 const PING_MS = 30000;
+// Ліміти на одну IP-адресу. Глядачі в залі часто сидять за одним Wi-Fi (одна адреса),
+// тож зʼєднань дозволяємо з запасом, а нових кімнат — небагато: суддя створює одну на матч.
+const MAX_CONN_PER_IP = 300;
+const MAX_NEW_ROOMS_PER_IP = 20;          // за вікно RATE_WINDOW_MS
+const RATE_WINDOW_MS = 60 * 1000;
+const TRY_LATER = 1013;                   // «спробуйте пізніше»: клієнт перепідключиться сам
 const PREF_KEYS = ["palette", "showServe", "sound", "timeoutSec", "boardPct", "boardLogo", "boardLogoOld",
                    "colorA", "colorB", "colorBg", "colorFrame", "colorText"];
 
@@ -47,6 +58,31 @@ function createServer(opts) {
   const root = path.resolve(opts.root || PUBLIC_DIR);
   const log = opts.log || (() => {});
   const rooms = new Map();   // code → { keyHash, state, prefs, clients:Set, touched }
+  const limits = Object.assign({ connPerIp: MAX_CONN_PER_IP, newRoomsPerIp: MAX_NEW_ROOMS_PER_IP,
+                                 windowMs: RATE_WINDOW_MS }, opts.limits || {});
+  // За проксі Render справжня адреса — останній запис X-Forwarded-For (його дописує сам Render;
+  // перші записи клієнт може підробити). Локально проксі немає — беремо адресу сокета.
+  const trustProxy = opts.trustProxy !== undefined ? !!opts.trustProxy : !!process.env.RENDER;
+  const conns = new Map();   // ip → кількість відкритих зʼєднань
+  const created = new Map(); // ip → [час створення кімнати, …] за останнє вікно
+
+  function clientIp(req) {
+    if (trustProxy) {
+      const xff = String((req && req.headers["x-forwarded-for"]) || "").split(",").map((x) => x.trim()).filter(Boolean);
+      if (xff.length) return xff[xff.length - 1];
+    }
+    return (req && req.socket && req.socket.remoteAddress) || "?";
+  }
+
+  /* Чи можна цій адресі створити ще одну кімнату (і, якщо так, — врахувати її). */
+  function takeRoomSlot(ip) {
+    const now = Date.now();
+    const list = (created.get(ip) || []).filter((t) => now - t < limits.windowMs);
+    if (list.length >= limits.newRoomsPerIp) { created.set(ip, list); return false; }
+    list.push(now);
+    created.set(ip, list);
+    return true;
+  }
 
   /* ---------- статика ---------- */
 
@@ -85,8 +121,8 @@ function createServer(opts) {
   function cleanState(raw) {
     if (typeof raw !== "string" || raw.length > MAX_MESSAGE) return null;
     try {
-      const m = JSON.parse(raw);
-      return m && Array.isArray(m.events) && Array.isArray(m.names) ? raw : null;
+      // Сувора перевірка: одна зіпсована подія зламала б табло всім глядачам кімнати.
+      return Match.validate(JSON.parse(raw)).length ? null : raw;
     } catch (e) { return null; }
   }
 
@@ -110,10 +146,12 @@ function createServer(opts) {
   server.on("upgrade", (req, socket, head) => {
     const url = new URL(req.url, "http://x");
     if (url.pathname !== "/ws") { socket.destroy(); return; }
-    wss.handleUpgrade(req, socket, head, (ws) => wss.emit("connection", ws, url));
+    wss.handleUpgrade(req, socket, head, (ws) => wss.emit("connection", ws, url, req));
   });
 
-  wss.on("connection", (ws, url) => {
+  wss.on("connection", (ws, url, req) => {
+    const ip = clientIp(req);
+    if ((conns.get(ip) || 0) >= limits.connPerIp) { ws.close(TRY_LATER, "too many connections"); return; }
     const code = (url.searchParams.get("room") || "").toUpperCase();
     const role = url.searchParams.get("role") === "control" ? "control" : "viewer";
     const key = url.searchParams.get("key") || "";
@@ -125,6 +163,7 @@ function createServer(opts) {
       if (!KEY_RE.test(key)) { ws.close(4001, "bad key"); return; }
       if (!room) {
         if (rooms.size >= MAX_ROOMS) { ws.close(4029, "too many rooms"); return; }
+        if (!takeRoomSlot(ip)) { ws.close(TRY_LATER, "slow down"); return; }
         room = { keyHash: sha256(key), state: null, prefs: null, clients: new Set(), touched: Date.now() };
         rooms.set(code, room);
         log("кімната " + code + " створена");
@@ -134,6 +173,7 @@ function createServer(opts) {
     } else if (!room) {
       // Глядач прийшов раніше за пульт — чекаємо в порожній кімнаті без ключа.
       if (rooms.size >= MAX_ROOMS) { ws.close(4029, "too many rooms"); return; }
+      if (!takeRoomSlot(ip)) { ws.close(TRY_LATER, "slow down"); return; }
       room = { keyHash: null, state: null, prefs: null, clients: new Set(), touched: Date.now() };
       rooms.set(code, room);
     }
@@ -143,6 +183,7 @@ function createServer(opts) {
 
     ws.role = role;
     ws.alive = true;
+    conns.set(ip, (conns.get(ip) || 0) + 1);
     room.clients.add(ws);
     room.touched = Date.now();
 
@@ -176,6 +217,11 @@ function createServer(opts) {
     ws.on("close", () => {
       room.clients.delete(ws);
       room.touched = Date.now();
+      const n = (conns.get(ip) || 1) - 1;
+      if (n > 0) conns.set(ip, n); else conns.delete(ip);
+      // Кімнату без пульта (її створив глядач) не тримаємо: інакше тисячі відкрити-закрити
+      // на випадкові коди забили б MAX_ROOMS на добу. Прийде глядач знову — створиться нова.
+      if (!room.clients.size && room.keyHash === null && rooms.get(code) === room) rooms.delete(code);
     });
   });
 
@@ -189,6 +235,10 @@ function createServer(opts) {
     const now = Date.now();
     rooms.forEach((room, code) => {
       if (!room.clients.size && now - room.touched > ROOM_TTL_MS) rooms.delete(code);
+    });
+    created.forEach((list, ip) => {
+      const fresh = list.filter((t) => now - t < limits.windowMs);
+      if (fresh.length) created.set(ip, fresh); else created.delete(ip);
     });
   }, opts.pingMs || PING_MS);
   timer.unref();

@@ -542,3 +542,64 @@ test("пауза після кінця матчу: 10 с рахунок оста
   assert.equal(M.finalHoldLeft(M.reduce(M.createMatch()), 5000), 0, "незавершений матч — без паузи");
   assert.equal(M.finalHoldLeft(s, 1000), 10000, "годинник глядача позаду — не довше 10 с");
 });
+
+/* ---------- перевірка даних ---------- */
+
+test("validate: справжній матч проходить, зіпсований — ні", () => {
+  let m = M.createMatch({ names: ["Імідж", "Ліцей"] });
+  m = M.addPoint(m, 0, 1000);
+  m = M.callTimeout(m, 1, 2000);
+  m = M.substitute(m, 0, "7", "12", 3000);
+  m = M.giveCard(m, 1, "yellow", "4", 4000);
+  m = M.swapSides(m, 5000);
+  m = M.undo(m);
+  assert.deepEqual(M.validate(JSON.parse(M.serialize(m))), [], "усе, що вміє робити пульт, — валідне");
+  for (const p of M.PRESETS) {
+    assert.deepEqual(M.validate(JSON.parse(M.serialize(M.createMatch({ rules: p.rules })))), [], "пресет " + p.id);
+  }
+
+  const base = () => JSON.parse(M.serialize(M.createMatch()));
+  const bad = (patch, why) => {
+    const d = Object.assign(base(), patch);
+    assert.ok(M.validate(d).length > 0, why);
+  };
+  bad({ events: [null] }, "null замість події");
+  bad({ events: [{ type: "point", team: 7, ts: 1 }] }, "команда 7");
+  bad({ events: [{ type: "point", team: "__proto__", ts: 1 }] }, "команда-рядок");
+  bad({ events: [{ team: 0, ts: 1 }] }, "подія без типу");
+  bad({ events: [{ type: "point", team: 0, ts: "вчора" }] }, "час не число");
+  bad({ events: [{ type: "card", team: 0, kind: "pink", ts: 1 }] }, "невідома картка");
+  bad({ events: [{ type: "sub", team: 0, out: 7, in: "8", ts: 1 }] }, "номер не рядок");
+  bad({ undone: [null] }, "зіпсоване в undone");
+  bad({ names: ["А"] }, "одна назва");
+  bad({ names: ["А", "Б".repeat(500)] }, "задовга назва");
+  bad({ rules: { target: -1 } }, "очок −1");
+  bad({ rules: { bestOf: 4 } }, "парна кількість сетів");
+  bad({ rules: { timeouts: 1.5 } }, "дробові тайм-аути");
+  bad({ events: Array.from({ length: 5001 }, (_, i) => ({ type: "swap", ts: i })) }, "забагато подій");
+  assert.ok(M.validate(null).length > 0);
+  assert.deepEqual(M.validate(Object.assign(base(), { events: [{ type: "майбутня-подія", ts: 1 }] })), [],
+    "невідомий тип від новішої версії пульта не відкидаємо — reduce його просто пропустить");
+});
+
+test("deserialize викидає лише зіпсоване, а табло не падає", () => {
+  const raw = JSON.stringify({
+    v: 1, names: [null, "Ліцей".repeat(30)], title: 5,
+    rules: { target: -1, decider: 15, bestOf: 3, evil: "x" },
+    events: [null, { type: "point", team: 0, ts: 1 }, { type: "point", team: 7, ts: 2 }, "рядок",
+             { type: "card", team: 1, kind: "red", ts: 3 }, { type: "point", team: 1, ts: 4 }],
+    undone: [42, { type: "point", team: 0, ts: 5 }]
+  });
+  const m = M.deserialize(raw);
+  assert.equal(m.events.length, 3, "лишились три справжні події");
+  assert.equal(m.undone.length, 1);
+  assert.equal(m.names[0], "Команда А", "порожня назва → типова");
+  assert.ok(m.names[1].length <= 60);
+  assert.equal(m.title, "");
+  assert.equal(m.rules.target, 25, "неправильне правило → типове");
+  assert.equal(m.rules.bestOf, 3, "правильні правила лишаються");
+  assert.equal("evil" in m.rules, false, "невідомі поля в правила не потрапляють");
+  const s = M.reduce(m);
+  assert.deepEqual(s.points, [2, 1], "очко А, червона картка Б (очко А), очко Б");
+  assert.deepEqual(M.validate(JSON.parse(M.serialize(m))), [], "після чистки матч валідний");
+});

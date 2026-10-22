@@ -18,12 +18,12 @@ const KEY = "k".repeat(24);
 const OTHER = "z".repeat(24);
 const STATE = JSON.stringify({ v: 1, names: ["Імідж", "Ліцей"], rules: {}, events: [{ type: "point", team: 0, ts: 1 }], undone: [] });
 
-async function start(t) {
+async function start(t, extra) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "site-"));
   fs.writeFileSync(path.join(root, "index.html"), "<!doctype html><title>пульт</title>");
   fs.writeFileSync(path.join(root, "live.html"), "<!doctype html><title>live</title>");
   fs.writeFileSync(path.join(root, "live.js"), "// live");
-  const server = createServer({ root, pingMs: 60000 });
+  const server = createServer(Object.assign({ root, pingMs: 60000, trustProxy: false }, extra || {}));
   await new Promise((r) => server.listen(0, "127.0.0.1", r));
   t.after(() => new Promise((r) => {
     server.closeAllConnections();               // keep-alive з http.get інакше тримає close
@@ -165,4 +165,116 @@ suite("статика, health і захист від ../", async (t) => {
   const h = JSON.parse(hz.body);
   assert.equal(h.ok, true);
   assert.equal(hz.headers["access-control-allow-origin"], "*", "пульт з GitHub Pages перевіряє сервер з іншого домену");
+});
+
+const until = async (fn, ms = 2000) => {
+  const end = Date.now() + ms;
+  while (!fn()) {
+    if (Date.now() > end) throw new Error("не дочекались умови");
+    await new Promise((r) => setTimeout(r, 10));
+  }
+};
+
+suite("кімната, яку створив лише глядач, зникає, щойно він вийде", async (t) => {
+  const s = await start(t);
+  const v = client(s.url("room=GHOST2"));
+  await v.open();
+  await v.wait("hello");
+  assert.equal(s.server.rooms.has("GHOST2"), true);
+  v.close();
+  await v.closed;
+  await until(() => !s.server.rooms.has("GHOST2"));
+
+  // А кімната з пультом лишається — глядачі, що прийдуть пізніше, одразу побачать рахунок.
+  const ctl = client(s.url("room=OWNED2&role=control&key=" + KEY));
+  await ctl.open();
+  ctl.send({ type: "state", match: STATE });
+  await ctl.wait("hello");
+  ctl.close();
+  await ctl.closed;
+  await new Promise((r) => setTimeout(r, 50));
+  assert.equal(s.server.rooms.has("OWNED2"), true, "кімната судді живе далі");
+  const late = client(s.url("room=OWNED2"));
+  await late.open();
+  assert.equal((await late.wait("state")).match, STATE);
+  late.close();
+});
+
+suite("відкрити-закрити сотні кімнат не забиває сервер", async (t) => {
+  const s = await start(t, { limits: { newRoomsPerIp: 100000 } });
+  const ABC = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const codes = Array.from({ length: 300 }, (_, i) => "ZZZZ" + ABC[Math.floor(i / 32)] + ABC[i % 32]);
+  assert.equal(new Set(codes).size, codes.length);
+  for (let i = 0; i < codes.length; i += 50) {
+    await Promise.all(codes.slice(i, i + 50).map(async (c) => {
+      const v = client(s.url("room=" + c));
+      await v.open();
+      await v.wait("hello");
+      v.close();
+      await v.closed;
+    }));
+  }
+  await until(() => s.server.rooms.size === 0);
+});
+
+suite("ліміти на одну адресу: зʼєднання й нові кімнати", async (t) => {
+  const s = await start(t, { limits: { connPerIp: 3, newRoomsPerIp: 2 } });
+  const a = client(s.url("room=LIMAA2"));
+  const b = client(s.url("room=LIMBB2"));
+  await a.open(); await a.wait("hello");
+  await b.open(); await b.wait("hello");
+  const c = client(s.url("room=LIMCC2"));
+  assert.equal(await c.closed, 1013, "третя нова кімната за хвилину — «спробуйте пізніше»");
+
+  const a2 = client(s.url("room=LIMAA2"));       // в існуючу кімнату — можна
+  await a2.open(); await a2.wait("hello");
+  const a3 = client(s.url("room=LIMAA2"));
+  assert.equal(await a3.closed, 1013, "четверте зʼєднання з тієї ж адреси — «спробуйте пізніше»");
+
+  a2.close();
+  await a2.closed;
+  await new Promise((r) => setTimeout(r, 50));
+  const a4 = client(s.url("room=LIMAA2"));
+  await a4.open();
+  assert.equal((await a4.wait("hello")).role, "viewer", "місце звільнилось — знову пускаємо");
+  [a, b, a4].forEach((x) => x.close());
+});
+
+suite("за проксі Render адресу беремо з останнього запису X-Forwarded-For", async (t) => {
+  const s = await start(t, { trustProxy: true, limits: { connPerIp: 1 } });
+  const open = (xff) => {
+    const ws = new WebSocket(s.url("room=PROXY2"), { headers: { "X-Forwarded-For": xff } });
+    return new Promise((r) => {
+      ws.on("message", () => r({ ok: true, ws }));
+      ws.on("close", (code) => r({ ok: false, code }));
+    });
+  };
+  const first = await open("1.1.1.1, 10.0.0.1");
+  assert.equal(first.ok, true);
+  const spoof = await open("9.9.9.9, 10.0.0.1");
+  assert.equal(spoof.code, 1013, "підроблений перший запис не обходить ліміт");
+  const other = await open("10.0.0.2");
+  assert.equal(other.ok, true, "інша справжня адреса — свій ліміт");
+  first.ws.close(); other.ws.close();
+});
+
+suite("сервер не пропускає зіпсовану подію — табло глядачів не впаде", async (t) => {
+  const s = await start(t);
+  const ctl = client(s.url("room=BADEV2&role=control&key=" + KEY));
+  await ctl.open();
+  await ctl.wait("hello");
+  ctl.send({ type: "state", match: STATE });
+  const v = client(s.url("room=BADEV2"));
+  await v.open();
+  assert.equal((await v.wait("state")).match, STATE);
+  const broken = JSON.parse(STATE);
+  broken.events.push(null);
+  ctl.send({ type: "state", match: JSON.stringify(broken) });
+  broken.events = [{ type: "point", team: 7, ts: 2 }];
+  ctl.send({ type: "state", match: JSON.stringify(broken) });
+  await assert.rejects(v.wait("state", 300), "зіпсований стан глядачам не пішов");
+  const late = client(s.url("room=BADEV2"));
+  await late.open();
+  assert.equal((await late.wait("state")).match, STATE, "у кімнаті лишився останній правильний стан");
+  [ctl, v, late].forEach((c) => c.close());
 });
