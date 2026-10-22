@@ -14,3 +14,11 @@ services:
       # повертається своєму судді. Render згенерує його сам і більше не міняє.
       - key: ROOM_SECRET
         generateValue: true
+      # Акаунти суддів і адмін-панель (необовʼязково). Без DATABASE_URL табло працює, як і раніше.
+      # DATABASE_URL — рядок підключення Neon Postgres (postgres://…?sslmode=require).
+      - key: DATABASE_URL
+        sync: false
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false

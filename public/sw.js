@@ -1,12 +1,15 @@
 /* Табло — волейбол. Офлайн-оболонка. */
-const CACHE = "volley-score-f5065a8cde";
+const CACHE = "volley-score-ab33e8cd0b";
 const SHELL = [
   "./",
   "./display.html",
   "./index.html",
+  "./account.html",
+  "./admin.html",
   "./live.html",
   "./mini.html",
   "./manifest.webmanifest",
+  "./css/pages/account.css",
   "./css/pages/display.css",
   "./css/pages/live.css",
   "./css/pages/mini.css",
@@ -16,10 +19,13 @@ const SHELL = [
   "./js/config.js",
   "./js/core/match.js",
   "./js/core/palettes.js",
+  "./js/pages/account.js",
+  "./js/pages/admin.js",
   "./js/pages/display.js",
   "./js/pages/live.js",
   "./js/pages/mini.js",
   "./js/pages/pult.js",
+  "./js/shared/api.js",
   "./js/shared/archive.js",
   "./js/shared/feed.js",
   "./js/shared/i18n.js",
@@ -61,6 +67,8 @@ self.addEventListener("activate", (e) => {
 self.addEventListener("fetch", (e) => {
   const req = e.request;
   if (req.method !== "GET") return;
+  // API акаунтів — завжди з мережі: закешована відповідь «ви ввійшли» пережила б вихід.
+  if (new URL(req.url).pathname.startsWith("/api/")) return;
 
   // Навігація: спершу мережа, офлайн — з кешу.
   if (req.mode === "navigate") {

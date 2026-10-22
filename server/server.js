@@ -141,7 +141,14 @@ function createServer(opts) {
     });
   }
 
+  // Акаунти (server/api.js): /api/… — якщо createServer отримав opts.api.
+  const api = opts.api || null;
+
   const server = http.createServer((req, res) => {
+    if (api && req.url.startsWith("/api/")) {
+      api.handle(req, res).catch(() => { if (!res.headersSent) res.writeHead(500).end(); });
+      return;
+    }
     if (req.method !== "GET" && req.method !== "HEAD") { res.writeHead(405).end(); return; }
     serveStatic(req, res);
   });
@@ -369,14 +376,44 @@ function createServer(opts) {
     return close(cb);
   };
   server.rooms = rooms;
+  server.clientIp = clientIp;
   return server;
 }
 
 module.exports = { createServer, ROOM_RE, PUBLIC_DIR };
 
-if (require.main === module) {
+/*
+ * Запуск. Акаунти вмикаються, якщо є база:
+ *   DATABASE_URL=postgres://…     — Postgres (на Render — Neon);
+ *   PGLITE_DIR=.data              — локально без Postgres (PGlite у теці; лише для розробки);
+ *   npm run dev:accounts          — те саме одною командою (і на Windows): база в .data,
+ *                                   адмін admin@local / admin12345, якщо ADMIN_* не задано.
+ * Адмін — ADMIN_EMAIL і ADMIN_PASSWORD (створюється або оновлюється при кожному старті).
+ * Без бази — табло працює, як і раніше, лише без входу й керованих матчів.
+ */
+async function main() {
+  const log = (m) => console.log(m);
   const port = Number(process.env.PORT) || 3000;
-  createServer({ log: (m) => console.log(m) }).listen(port, () => {
+  const trustProxy = !!process.env.RENDER;
+  let api = null;
+  const devDir = process.argv.indexOf("--pglite") >= 0 ? (process.argv[process.argv.indexOf("--pglite") + 1] || ".data") : "";
+  if (devDir && !process.env.PGLITE_DIR) process.env.PGLITE_DIR = devDir;
+  if (devDir && !process.env.ADMIN_EMAIL) { process.env.ADMIN_EMAIL = "admin@local"; process.env.ADMIN_PASSWORD = "admin12345"; }
+  if (process.env.DATABASE_URL || process.env.PGLITE_DIR) {
+    const { open } = require("./db.js");
+    const { createApi } = require("./api.js");
+    const db = await open(process.env.DATABASE_URL ? { url: process.env.DATABASE_URL } : { pglite: process.env.PGLITE_DIR });
+    api = createApi({ db, log, trustProxy });
+    const admin = await api.auth.ensureAdmin(process.env.ADMIN_EMAIL, process.env.ADMIN_PASSWORD, process.env.ADMIN_NAME);
+    log("акаунти увімкнено (" + db.kind + ")" + (admin ? ", адмін: " + admin.email : " — ADMIN_EMAIL/ADMIN_PASSWORD не задано, адміна немає"));
+  }
+  const server = createServer({ log, api, trustProxy });
+  if (api) api.clientIp = server.clientIp;
+  server.listen(port, () => {
     console.log("Табло: http://localhost:" + port + "  (синхронізація — ws://localhost:" + port + "/ws)");
   });
+}
+
+if (require.main === module) {
+  main().catch((e) => { console.error(e); process.exit(1); });
 }

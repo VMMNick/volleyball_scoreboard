@@ -173,6 +173,13 @@
 - Пошук: за назвами команд, турніром, датою («22.10») чи рахунком («25:20») — кілька слів
   звужують список, регістр і апостроф не важать.
 
+**Акаунти суддів (необовʼязково)**
+- Якщо сервер має базу (Neon Postgres): судді реєструються самі, адмін підтверджує їх в адмін-панелі
+  (`admin.html`), заблокований суддя одразу втрачає доступ. Вхід — `account.html` або меню пульта
+  → «Акаунт і мої матчі». Далі — призначення матчів по категоріях і майданчиках.
+- Без бази все працює, як і раніше: пульт без входу, офлайн, посилання на матч.
+- Локально: `npm run dev:accounts` — база в теці `.data`, адмін `admin@local` / `admin12345`.
+
 **Мова**
 - Українська (типово) або англійська — у налаштуваннях пульта («Мова / Language»).
   Діє на всіх сторінках цього пристрою й запамʼятовується.
@@ -302,6 +309,7 @@ render.yaml                 — деплой на Render
 | Build Command | `npm install --omit=dev --no-audit --no-fund && npm run build` |
 | Start Command | `npm start` |
 | Health Check Path | `/healthz` |
+| Environment (акаунти, необовʼязково) | `DATABASE_URL` — рядок підключення Neon (neon.tech → проєкт → Connection string, з `?sslmode=require`); `ADMIN_EMAIL`, `ADMIN_PASSWORD` — вхід адміна |
 | Environment | `ROOM_SECRET` — довгий випадковий рядок (напр. `node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"`); не змінюйте його потім |
 
 Перевірка: `https://…onrender.com/healthz` має відповісти `{"ok":true,"rooms":0}`.

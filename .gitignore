@@ -8,3 +8,4 @@ Thumbs.db
 _site/
 test-results/
 playwright-report/
+.data/

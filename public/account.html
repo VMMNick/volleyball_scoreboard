@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0E2A3F">
+<title>Акаунт — табло</title>
+<link rel="icon" href="./assets/icons/icon-192.png">
+<link rel="stylesheet" href="./css/theme.css">
+<link rel="stylesheet" href="./css/pages/account.css">
+</head>
+<body>
+<header class="top"><b>Табло — волейбол</b><a href="./index.html">← До пульта</a></header>
+<main>
+  <section id="off" hidden>
+    <h1>Акаунти вимкнено</h1>
+    <p class="hint">На цьому сервері вхід не налаштовано. Пульт, табло й посилання на матч працюють без акаунта.</p>
+  </section>
+
+  <section id="guest" hidden>
+    <h1>Вхід для суддів</h1>
+    <div class="tabs" role="tablist">
+      <button id="tabLogin" aria-pressed="true">Вхід</button>
+      <button id="tabRegister" aria-pressed="false">Реєстрація</button>
+    </div>
+    <form class="card" id="loginForm" autocomplete="on">
+      <label class="field"><span>Email</span><input id="lEmail" type="email" autocomplete="username" required></label>
+      <label class="field"><span>Пароль</span><input id="lPass" type="password" autocomplete="current-password" required></label>
+      <button class="primary wide-btn" id="lBtn" type="submit">Увійти</button>
+      <p class="msg" id="lMsg" role="status"></p>
+    </form>
+    <form class="card" id="regForm" hidden autocomplete="on">
+      <label class="field"><span>Імʼя й прізвище</span><input id="rName" type="text" maxlength="80" autocomplete="name" required></label>
+      <label class="field"><span>Email</span><input id="rEmail" type="email" autocomplete="username" required></label>
+      <label class="field"><span>Пароль (щонайменше 8 символів)</span><input id="rPass" type="password" minlength="8" autocomplete="new-password" required></label>
+      <button class="primary wide-btn" id="rBtn" type="submit">Надіслати заявку</button>
+      <p class="msg" id="rMsg" role="status"></p>
+      <p class="hint">Після реєстрації адмін має підтвердити ваш акаунт. Тоді ви зможете ввійти й вести призначені вам матчі.</p>
+    </form>
+  </section>
+
+  <section id="user" hidden>
+    <h1>Акаунт</h1>
+    <div class="card">
+      <div class="who">
+        <div><div class="name" id="uName" translate="no"></div><div class="mail" id="uMail" translate="no"></div></div>
+        <span class="badge" id="uRole"></span>
+      </div>
+      <div class="actions">
+        <a class="primary linkbtn" id="uAdmin" href="./admin.html" hidden>Адмін-панель</a>
+        <button class="ghost" id="uLogout">Вийти</button>
+      </div>
+    </div>
+    <h2>Мої матчі</h2>
+    <div class="card"><p class="empty" id="uMatches">Поки немає призначених матчів. Їх призначає адмін.</p></div>
+  </section>
+</main>
+<script src="./js/config.js"></script>
+<script src="./js/shared/i18n.js"></script>
+<script src="./js/shared/api.js"></script>
+<script src="./js/pages/account.js"></script>
+</body>
+</html>

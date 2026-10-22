@@ -179,6 +179,26 @@ pult.js / mini.js ──localStorage "volleyball:match"──┐
 
 Запуск: `npm start` (і локально, і на Render).
 
+## Акаунти (суддя й адмін)
+
+Необовʼязкова частина: вмикається, якщо сервер має базу (`DATABASE_URL` — Postgres, на Render — Neon).
+Без бази табло, посилання на матч і пульт працюють, як і раніше, а `/api/*` відповідає
+`503 accounts-disabled`.
+
+- `server/db.js` — `pg` (DATABASE_URL) або PGlite (тести, `npm run dev:accounts`) з однаковим
+  інтерфейсом `query` / `tx`; міграції — `server/migrations/NNN_*.sql`, облік у `schema_migrations`.
+- `server/auth.js` — паролі scrypt із сіллю (порівняння за сталий час), сесії: випадковий токен у
+  cookie `vs_session` (HttpOnly, SameSite=Lax, Secure за HTTPS), у базі — лише SHA-256 токена.
+  Адмін — `ADMIN_EMAIL` / `ADMIN_PASSWORD` (створюється або оновлюється при старті).
+- `server/api.js` — `/api/config`, `/api/me`, `/api/register` (суддя зі статусом `pending`),
+  `/api/login`, `/api/logout`, `/api/admin/users[/:id]` (лише адмін: підтвердити, заблокувати).
+  Змінювати дані можна лише JSON-запитом із того самого сайту (`Origin` = `Host`); ліміти спроб
+  входу й реєстрації на IP; відповіді `no-store`. Заблокований суддя втрачає всі сесії одразу.
+- Сторінки: `account.html` (вхід, реєстрація, «Мої матчі»), `admin.html` (судді);
+  клієнт API — `js/shared/api.js` із зрозумілими повідомленнями. У меню пульта пункт
+  «Акаунт і мої матчі» зʼявляється лише там, де `/api/config` каже `accounts: true`.
+- `sw.js` не кешує `/api/*` — інакше відповідь «ви ввійшли» пережила б вихід.
+
 ## Тести
 
 `tests/*.test.js` звертаються до файлів короткими іменами (`read("live.html")`,

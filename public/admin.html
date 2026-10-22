@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0E2A3F">
+<title>Адмін-панель — табло</title>
+<link rel="icon" href="./assets/icons/icon-192.png">
+<link rel="stylesheet" href="./css/theme.css">
+<link rel="stylesheet" href="./css/pages/account.css">
+</head>
+<body>
+<header class="top"><b>Адмін-панель</b><a href="./account.html">← Акаунт</a></header>
+<main class="wide">
+  <p class="msg err" id="aMsg" role="status"></p>
+  <section id="aBody" hidden>
+    <h1>Судді <span class="count" id="aPending"></span></h1>
+    <div class="users" id="aUsers"></div>
+    <p class="hint">Нові судді реєструються самі й чекають на підтвердження. Заблокований суддя одразу втрачає доступ.</p>
+  </section>
+</main>
+<script src="./js/config.js"></script>
+<script src="./js/shared/i18n.js"></script>
+<script src="./js/shared/api.js"></script>
+<script src="./js/pages/admin.js"></script>
+</body>
+</html>

@@ -67,7 +67,7 @@ const ALLOW = ["Мова / Language"];          // двомовний підпи
 
 (JSDOM ? test : test.skip)("повнота: кожен текст, title, placeholder і aria-label на сторінках має переклад", () => {
   const missing = [];
-  ["index.html", "display.html", "live.html", "mini.html"].forEach((page) => {
+  ["index.html", "display.html", "live.html", "mini.html", "account.html", "admin.html"].forEach((page) => {
     const doc = new JSDOM(read(page)).window.document;
     const check = (t, where) => {
       const n = t.replace(/\s+/g, " ").trim();

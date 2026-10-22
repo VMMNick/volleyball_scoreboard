@@ -37,6 +37,8 @@ a mini scoreboard for live streams — synced in real time, working offline, in 
 - **Offline-first PWA.** Installs on a phone or tablet, keeps the score across reloads, keeps
   the screen awake.
 - **Ukrainian and English.** Switch in settings; spectators' boards accept `?lang=en`.
+- **Referee accounts (optional).** With a Postgres database referees register, an admin approves them
+  in the admin panel; without a database everything works as before, offline and account-free.
 
 ## How it works
 

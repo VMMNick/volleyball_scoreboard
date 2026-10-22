@@ -1116,6 +1116,12 @@
     renderArchive();
   });
   $("mSubs").addEventListener("click", openSubs);
+  $("mAccount").addEventListener("click", function () { location.href = "./account.html"; });
+  // Пункт «Акаунт» — лише там, де сервер має акаунти (GET /api/config). Офлайн чи без сервера — немає.
+  if (/^https?:$/.test(location.protocol) && typeof fetch === "function") {
+    fetch("./api/config", { cache: "no-store" }).then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (c) { if (c && c.accounts) $("mAccount").hidden = false; }, function () {});
+  }
   $("mMini").addEventListener("click", function () {
     closeSheets();
     // Маленьке окреме вікно: міні-табло й кнопки, поруч з іншою програмою.

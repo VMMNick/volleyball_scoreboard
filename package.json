@@ -7,12 +7,14 @@
   "scripts": {
     "start": "node server/server.js",
     "dev": "node server/server.js",
+    "dev:accounts": "node server/server.js --pglite .data",
     "test": "node --test tests/*.test.js",
-    "check": "node --check public/js/core/match.js && node --check public/js/core/palettes.js && node --check public/js/shared/ui-common.js && node --check public/js/shared/sounds.js && node --check public/js/shared/scorebug.js && node --check public/js/shared/remote.js && node --check public/js/shared/link.js && node --check public/js/shared/i18n.js && node --check public/js/shared/archive.js && node --check public/js/shared/feed.js && node --check public/js/pages/pult.js && node --check public/js/pages/display.js && node --check public/js/pages/live.js && node --check public/js/pages/mini.js && node --check public/sw.js && node --check server/server.js && node --check scripts/build.js && node --check public/js/config.js && node --check scripts/pages-config.js",
+    "check": "node --check public/js/core/match.js && node --check public/js/core/palettes.js && node --check public/js/shared/ui-common.js && node --check public/js/shared/sounds.js && node --check public/js/shared/scorebug.js && node --check public/js/shared/remote.js && node --check public/js/shared/link.js && node --check public/js/shared/i18n.js && node --check public/js/shared/archive.js && node --check public/js/shared/api.js && node --check public/js/pages/account.js && node --check public/js/pages/admin.js && node --check server/db.js && node --check server/auth.js && node --check server/api.js && node --check public/js/shared/feed.js && node --check public/js/pages/pult.js && node --check public/js/pages/display.js && node --check public/js/pages/live.js && node --check public/js/pages/mini.js && node --check public/sw.js && node --check server/server.js && node --check scripts/build.js && node --check public/js/config.js && node --check scripts/pages-config.js",
     "build": "node scripts/build.js --stamp",
     "e2e": "playwright test"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.2.17",
     "@playwright/test": "1.56.1",
     "jsdom": "^26.0.0"
   },
@@ -24,6 +26,7 @@
   ],
   "license": "MIT",
   "dependencies": {
+    "pg": "^8.23.1",
     "ws": "^8.22.0"
   },
   "engines": {
