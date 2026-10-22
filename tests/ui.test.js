@@ -391,9 +391,7 @@ suite("заміни й картки з пульта", (t) => {
   assert.deepEqual(ui.score(), [0, 0], "⟲ знімає картку разом зі штрафним очком");
 });
 
-// Пляжний волейбол відкладено: повернемось до нього після класичного.
-test.todo("пляж: кнопка технічного тайм-ауту зʼявляється на 21");
-(JSDOM ? test.skip : test.skip)("пляж (відкладено): кнопка технічного тайм-ауту", (t) => {
+suite("пляж: кнопка технічного тайм-ауту на 21 очку в сумі", (t) => {
   const ui = boot();
   t.after(ui.close);
   ui.tap("menuBtn");
@@ -484,4 +482,39 @@ suite("палітра кольорів: 9 рядків по 10 кольорів,
   assert.equal(doc.documentElement.style.getPropertyValue("--team-a"), "#674EA7");
   assert.ok(doc.querySelector("#colorPickers .crow.open"), "після вибору палітра лишається відкритою");
   assert.deepEqual(ui.errors, []);
+});
+
+suite("пляж: «⇄ поміняти сторони» в сітці — щоразу, коли сума кратна 7; один тап міняє", (t) => {
+  const ui = boot();
+  t.after(ui.close);
+  ui.tap("menuBtn");
+  ui.tap("mSettings");
+  [...ui.$("segPreset").children].find((b) => b.dataset.preset === "beach")
+    .dispatchEvent(new ui.win.Event("click", { bubbles: true }));
+  assert.match(ui.text("presetHint"), /технічний тайм-аут на 21/);
+  ui.tap("sheetSave");
+  const M = ui.win.Match;
+  const flipped = () => M.reduce(M.deserialize(ui.win.localStorage.getItem("volleyball:match"))).flipped;
+
+  ui.runSide("sideA", 4);
+  ui.runSide("sideB", 2);
+  assert.equal(ui.$("swapBtn").classList.contains("on"), false, "6 очок — ще рано");
+  ui.runSide("sideB", 1);
+  assert.ok(ui.$("swapBtn").classList.contains("on"), "7 — час міняти");
+  assert.equal(flipped(), false);
+  ui.tap("swapBtn");
+  assert.equal(flipped(), true);
+  assert.equal(ui.$("swapBtn").classList.contains("on"), false, "поміняли — кнопка ховається");
+  assert.doesNotMatch(ui.text("netInfo"), /міняти сторони/);
+  ui.runSide("sideA", 7);
+  assert.ok(ui.$("swapBtn").classList.contains("on"), "14 — знову");
+  ui.tap("undoBtn");
+  assert.equal(ui.$("swapBtn").classList.contains("on"), false, "скасували очко — ще не час");
+});
+
+suite("зала: кнопка зміни сторін лише у вирішальному на 8", (t) => {
+  const ui = boot();
+  t.after(ui.close);
+  ui.runSide("sideA", 8);
+  assert.equal(ui.$("swapBtn").classList.contains("on"), false, "у звичайному сеті — ні");
 });

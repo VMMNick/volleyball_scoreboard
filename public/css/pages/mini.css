@@ -60,6 +60,8 @@ body.logo2 .board .name .label{overflow-wrap:normal}
 /* Скасувати | Повторити, під ними — подача на всю ширину: назва команди вміщається. */
 .bar2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 #mServe{grid-column:1 / -1}
+.tool.due{grid-column:1 / -1;background:var(--tape);color:var(--court);font-weight:600}
+.tool[hidden]{display:none}
 .tool{height:46px;border-radius:10px;cursor:pointer;background:var(--court-deep);color:var(--chalk);
   border:1px solid rgba(143,166,184,.3);font:inherit;font-size:16px;letter-spacing:.03em;padding:0 8px;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}

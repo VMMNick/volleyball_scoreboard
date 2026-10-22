@@ -185,6 +185,8 @@
     });
     $("mUndo").disabled = !M.canUndo(match);
     $("mRedo").disabled = !M.canRedo(match);
+    $("mTech").hidden = !M.techTimeoutDue(s);            // пляж: на 21 очку в сумі
+    $("mSwap").hidden = !M.sideSwapDue(s);               // пляж: кожні 7 очок, у вирішальному — 5
 
     // Першого подавача можна обрати лише до першого розіграшу сету.
     var canPick = !s.done && !s.points[0] && !s.points[1];
@@ -221,6 +223,12 @@
   $("mUndo").addEventListener("click", function () { commit(M.undo(match)); });
   $("mRedo").addEventListener("click", function () { commit(M.redo(match)); });
   $("mServe").addEventListener("click", switchServe);
+  $("mTech").addEventListener("click", function () {
+    var next = M.takeTechTimeout(match);
+    if (next !== match) dismissedTimeout = null;
+    commit(next);
+  });
+  $("mSwap").addEventListener("click", function () { commit(M.swapSides(match)); });
 
   document.addEventListener("keydown", function (e) {
     var k = (e.key || "").toLowerCase();

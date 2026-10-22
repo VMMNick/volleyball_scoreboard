@@ -366,3 +366,27 @@ suite("міні-пульт: у міні-табло — колонки зігра
   assert.deepEqual(cells("lPerB"), [["0", ""], ["25", "win"]]);
   assert.deepEqual(cells("lPerHead").map((c) => c[0]), ["1", "2"]);
 });
+
+suite("міні-пульт на пляжі: «поміняти сторони» кожні 7 очок і технічний тайм-аут на 21", (t) => {
+  const beach = Match.serialize(Match.createMatch({ rules: Match.presetById("beach").rules }));
+  const m = mini({ seed: { "volleyball:match": beach } });
+  t.after(m.close);
+  assert.equal(m.$("mSwap").hidden, true);
+  assert.equal(m.$("mTech").hidden, true);
+  for (let i = 0; i < 4; i++) m.tap("mPlusA");
+  for (let i = 0; i < 3; i++) m.tap("mPlusB");
+  assert.equal(m.$("mSwap").hidden, false, "7 очок — час міняти сторони");
+  m.tap("mSwap");
+  assert.equal(stored(m).flipped, true);
+  assert.equal(m.$("mSwap").hidden, true);
+
+  for (let i = 0; i < 7; i++) m.tap("mPlusA");                  // 11:3 — 14
+  m.tap("mSwap");
+  for (let i = 0; i < 7; i++) m.tap(i % 2 ? "mPlusA" : "mPlusB"); // 21 у сумі
+  assert.equal(m.$("mTech").hidden, false, "технічний тайм-аут на 21");
+  m.tap("mTech");
+  assert.equal(stored(m).techTimeoutTaken, true);
+  assert.equal(m.$("mTech").hidden, true, "раз на сет");
+  assert.match(m.text("lInfo"), /технічний тайм-аут/);
+  assert.deepEqual(m.errors, []);
+});

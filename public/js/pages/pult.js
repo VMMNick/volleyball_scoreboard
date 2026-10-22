@@ -259,6 +259,7 @@
     $("netInfo").innerHTML = lines(info) + (hint ? "<small>" + lines(hint) + "</small>" : "");
 
     $("techBtn").classList.toggle("on", M.techTimeoutDue(s));
+    $("swapBtn").classList.toggle("on", M.sideSwapDue(s));
     $("undoBtn").disabled = !M.canUndo(match);
     $("redoBtn").disabled = !M.canRedo(match);
 
@@ -843,8 +844,9 @@
       ? "сторони міняють щоразу, коли сума очок кратна " + r.swapEvery +
         (r.swapEveryDecider ? ", у вирішальному — " + r.swapEveryDecider : "")
       : "сторони міняють між сетами" + (r.deciderSwapAt ? " і на " + r.deciderSwapAt + " очках у вирішальному" : "");
+    var tech = r.techTimeoutAt ? "; технічний тайм-аут на " + r.techTimeoutAt + " очках" : "";
     return pr.label + ": сети до " + r.target + ", вирішальний до " + r.decider +
-      ", тайм-аутів " + r.timeouts + "; " + swap + ".";
+      ", тайм-аутів " + r.timeouts + "; " + swap + tech + ".";
   }
 
   /* Пресет заповнює поля форми; числа потім можна змінити вручну. */
@@ -1204,6 +1206,7 @@
   $("mDisplay").addEventListener("click", openDisplay);
   $("mSettings").addEventListener("click", openSettings);
   $("mSwap").addEventListener("click", function () { closeSheets(); commit(M.swapSides(match)); });
+  $("swapBtn").addEventListener("click", function () { commit(M.swapSides(match)); });
   $("mServe").addEventListener("click", function () {
     var s = M.reduce(match);
     $("serveA_btn").textContent = s.names[0];

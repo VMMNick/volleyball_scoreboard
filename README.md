@@ -22,6 +22,8 @@ a mini scoreboard for live streams — synced in real time, working offline, in 
 - **Scoring built for a gym floor.** Tap a half of the screen to score. Sets, deciding set,
   point cap, serve rotation, timeouts with a countdown, substitutions (6 per set) and cards
   (a red card gives the opponent a point and the serve). Presets: indoor, beach, school.
+  Beach mode has one timeout per set, no substitutions, a one-tap "switch sides" button every
+  7 points (5 in the deciding set) and the technical timeout at 21.
 - **Undo anything.** The whole match history, not just the last point; remove the last point of
   a specific team even after the opponent scored; reopen a finished match.
 - **Big screen for spectators.** Projector or TV, arena or strip layout, set banners, timeout
@@ -82,7 +84,7 @@ The server is ~400 lines on top of `ws`: it serves `public/` and keeps match roo
 ```bash
 npm test                          # ~240 unit and DOM tests (node:test + jsdom), ~15 s
 npx playwright install chromium   # once
-npm run e2e                       # 12 end-to-end scenarios in real Chromium, ~20 s
+npm run e2e                       # 14 end-to-end scenarios in real Chromium, ~25 s
 ```
 
 The end-to-end suite starts a real server and opens every device in its own browser context:
@@ -90,7 +92,8 @@ a spectator follows the score live; a second referee scores from another "phone"
 **the server restarts mid-match** while an impostor grabs the room; **both referees keep scoring
 while the server is down** and no point is lost after reconnecting; an undo made offline does not
 come back; rotating the referee key disconnects the old referee; a finished match lands in the
-archive; the whole match is played in English with no Ukrainian text left on any page.
+archive and can be found by search; a full beach match with side switches and the technical timeout;
+the whole match is played in English with no Ukrainian text left on any page.
 GitHub Actions runs both suites on every push.
 
 ## Run locally

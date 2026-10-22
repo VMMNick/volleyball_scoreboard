@@ -32,6 +32,8 @@
     "ротація": "rotation",
     "подає": "serving",
     "технічний тайм-аут": "technical timeout",
+    "⇄ поміняти сторони": "⇄ switch sides",
+    "⇄ Поміняти сторони": "⇄ Switch sides",
     "Технічний тайм-аут": "Technical timeout",
     "Завершити": "End",
     "Новий матч": "New match",
@@ -357,12 +359,14 @@
       "The site on $1 works, but there is no link server there — only static files are deployed. Render needs a Web Service (Node, start command “npm start”), not a Static Site. GitHub Pages is static too: the Render server address is set by the SYNC_SERVER variable."],
     [/^Сервер (.+) не відповідає — він вимкнений або адреса неправильна\.$/, "Server $1 is not responding — it is off or the address is wrong."],
     [/^(.+): сети до (\d+), вирішальний до (\d+), тайм-аутів (\d+); (.+)\.$/, function (m) {
-      var swap = m[5]
+      var parts = m[5].split("; ");
+      var tech = parts[1] ? parts[1].replace(/^технічний тайм-аут на (\d+) очках$/, "technical timeout at $1 points") : "";
+      var swap = parts[0]
         .replace(/^сторони міняють щоразу, коли сума очок кратна (\d+), у вирішальному — (\d+)$/, "sides switch whenever the point total is a multiple of $1, in the deciding set — $2")
         .replace(/^сторони міняють щоразу, коли сума очок кратна (\d+)$/, "sides switch whenever the point total is a multiple of $1")
         .replace(/^сторони міняють між сетами і на (\d+) очках у вирішальному$/, "sides switch between sets and at $1 points in the deciding set")
         .replace(/^сторони міняють між сетами$/, "sides switch between sets");
-      return tr(m[1]) + ": sets to " + m[2] + ", deciding set to " + m[3] + ", timeouts " + m[4] + "; " + swap + ".";
+      return tr(m[1]) + ": sets to " + m[2] + ", deciding set to " + m[3] + ", timeouts " + m[4] + "; " + swap + (tech ? "; " + tech : "") + ".";
     }]
   ];
 

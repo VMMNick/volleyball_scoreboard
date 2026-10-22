@@ -32,6 +32,9 @@ test("складені фрази: сет, очки до перемоги, ма�
   assert.equal(I.tr("Фон таблиці: #0A1F30"), "Board background: #0A1F30");
   assert.equal(I.tr("Зал: сети до 25, вирішальний до 15, тайм-аутів 2; сторони міняють між сетами і на 8 очках у вирішальному."),
     "Indoor: sets to 25, deciding set to 15, timeouts 2; sides switch between sets and at 8 points in the deciding set.");
+  assert.equal(I.tr("Пляж: сети до 21, вирішальний до 15, тайм-аутів 1; сторони міняють щоразу, коли сума очок кратна 7, у вирішальному — 5; технічний тайм-аут на 21 очках."),
+    "Beach: sets to 21, deciding set to 15, timeouts 1; sides switch whenever the point total is a multiple of 7, in the deciding set — 5; technical timeout at 21 points.");
+  assert.equal(I.tr("⇄ поміняти сторони"), "⇄ switch sides");
   assert.equal(I.tr("Сервер x.onrender.com не відповідає — він вимкнений або адреса неправильна."),
     "Server x.onrender.com is not responding — it is off or the address is wrong.");
 });
