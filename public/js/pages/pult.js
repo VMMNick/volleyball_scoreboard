@@ -416,7 +416,8 @@
    *     керування з іншого телефона.
    * Код кімнати й ключ судді лежать окремо від налаштувань: налаштування
    * летять на міні-табло, а ключ — лише в пультах. Пульти рівноправні:
-   * діє стан того, хто змінив рахунок останнім.
+   * стани зливаються подія за подією (Match.merge), тож очки, набрані без
+   * звʼязку на будь-якому з них, не губляться.
    */
   var R = window.Remote;
   var L = window.Link;        // логіка посилання без DOM — js/shared/link.js
@@ -435,16 +436,26 @@
     if (linkConn) linkConn.send(msg);
   }
 
-  /* Пульт, що створив посилання, після (пере)підключення надсилає весь стан. */
+  /*
+   * Після (пере)підключення пульт надсилає свій матч — сервер зіллє його з тим, що має.
+   * Налаштування показу — лише пульт, що створив посилання. Другий суддя шле матч,
+   * тільки якщо вже бачив саме цей матч (link.mid): свіжий пульт судді з порожнім
+   * рахунком інакше затер би справжній матч як «новіший».
+   */
   function linkSendAll() {
+    if (link.guest && link.mid !== match.mid) return;
     linkSend({ type: "state", match: M.serialize(match) });
-    linkSend({ type: "prefs", prefs: prefs });
+    if (!link.guest) linkSend({ type: "prefs", prefs: prefs });
+  }
+
+  /* Другий суддя запамʼятовує, за яким матчем стежить. */
+  function noteMatch() {
+    if (link && link.guest && link.mid !== match.mid) { link.mid = match.mid; saveLink(); }
   }
 
   function linkStatus(status, info) {
     loss.track(status, info);
-    // Другий суддя нічого не надсилає при підключенні — він отримує матч від сервера.
-    if (status === "live" && !link.guest) linkSendAll();
+    if (status === "live") linkSendAll();
     if (status === "rejected" && info === "wrong-key" && !link.guest) {
       link.room = R.newRoom();                      // код зайняв хтось інший — беремо новий
       delete link.proof;                            // доказ був для старого коду
@@ -460,12 +471,22 @@
    * щоб другий суддя й міні-табло теж побачили).
    */
   function takeState(raw, fromRemote) {
-    if (!raw || raw === M.serialize(match)) return;      // уже маємо — без луни
+    if (!raw || raw === M.serialize(match)) { if (fromRemote) noteMatch(); return; }   // уже маємо — без луни
     var m;
     try { m = M.deserialize(raw); } catch (e) { return; }
     if (!m) return;
+    // З сервера — зливаємо зі своїм: у нас могли бути очки, набрані без звʼязку.
+    // Другий суддя, що ще не бачив цього матчу, бере його як є: його порожній пульт
+    // «створений щойно» і за правилом «новіший матч виграє» затер би справжній.
+    var fresh = link && link.guest && link.mid !== match.mid;
+    var next = fromRemote && !fresh ? M.merge(match, m) : m;
+    var mine = M.serialize(next);
     var before = M.reduce(match);
-    match = m;
+    var changed = mine !== M.serialize(match);
+    match = next;
+    if (fromRemote) noteMatch();
+    if (fromRemote && M.syncKey(next) !== M.syncKey(m)) linkSend({ type: "state", match: mine });   // у нас було своє — віддаємо злите
+    if (!changed) return;
     render();
     save(fromRemote);
     var after = M.reduce(match);

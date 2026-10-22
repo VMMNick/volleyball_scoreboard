@@ -603,3 +603,82 @@ test("deserialize викидає лише зіпсоване, а табло не
   assert.deepEqual(s.points, [2, 1], "очко А, червона картка Б (очко А), очко Б");
   assert.deepEqual(M.validate(JSON.parse(M.serialize(m))), [], "після чистки матч валідний");
 });
+
+/* ---------- злиття двох пультів (етап 2: два судді без втрат) ---------- */
+
+const sync = (raw) => M.deserialize(typeof raw === "string" ? raw : M.serialize(raw));   // «через мережу»
+const pts = (m) => M.reduce(m).points;
+
+test("злиття: очки обох суддів, набрані окремо, складаються; порядок — за часом", () => {
+  const base = M.addPoint(M.createMatch({ names: ["А", "Б"] }), 0, 1000);
+  const host = M.addPoint(sync(base), 0, 2000);          // 2:0 у основного
+  const judge = M.addPoint(sync(base), 1, 1500);         // 1:1 у другого (раніше за часом)
+  const a = M.merge(host, sync(judge)), b = M.merge(judge, sync(host));
+  assert.deepEqual(pts(a), [2, 1]);
+  assert.equal(M.syncKey(a), M.syncKey(b), "обидва пристрої сходяться до одного й того самого");
+  assert.deepEqual(a.events.map((e) => e.ts), [1000, 1500, 2000]);
+  assert.equal(M.syncKey(M.merge(a, sync(a))), M.syncKey(a), "повторне злиття нічого не змінює");
+  assert.deepEqual(M.validate(JSON.parse(M.serialize(a))), []);
+});
+
+test("злиття: скасоване й зняте на одному пульті не воскресає з іншого", () => {
+  let base = M.createMatch();
+  base = M.addPoint(base, 0, 1000);
+  base = M.addPoint(base, 1, 2000);
+  const host = M.undo(sync(base));                       // скасував очко Б
+  const judge = M.removeLastPoint(sync(base), 0);        // зняв очко А
+  const m = M.merge(host, sync(judge));
+  assert.deepEqual(pts(m), [0, 0]);
+  assert.equal(m.removed.length, 2);
+  const again = M.merge(M.redo(host), sync(judge));      // повтор — нова подія, а не воскресіння старої
+  assert.deepEqual(pts(again), [0, 1]);
+  assert.notEqual(M.redo(host).events[1].id, base.events[1].id);
+});
+
+test("злиття: новий матч виграє, старі очки до нього не потрапляють", () => {
+  const old = M.addPoint(M.createMatch({ created: 1000 }), 0, 2000);
+  const judgeOffline = M.addPoint(sync(old), 1, 3000);
+  const fresh = M.restart(old);
+  fresh.created = 4000;
+  assert.notEqual(fresh.mid, old.mid);
+  assert.deepEqual(pts(M.merge(judgeOffline, sync(fresh))), [0, 0], "суддя переходить на новий матч");
+  assert.deepEqual(pts(M.merge(fresh, sync(judgeOffline))), [0, 0], "і новий матч не бере старих очок");
+});
+
+test("злиття: назви й правила — від того, хто змінив пізніше", () => {
+  const base = M.createMatch({ names: ["А", "Б"] });
+  const host = M.rename(sync(base), 0, "Імідж");
+  const judge = M.addPoint(sync(base), 1, base.created + 10);
+  const m = M.merge(judge, sync(host));
+  assert.equal(m.names[0], "Імідж", "перейменування не губиться від очка судді");
+  assert.deepEqual(pts(m), [0, 1]);
+  assert.equal(M.merge(host, sync(judge)).names[0], "Імідж");
+});
+
+test("сумісність: стан старої версії (без id) не зливається — діє як раніше, без подвоєння очок", () => {
+  const host = M.addPoint(M.addPoint(M.createMatch(), 0, 1000), 0, 2000);
+  const legacy = JSON.stringify({ v: 1, names: ["А", "Б"], rules: {}, events: [{ type: "point", team: 0, ts: 1000 }], undone: [] });
+  const m = M.merge(host, M.deserialize(legacy));
+  assert.deepEqual(pts(m), [1, 0], "старий пульт надіслав 1:0 — так і є, а не 3:0");
+  const a = M.deserialize(legacy), b = M.deserialize(legacy);
+  assert.equal(a.events[0].id, b.events[0].id, "старим подіям id дається однаково на кожному пристрої");
+  assert.equal(M.deserialize(M.serialize(a)).v, 2, "після збереження — уже нова версія");
+});
+
+test("годинник: подія після отриманого стану стоїть після нього, навіть якщо свій годинник відстає", () => {
+  const future = Date.now() + 10 * 60 * 1000;          // годинник іншого телефона на 10 хв попереду
+  const theirs = M.addPoint(M.createMatch(), 0, future);
+  const mine = M.addPoint(sync(theirs), 1);            // ts не задано — бере годинник пристрою
+  assert.ok(mine.events[1].ts > future);
+  assert.deepEqual(M.merge(sync(theirs), sync(mine)).events.map((e) => e.team), [0, 1]);
+});
+
+test("syncKey не залежить від «повторити» і порядку видалених — пристроям нема чого пересилати", () => {
+  let m = M.addPoint(M.addPoint(M.createMatch(), 0, 1000), 1, 2000);
+  m = M.undo(m);
+  const other = sync(m);
+  other.undone = [];
+  other.removed = other.removed.slice().reverse();
+  assert.equal(M.syncKey(m), M.syncKey(other));
+  assert.notEqual(M.syncKey(m), M.syncKey(M.addPoint(m, 0, 3000)));
+});

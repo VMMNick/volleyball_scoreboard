@@ -6,3 +6,5 @@ Thumbs.db
 .idea/
 .vscode/
 _site/
+test-results/
+playwright-report/

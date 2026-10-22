@@ -63,17 +63,47 @@
 
   var DEFAULT_NAMES = ["Команда А", "Команда Б"];
 
+  /* ---------- годинник і ідентифікатори ---------- */
+
+  /*
+   * Два судді рахують на різних телефонах, а їхні годинники можуть розходитись на секунди.
+   * clock() ніколи не відстає від найпізнішого часу, який цей пристрій уже бачив (свої й чужі
+   * події, див. seen) — тож подія, створена ПІСЛЯ отриманого стану, завжди стоїть після нього.
+   * Явно переданий ts (тести, відтворення) лишається як є.
+   */
+  var lastTs = 0;
+  function clock() {
+    var t = Date.now();
+    if (t <= lastTs) t = lastTs + 1;
+    lastTs = t;
+    return t;
+  }
+  function seen(t) { if (typeof t === "number" && isFinite(t) && t > lastTs) lastTs = t; }
+
+  var ID_CHARS = "abcdefghijklmnopqrstuvwxyz0123456789";
+  function newId() {
+    var out = "", n = 10, bytes = null;
+    var c = typeof crypto !== "undefined" && crypto && crypto.getRandomValues ? crypto : null;
+    if (c) { bytes = new Uint8Array(n); c.getRandomValues(bytes); }
+    for (var i = 0; i < n; i++) out += ID_CHARS[(bytes ? bytes[i] : Math.floor(Math.random() * 256)) % ID_CHARS.length];
+    return out;
+  }
+
   function createMatch(opts) {
     opts = opts || {};
     var rules = {};
     for (var k in DEFAULT_RULES) rules[k] = DEFAULT_RULES[k];
     if (opts.rules) for (var j in opts.rules) if (opts.rules[j] !== undefined) rules[j] = opts.rules[j];
     return {
-      v: 1,
+      v: 2,
+      mid: opts.mid || newId(),                      // який це матч: новий матч — новий mid
+      created: typeof opts.created === "number" ? opts.created : clock(),
+      metaAt: 0,                                     // коли востаннє міняли назви, турнір чи правила
       names: (opts.names || DEFAULT_NAMES).slice(),
       title: typeof opts.title === "string" ? opts.title : "",   // назва турніру чи матчу
       rules: rules,
-      events: [],
+      events: [],                                    // події, що діють, по черзі
+      removed: [],                                   // id скасованих і знятих подій (щоб злиття їх не повернуло)
       undone: []
     };
   }
@@ -81,16 +111,21 @@
   function clone(m) {
     return {
       v: m.v,
+      mid: m.mid,
+      created: m.created,
+      metaAt: m.metaAt || 0,
       names: m.names.slice(),
       title: m.title || "",
       rules: m.rules,
       events: m.events.slice(),
+      removed: (m.removed || []).slice(),
       undone: m.undone.slice()
     };
   }
 
   function push(m, ev) {
     var next = clone(m);
+    if (!ev.id) ev.id = newId();
     next.events.push(ev);
     next.undone = [];               // нова дія обриває гілку повтору
     return next;
@@ -101,13 +136,13 @@
   function addPoint(m, team, ts) {
     if (team !== 0 && team !== 1) throw new Error("team має бути 0 або 1");
     if (reduce(m).done) return m;
-    return push(m, { type: "point", team: team, ts: ts || Date.now() });
+    return push(m, { type: "point", team: team, ts: ts || clock() });
   }
 
   function callTimeout(m, team, ts) {
     var s = reduce(m);
     if (s.done || s.timeouts[team] <= 0) return m;
-    return push(m, { type: "timeout", team: team, ts: ts || Date.now() });
+    return push(m, { type: "timeout", team: team, ts: ts || clock() });
   }
 
   /*
@@ -120,25 +155,25 @@
     out = String(out == null ? "" : out).trim();
     inn = String(inn == null ? "" : inn).trim();
     if (!out || !inn || out === inn) return m;
-    return push(m, { type: "sub", team: team, out: out, "in": inn, ts: ts || Date.now() });
+    return push(m, { type: "sub", team: team, out: out, "in": inn, ts: ts || clock() });
   }
 
   /* Картка гравцю (номер) чи команді/тренеру (порожньо). */
   function giveCard(m, team, kind, player, ts) {
     if (reduce(m).done || CARDS.indexOf(kind) < 0) return m;
     return push(m, { type: "card", team: team, kind: kind,
-                     player: String(player == null ? "" : player).trim(), ts: ts || Date.now() });
+                     player: String(player == null ? "" : player).trim(), ts: ts || clock() });
   }
 
   function swapSides(m, ts) {
-    return push(m, { type: "swap", ts: ts || Date.now() });
+    return push(m, { type: "swap", ts: ts || clock() });
   }
 
   /* Хто подає першим у поточному сеті. Діє лише до першого розіграшу сету. */
   function setServer(m, team, ts) {
     var s = reduce(m);
     if (s.done || s.points[0] || s.points[1]) return m;
-    return push(m, { type: "serve", team: team, ts: ts || Date.now() });
+    return push(m, { type: "serve", team: team, ts: ts || clock() });
   }
 
   /*
@@ -151,6 +186,7 @@
       if (ev.type === "point" && ev.team === team) {
         var next = clone(m);
         next.events.splice(i, 1);
+        if (ev.id) next.removed.push(ev.id);
         next.undone = [];
         return next;
       }
@@ -161,14 +197,20 @@
   function undo(m) {
     if (!m.events.length) return m;
     var next = clone(m);
-    next.undone.push(next.events.pop());
+    var ev = next.events.pop();
+    if (ev.id) next.removed.push(ev.id);
+    next.undone.push(ev);
     return next;
   }
 
   function redo(m) {
     if (!m.undone.length) return m;
     var next = clone(m);
-    next.events.push(next.undone.pop());
+    // Повтор — це нова подія з тим самим змістом: старий id уже серед скасованих.
+    var ev = next.undone.pop(), copy = {};
+    for (var k in ev) copy[k] = ev[k];
+    copy.id = newId();
+    next.events.push(copy);
     return next;
   }
 
@@ -183,6 +225,7 @@
   function rename(m, team, name) {
     var next = clone(m);
     next.names[team] = name;
+    if (next.names[team] !== m.names[team]) next.metaAt = clock();
     return next;
   }
 
@@ -190,6 +233,7 @@
   function setTitle(m, title) {
     var next = clone(m);
     next.title = String(title || "").trim();
+    if (next.title !== (m.title || "")) next.metaAt = clock();
     return next;
   }
 
@@ -199,6 +243,7 @@
     for (var k in next.rules) merged[k] = next.rules[k];
     for (var j in rules) if (rules[j] !== undefined) merged[j] = rules[j];
     next.rules = merged;
+    for (var c in merged) if (merged[c] !== m.rules[c]) { next.metaAt = clock(); break; }
     return next;
   }
 
@@ -409,7 +454,7 @@
 
   function takeTechTimeout(m, ts) {
     if (!techTimeoutDue(reduce(m))) return m;
-    return push(m, { type: "techTimeout", ts: ts || Date.now() });
+    return push(m, { type: "techTimeout", ts: ts || clock() });
   }
 
   /* Індекс команди, що грає на стороні side (0 — перша сторона екрана). */
@@ -534,7 +579,7 @@
    * Невідомі типи подій пропускаємо (reduce їх ігнорує) — так нова версія пульта
    * не зламає старе табло.
    */
-  var LIMITS = { events: 5000, name: 60, title: 120, player: 12, type: 30 };
+  var LIMITS = { events: 5000, name: 60, title: 120, player: 12, type: 30, id: 40 };
   var RULE_RANGE = {
     bestOf: [1, 7], target: [1, 99], decider: [1, 99], winBy: [1, 10], cap: [0, 199], capDecider: [0, 199],
     timeouts: [0, 10], deciderSwapAt: [0, 99], swapEvery: [0, 99], swapEveryDecider: [0, 99],
@@ -543,12 +588,15 @@
   var TEAM_EVENTS = { point: 1, timeout: 1, serve: 1, sub: 1, card: 1 };
 
   function isTeam(t) { return t === 0 || t === 1; }
+  function isId(v) { return typeof v === "string" && v.length > 0 && v.length <= LIMITS.id; }
+  function isTime(v) { return typeof v === "number" && isFinite(v) && v >= 0; }
   function shortStr(v, max) { return typeof v === "string" && v.length <= max; }
 
   /* Що не так з подією, або null — усе гаразд. */
   function eventProblem(ev) {
     if (!ev || typeof ev !== "object" || Array.isArray(ev)) return "подія не обʼєкт";
     if (!shortStr(ev.type, LIMITS.type) || !ev.type) return "немає типу події";
+    if (ev.id !== undefined && !isId(ev.id)) return "неправильний id події";
     if (ev.ts !== undefined && !(typeof ev.ts === "number" && isFinite(ev.ts) && ev.ts >= 0)) return "неправильний час події";
     if (TEAM_EVENTS[ev.type] && !isTeam(ev.team)) return ev.type + ": team має бути 0 або 1";
     if (ev.type === "sub" && !(shortStr(ev.out, LIMITS.player) && shortStr(ev["in"], LIMITS.player))) return "sub: номери гравців";
@@ -583,6 +631,13 @@
     if (!Array.isArray(data.names) || data.names.length !== 2 ||
         !shortStr(data.names[0], LIMITS.name) || !shortStr(data.names[1], LIMITS.name)) out.push("назви команд");
     if (data.title !== undefined && !shortStr(data.title, LIMITS.title)) out.push("назва турніру");
+    if (data.mid !== undefined && !isId(data.mid)) out.push("mid");
+    if (data.created !== undefined && !isTime(data.created)) out.push("created");
+    if (data.metaAt !== undefined && !isTime(data.metaAt)) out.push("metaAt");
+    if (data.removed !== undefined) {
+      if (!Array.isArray(data.removed) || data.removed.length > LIMITS.events * 2) out.push("removed");
+      else for (var r = 0; r < data.removed.length; r++) if (!isId(data.removed[r])) { out.push("removed[" + r + "]"); break; }
+    }
     if (data.rules !== undefined) {
       if (!data.rules || typeof data.rules !== "object") out.push("правила не обʼєкт");
       else for (var k in RULE_RANGE) if (k in data.rules && !ruleOk(k, data.rules[k])) out.push("правило " + k);
@@ -612,7 +667,39 @@
   /* ---------- збереження ---------- */
 
   function serialize(m) {
-    return JSON.stringify({ v: 1, names: m.names, title: m.title || "", rules: m.rules, events: m.events, undone: m.undone });
+    return JSON.stringify({ v: 2, mid: m.mid, created: m.created || 0, metaAt: m.metaAt || 0,
+                            names: m.names, title: m.title || "", rules: m.rules,
+                            events: m.events, removed: m.removed || [], undone: m.undone });
+  }
+
+  /*
+   * Зміст матчу для синхронізації: без «повторити» (це справа кожного пристрою) і з
+   * упорядкованим списком видалених. Однаковий ключ — пристроям нема чого пересилати.
+   */
+  function syncKey(m) {
+    return JSON.stringify([m.v, m.mid, m.created || 0, m.metaAt || 0, m.names, m.title || "", m.rules,
+                           m.events, (m.removed || []).slice().sort()]);
+  }
+
+  /*
+   * Події без id (збереження старої версії) отримують id з позиції й часу — однаковий
+   * на кожному пристрої, що відкрив той самий стан, тож злиття їх не подвоїть.
+   */
+  function withIds(list, prefix) {
+    return list.map(function (ev, i) {
+      if (isId(ev.id)) return ev;
+      var copy = {};
+      for (var k in ev) copy[k] = ev[k];
+      copy.id = prefix + ("000" + i).slice(-4) + "-" + (isTime(ev.ts) ? ev.ts : 0);
+      return copy;
+    });
+  }
+
+  /* Бачили чужі події — власний годинник не має відставати від них. */
+  function seeAll(m) {
+    seen(m.created);
+    seen(m.metaAt);
+    for (var i = 0; i < m.events.length; i++) seen(m.events[i].ts);
   }
 
   function deserialize(raw) {
@@ -620,14 +707,68 @@
     var data = typeof raw === "string" ? JSON.parse(raw) : raw;
     if (!data || !Array.isArray(data.events)) return null;
     var names = Array.isArray(data.names) ? data.names : [];
+    var v2 = data.v >= 2 && isId(data.mid);
+    var first = Array.isArray(data.events) && data.events[0];
     var m = createMatch({
       names: [cleanName(names[0], 0), cleanName(names[1], 1)],
       rules: cleanRules(data.rules),
-      title: typeof data.title === "string" ? data.title.slice(0, LIMITS.title) : ""
+      title: typeof data.title === "string" ? data.title.slice(0, LIMITS.title) : "",
+      mid: v2 ? data.mid : "L" + (first && isTime(first.ts) ? first.ts : 0),
+      created: v2 && isTime(data.created) ? data.created : 0
     });
-    m.events = cleanEvents(data.events);
-    m.undone = cleanEvents(data.undone);
+    m.v = v2 ? 2 : 1;                                   // звідки прийшов: merge зливає лише версію 2
+    m.metaAt = v2 && isTime(data.metaAt) ? data.metaAt : 0;
+    m.events = withIds(cleanEvents(data.events), "e");
+    m.undone = withIds(cleanEvents(data.undone), "u");
+    m.removed = v2 && Array.isArray(data.removed) ? data.removed.filter(isId).slice(0, LIMITS.events * 2) : [];
+    seeAll(m);
     return m;
+  }
+
+  /* ---------- злиття двох пультів ---------- */
+
+  /*
+   * Той самий матч на двох пристроях (основний суддя й другий, або пульт і сервер):
+   * події обох — разом, без скасованих ніде; порядок — за часом події.
+   * Назви, турнір і правила — від того, хто змінив їх пізніше.
+   * Інший матч (хтось почав новий) — виграє новіший.
+   * Стан старої версії (без id) не зливаємо: як і раніше, діє той, що прийшов.
+   */
+  function merge(local, incoming) {
+    if (!incoming) return local;
+    if (!local) return incoming;
+    if (local.v < 2 || incoming.v < 2) return incoming;
+    if (local.mid !== incoming.mid) return (incoming.created || 0) >= (local.created || 0) ? incoming : local;
+
+    var gone = {}, removed = [];
+    [local.removed || [], incoming.removed || []].forEach(function (list) {
+      list.forEach(function (id) { if (!gone[id]) { gone[id] = true; removed.push(id); } });
+    });
+    var byId = {}, events = [], fresh = false;
+    local.events.forEach(function (ev) { if (!gone[ev.id] && !byId[ev.id]) { byId[ev.id] = true; events.push(ev); } });
+    incoming.events.forEach(function (ev) {
+      if (gone[ev.id] || byId[ev.id]) return;
+      byId[ev.id] = true;
+      events.push(ev);
+      fresh = true;
+    });
+    events.sort(function (a, b) {
+      var ta = a.ts || 0, tb = b.ts || 0;
+      return ta !== tb ? ta - tb : (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+    });
+
+    var meta = (incoming.metaAt || 0) >= (local.metaAt || 0) ? incoming : local;
+    var out = clone(local);
+    out.names = meta.names.slice();
+    out.title = meta.title || "";
+    out.rules = meta.rules;
+    out.metaAt = Math.max(local.metaAt || 0, incoming.metaAt || 0);
+    out.events = events;
+    out.removed = removed.sort();
+    // Прийшли чужі нові події — гілку повтору обриваємо, як після будь-якої нової дії.
+    out.undone = fresh ? [] : local.undone.filter(function (ev) { return !byId[ev.id]; });
+    seeAll(out);
+    return out;
   }
 
   var api = {
@@ -669,6 +810,8 @@
     toCSV: toCSV,
     serialize: serialize,
     deserialize: deserialize,
+    merge: merge,
+    syncKey: syncKey,
     validate: validate,
     eventProblem: eventProblem
   };

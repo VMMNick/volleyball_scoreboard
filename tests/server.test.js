@@ -425,3 +425,50 @@ suite("Remote.connect: відмова з повідомлення — «rejected
   v.close();
   await until(() => !s.server.rooms.has("BYE345"), 1000);
 });
+
+/* ---------- два судді: сервер зливає стани, а не перезаписує ---------- */
+
+const M = require("./helpers/site").load("match.js");
+
+suite("сервер зливає стани двох пультів і повертає злите тому, хто чогось не бачив", async (t) => {
+  const s = await start(t);
+  const base = M.createMatch({ names: ["А", "Б"] });
+  const hostM = M.addPoint(M.deserialize(M.serialize(base)), 0, base.created + 1);
+  const judgeM = M.addPoint(M.deserialize(M.serialize(base)), 1, base.created + 2);
+
+  const host = client(s.url("room=MRG234&role=control&key=" + KEY));
+  await host.open(); await host.wait("hello");
+  host.send({ type: "state", match: M.serialize(hostM) });
+  const judge = client(s.url("room=MRG234&role=control&key=" + KEY));
+  await judge.open(); await judge.wait("hello");
+  assert.deepEqual(M.reduce(M.deserialize((await judge.wait("state")).match)).points, [1, 0]);
+
+  judge.send({ type: "state", match: M.serialize(judgeM) });          // суддя рахував без звʼязку — 0:1
+  const back = M.deserialize((await judge.wait("state")).match);
+  assert.deepEqual(M.reduce(back).points, [1, 1], "суддя отримав злите");
+  const toHost = M.deserialize((await host.wait("state")).match);
+  assert.deepEqual(M.reduce(toHost).points, [1, 1], "і основний суддя теж");
+
+  // Злите вже в обох: надсилання того самого не повертається відправнику (без пінг-понгу),
+  // а інший пульт отримує той самий зміст — йому нема чого відповідати.
+  judge.send({ type: "state", match: M.serialize(back) });
+  await assert.rejects(judge.wait("state", 300), "відправнику нічого не повертається");
+  const same = await host.wait("state");
+  assert.equal(M.syncKey(M.deserialize(same.match)), M.syncKey(back));
+  [host, judge].forEach((c) => c.close());
+});
+
+suite("старий пульт (стан без id) — як і раніше «діє останній», без подвоєння очок", async (t) => {
+  const s = await start(t);
+  const host = client(s.url("room=OLDV23&role=control&key=" + KEY));
+  await host.open(); await host.wait("hello");
+  host.send({ type: "state", match: M.serialize(M.addPoint(M.addPoint(M.createMatch(), 0, 1000), 0, 2000)) });
+  const old = client(s.url("room=OLDV23&role=control&key=" + KEY));
+  await old.open(); await old.wait("hello"); await old.wait("state");
+  const legacy = JSON.stringify({ v: 1, names: ["А", "Б"], rules: {}, events: [{ type: "point", team: 0, ts: 1000 }], undone: [] });
+  old.send({ type: "state", match: legacy });
+  const got = await host.wait("state");
+  assert.equal(got.match, legacy, "стан старого пульта йде далі як є");
+  assert.deepEqual(M.reduce(M.deserialize(got.match)).points, [1, 0]);
+  [host, old].forEach((c) => c.close());
+});

@@ -149,6 +149,21 @@ function createServer(opts) {
     } catch (e) { return null; }
   }
 
+  /*
+   * Два пульти одного матчу: зливаємо події обох (Match.merge), а не перезаписуємо —
+   * інакше очки судді, що рахував без звʼязку, губилися б. Стан старої версії пульта
+   * (без id подій) лишаємо як є: так вона працювала й раніше («діє останній»).
+   */
+  function mergeState(prev, raw) {
+    if (!prev) return raw;
+    try {
+      const incoming = Match.deserialize(raw);
+      if (!incoming || incoming.v < 2) return raw;
+      const merged = Match.merge(Match.deserialize(prev), incoming);
+      return Match.syncKey(merged) === Match.syncKey(incoming) ? raw : Match.serialize(merged);
+    } catch (e) { return raw; }
+  }
+
   function cleanPrefs(p) {
     if (!p || typeof p !== "object") return null;
     const out = {};
@@ -258,8 +273,11 @@ function createServer(opts) {
       if (msg.type === "state") {
         const st = cleanState(msg.match);
         if (!st) return;
-        room.state = st;
-        broadcast(room, { type: "state", match: st }, ws);
+        const merged = mergeState(room.state, st);
+        room.state = merged;
+        broadcast(room, { type: "state", match: merged }, ws);
+        // У сервера були події, яких цей пульт ще не бачив (від другого судді), — віддаємо злите й йому.
+        if (merged !== st) send(ws, { type: "state", match: merged });
       } else if (msg.type === "prefs") {
         const p = cleanPrefs(msg.prefs);
         if (!p) return;

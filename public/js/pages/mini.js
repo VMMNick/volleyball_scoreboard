@@ -72,17 +72,18 @@
         try { localStorage.setItem(R.LINK_KEY, JSON.stringify(l)); } catch (e) {}
       },
       onStatus: function (st) {
-        // Як і основний пульт: після (пере)підключення — увесь стан. Другий суддя — ні, він бере матч із сервера.
-        if (st === "live" && !l.guest && conn) {
+        // Як і основний пульт: після (пере)підключення — свій матч (сервер його зіллє).
+        // Другий суддя — лише якщо вже бачив саме цей матч; налаштування — лише власник.
+        if (st === "live" && conn && (!l.guest || l.mid === match.mid)) {
           conn.send({ type: "state", match: raw() });
-          var p = pultPrefs();
+          var p = !l.guest && pultPrefs();
           if (p) conn.send({ type: "prefs", prefs: p });
         }
         paintStream(st);
       },
       onMessage: function (msg) {
         if (!msg) return;
-        if (msg.type === "state" && msg.match && take(msg.match)) { share(); render(); }
+        if (msg.type === "state" && msg.match) { if (takeRemote(msg.match, l)) { share(); render(); } }
         else if (msg.type === "prefs" && msg.prefs) { takePrefs(msg.prefs); render(); }
         else if (msg.type === "timeout-end") { dismissedTimeout = msg.ts; render(); }
       }
@@ -98,6 +99,26 @@
   }
 
   /* Прийняти стан ззовні; true — якщо він справді новий. */
+  /*
+   * Матч із сервера: зливаємо зі своїм (у нас могли бути очки без звʼязку) і, якщо
+   * в нас було щось своє, віддаємо злите назад. true — рахунок на цьому пристрої змінився.
+   */
+  function takeRemote(r, l) {
+    var m;
+    try { m = M.deserialize(r); } catch (e) { return false; }
+    if (!m) return false;
+    var fresh = l && l.guest && l.mid !== match.mid;     // суддя ще не бачив цього матчу — бере як є
+    var next = fresh ? m : M.merge(match, m);
+    var changed = M.serialize(next) !== raw();
+    match = next;
+    if (l && l.guest && l.mid !== match.mid) {          // другий суддя запамʼятовує свій матч
+      l.mid = match.mid;
+      try { localStorage.setItem(R.LINK_KEY, JSON.stringify(l)); } catch (e) {}
+    }
+    if (M.syncKey(next) !== M.syncKey(m)) linkSend({ type: "state", match: raw() });
+    return changed;
+  }
+
   function take(r) {
     if (!r || r === raw()) return false;
     try {
