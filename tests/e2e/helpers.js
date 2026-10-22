@@ -49,7 +49,7 @@ async function liveServer(opts) {
   if (opts && opts.accounts) {
     db = await require("../../server/db.js").open({ pglite: true });
     api = require("../../server/api.js").createApi({ db });
-    await api.auth.ensureAdmin("admin@test.ua", "admin-pass-1", "Адмін");
+    await api.auth.ensureSuperadmin("admin@test.ua", "admin-pass-1", "Суперадмін");
   }
   let srv = await startServer(0, api);
   const port = srv.address().port;

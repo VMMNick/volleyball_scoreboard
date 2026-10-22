@@ -22,7 +22,7 @@ async function start(t, extra) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "site-"));
   fs.writeFileSync(path.join(root, "index.html"), "<!doctype html><title>пульт</title>");
   const api = createApi(Object.assign({ db }, extra || {}));
-  await api.auth.ensureAdmin("Admin@Liga.ua", "admin-pass-1", "Адмін");
+  await api.auth.ensureSuperadmin("Admin@Liga.ua", "admin-pass-1", "Суперадмін");
   const server = createServer({ root, api, pingMs: 60000, trustProxy: false });
   await new Promise((r) => server.listen(0, "127.0.0.1", r));
   t.after(async () => { server.closeAllConnections(); await new Promise((r) => server.close(r)); await db.close(); });
@@ -34,7 +34,8 @@ async function start(t, extra) {
     return function call(method, p, body, headers) {
       return new Promise((resolve, reject) => {
         const data = body === undefined ? null : JSON.stringify(body);
-        const h = Object.assign({}, data ? { "Content-Type": "application/json" } : {}, cookie ? { Cookie: cookie } : {}, headers || {});
+        const h = Object.assign({}, data ? { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(data) } : {},
+          cookie ? { Cookie: cookie } : {}, headers || {});
         const req = http.request({ host: "127.0.0.1", port, path: p, method, headers: h }, (res) => {
           let s = "";
           res.on("data", (c) => { s += c; });
@@ -87,7 +88,7 @@ suite("суддя реєструється → очікує → адмін пі�
   // Адмін бачить заявку першою й підтверджує.
   assert.equal((await admin("POST", "/api/login", { email: "admin@liga.ua", password: "admin-pass-1" })).status, 200);
   const me = await admin("GET", "/api/me");
-  assert.equal(me.body.user.role, "admin");
+  assert.equal(me.body.user.role, "superadmin");
   const list = (await admin("GET", "/api/admin/users")).body.users;
   assert.equal(list[0].email, "suddia@gmail.com");
   assert.equal(list[0].status, "pending");
@@ -112,7 +113,7 @@ suite("суддя реєструється → очікує → адмін пі�
   assert.equal(rows, 0, "сесії видалено з бази");
 });
 
-suite("неправильний пароль і чужий email — однакова відповідь; адміна не можна заблокувати", async (t) => {
+suite("неправильний пароль і чужий email — однакова відповідь; себе не заблокувати", async (t) => {
   const s = await start(t);
   const b = s.browser();
   const a = await b("POST", "/api/login", { email: "admin@liga.ua", password: "wrong-pass" });
@@ -121,7 +122,7 @@ suite("неправильний пароль і чужий email — однак�
   assert.deepEqual(a.body, c.body);
   await b("POST", "/api/login", { email: "admin@liga.ua", password: "admin-pass-1" });
   const adminId = (await b("GET", "/api/me")).body.user.id;
-  assert.equal((await b("POST", "/api/admin/users/" + adminId, { status: "blocked" })).status, 404, "адміна статусом не чіпаємо");
+  assert.equal((await b("POST", "/api/admin/users/" + adminId, { status: "blocked" })).status, 403, "себе не заблокувати");
   assert.equal((await b("POST", "/api/admin/users/999", { status: "bogus" })).status, 400);
 });
 
@@ -160,4 +161,163 @@ test("без бази акаунти вимкнено, а табло працю�
   assert.deepEqual(JSON.parse((await get("/api/config")).body), { accounts: false });
   assert.equal((await get("/api/me")).status, 503);
   assert.equal((await get("/healthz")).status, 200);
+});
+
+
+/* ---------- ролі: суперадмін, адміни, судді ---------- */
+
+async function signedIn(s, email, password) {
+  const b = s.browser();
+  const r = await b("POST", "/api/login", { email, password });
+  assert.equal(r.status, 200, "вхід " + email + ": " + JSON.stringify(r.body));
+  return b;
+}
+async function referee(s, email, status) {
+  const b = s.browser();
+  await b("POST", "/api/register", { email, name: email.split("@")[0], password: "referee-pass" });
+  const id = (await s.db.query("select id from users where email = $1", [email])).rows[0].id;
+  if (status) await s.db.query("update users set status = $2 where id = $1", [id, status]);
+  return id;
+}
+
+test("права: can() — користувачами керує лише суперадмін, і не собою", () => {
+  const sup = { id: 1, role: "superadmin", status: "active" }, adm = { id: 2, role: "admin", status: "active" };
+  const adm2 = { id: 3, role: "admin" }, ref = { id: 4, role: "referee" };
+  ["status", "reset", "role", "delete"].forEach((a) => {
+    assert.equal(A.can(sup, a, ref), true, "суперадмін: " + a + " судді");
+    assert.equal(A.can(sup, a, adm2), true, "суперадмін: " + a + " адміна");
+    assert.equal(A.can(sup, a, sup), false, "суперадмін: " + a + " себе — ні");
+    assert.equal(A.can(adm, a, ref), false, "адмін: " + a + " — ні");
+  });
+  ["list", "cleanup", "audit"].forEach((a) => {
+    assert.equal(A.can(sup, a), true);
+    assert.equal(A.can(adm, a), false);
+    assert.equal(A.can(ref, a), false);
+  });
+  assert.equal(A.can(sup, "щось-інше", ref), false, "невідома дія — ні");
+});
+
+suite("суперадмін — єдиний, хто керує людьми: адмін не бачить і не змінює користувачів", async (t) => {
+  const s = await start(t);
+  const sup = await signedIn(s, "admin@liga.ua", "admin-pass-1");
+  const annaId = await referee(s, "anna@liga.ua", "active");
+  const petroId = await referee(s, "petro@liga.ua");                         // очікує
+  const olgaId = await referee(s, "olga@liga.ua", "active");
+
+  const promo = await sup("POST", "/api/admin/users/" + annaId + "/role", { role: "admin" });
+  assert.equal(promo.body.user.role, "admin");
+  const anna = await signedIn(s, "anna@liga.ua", "referee-pass");
+  assert.equal((await anna("GET", "/api/me")).body.user.role, "admin");
+
+  // Адмін людьми не керує — жодна дія з користувачами.
+  const supId = (await sup("GET", "/api/me")).body.user.id;
+  const denied = [
+    ["GET", "/api/admin/users"], ["POST", "/api/admin/users/" + petroId, { status: "active" }],
+    ["POST", "/api/admin/users/" + olgaId + "/reset", {}], ["POST", "/api/admin/users/" + petroId + "/role", { role: "admin" }],
+    ["DELETE", "/api/admin/users/" + petroId, {}], ["GET", "/api/admin/audit"], ["POST", "/api/admin/cleanup", { what: "blocked" }],
+    ["POST", "/api/admin/users/" + supId, { status: "blocked" }]
+  ];
+  for (const [m, p, b] of denied) assert.equal((await anna(m, p, b)).status, 403, "адмін: " + m + " " + p);
+  assert.equal((await s.db.query("select status from users where id = $1", [petroId])).rows[0].status, "pending", "нічого не змінилось");
+
+  // Суперадмін бачить усіх і робить усе.
+  const all = (await sup("GET", "/api/admin/users")).body.users;
+  assert.equal(all.length, 4);
+  assert.equal(all[0].email, "petro@liga.ua", "спершу ті, що очікують");
+  assert.deepEqual(all.slice(1).map((u) => u.role), ["superadmin", "admin", "referee"]);
+  assert.equal((await sup("POST", "/api/admin/users/" + petroId, { status: "active" })).status, 200);
+  const reset = await sup("POST", "/api/admin/users/" + olgaId + "/reset", {});
+  assert.match(reset.body.url, /^\/account\.html#reset=[\w-]{43}$/);
+  assert.equal(reset.body.hours, 24);
+
+  // «Щось не так» — знімає адміна (одразу без прав) і видаляє.
+  await sup("POST", "/api/admin/users/" + annaId + "/role", { role: "referee" });
+  assert.equal((await anna("GET", "/api/me")).body.user.role, "referee");
+  assert.equal((await sup("DELETE", "/api/admin/users/" + annaId, {})).status, 200);
+  assert.equal((await anna("GET", "/api/me")).status, 401, "видалений — без сесії");
+  assert.equal((await sup("DELETE", "/api/admin/users/" + supId, {})).status, 403, "себе не видалити");
+  assert.equal((await sup("DELETE", "/api/admin/users/99999", {})).status, 404);
+  assert.equal((await sup("POST", "/api/admin/users/" + petroId + "/role", { role: "superadmin" })).status, 400, "другого суперадміна не буває");
+
+  const log = (await sup("GET", "/api/admin/audit")).body.entries;
+  assert.deepEqual(log.slice(0, 3).map((e) => [e.action, e.target]),
+    [["delete", "anna@liga.ua"], ["role:referee", "anna@liga.ua"], ["reset-link", "olga@liga.ua"]]);
+  assert.ok(log.every((e) => e.actor === "admin@liga.ua" || (e.actor === null && e.action === "superadmin-from-settings")),
+    "усі зміни — від суперадміна (і запис сервера про суперадміна з налаштувань)");
+});
+
+suite("скидання пароля: одноразове посилання на 24 години, старі сесії закриваються", async (t) => {
+  const s = await start(t);
+  const sup = await signedIn(s, "admin@liga.ua", "admin-pass-1");
+  const id = await referee(s, "ivan@liga.ua", "active");
+  const ivan = await signedIn(s, "ivan@liga.ua", "referee-pass");
+  const first = (await sup("POST", "/api/admin/users/" + id + "/reset", {})).body.url;
+  const link = (await sup("POST", "/api/admin/users/" + id + "/reset", {})).body.url;
+  const token = (u) => u.split("#reset=")[1];
+  const anon = s.browser();
+  assert.equal((await anon("POST", "/api/reset", { token: token(first), password: "new-pass-1" })).body.error, "bad-reset", "діє лише останнє посилання");
+  assert.equal((await anon("POST", "/api/reset", { token: token(link), password: "short" })).body.error, "weak-password");
+  assert.equal((await anon("POST", "/api/reset", { token: token(link), password: "new-pass-1" })).status, 200);
+  assert.equal((await anon("POST", "/api/reset", { token: token(link), password: "new-pass-2" })).body.error, "bad-reset", "одноразове");
+  assert.equal((await ivan("GET", "/api/me")).status, 401, "стара сесія закрита");
+  assert.equal((await s.browser()("POST", "/api/login", { email: "ivan@liga.ua", password: "referee-pass" })).status, 401, "старий пароль не діє");
+  await signedIn(s, "ivan@liga.ua", "new-pass-1");
+
+  // Прострочене посилання.
+  const late = (await sup("POST", "/api/admin/users/" + id + "/reset", {})).body.url;
+  await s.db.query("update password_resets set expires_at = now() - interval '1 minute'");
+  assert.equal((await anon("POST", "/api/reset", { token: token(late), password: "new-pass-3" })).body.error, "bad-reset");
+  const supId = (await sup("GET", "/api/me")).body.user.id;
+  assert.equal((await sup("POST", "/api/admin/users/" + supId + "/reset", {})).status, 403, "суперадмін відновлюється через налаштування сервера");
+});
+
+suite("свій пароль: старий → новий, інші сесії закриваються, поточна лишається", async (t) => {
+  const s = await start(t);
+  await referee(s, "olena@liga.ua", "active");
+  const phone = await signedIn(s, "olena@liga.ua", "referee-pass");
+  const laptop = await signedIn(s, "olena@liga.ua", "referee-pass");
+  assert.equal((await phone("POST", "/api/me/password", { old: "wrong", password: "brand-new-1" })).body.error, "bad-old-password");
+  assert.equal((await phone("POST", "/api/me/password", { old: "referee-pass", password: "short" })).body.error, "weak-password");
+  assert.equal((await phone("POST", "/api/me/password", { old: "referee-pass", password: "brand-new-1" })).status, 200);
+  assert.equal((await phone("GET", "/api/me")).status, 200, "на цьому пристрої — далі в акаунті");
+  assert.equal((await laptop("GET", "/api/me")).status, 401, "на іншому — треба ввійти знову");
+  await signedIn(s, "olena@liga.ua", "brand-new-1");
+  assert.equal((await s.browser()("POST", "/api/me/password", { old: "a", password: "b" })).status, 401);
+});
+
+suite("суперадмін із налаштувань: змінений на сайті пароль не злітає при перезапуску; новий у налаштуваннях — відновлення", async (t) => {
+  const s = await start(t);
+  const sup = await signedIn(s, "admin@liga.ua", "admin-pass-1");
+  await sup("POST", "/api/me/password", { old: "admin-pass-1", password: "changed-on-site" });
+  await s.api.auth.ensureSuperadmin("Admin@Liga.ua", "admin-pass-1", "Суперадмін");          // «перезапуск» із тими самими налаштуваннями
+  assert.equal((await sup("GET", "/api/me")).status, 200, "сесія жива");
+  await signedIn(s, "admin@liga.ua", "changed-on-site");
+  assert.equal((await s.browser()("POST", "/api/login", { email: "admin@liga.ua", password: "admin-pass-1" })).status, 401);
+
+  await s.api.auth.ensureSuperadmin("admin@liga.ua", "recovered-pass", "Суперадмін");          // забув — новий пароль у налаштуваннях
+  assert.equal((await sup("GET", "/api/me")).status, 401, "після відновлення старі сесії закриті");
+  await signedIn(s, "admin@liga.ua", "recovered-pass");
+
+  await s.api.auth.ensureSuperadmin("new-boss@liga.ua", "boss-pass-1", "Новий");               // змінили email суперадміна
+  const roles = (await s.db.query("select email, role from users order by id")).rows;
+  assert.deepEqual(roles, [{ email: "admin@liga.ua", role: "admin" }, { email: "new-boss@liga.ua", role: "superadmin" }], "суперадмін завжди один");
+});
+
+suite("прибирання: заблоковані судді й старі заявки; журнал", async (t) => {
+  const s = await start(t);
+  const sup = await signedIn(s, "admin@liga.ua", "admin-pass-1");
+  await referee(s, "bad1@liga.ua", "blocked");
+  await referee(s, "bad2@liga.ua", "blocked");
+  const oldId = await referee(s, "old@liga.ua");
+  await referee(s, "fresh@liga.ua");
+  await referee(s, "ok@liga.ua", "active");
+  await s.db.query("update users set created_at = now() - interval '45 days' where id = $1", [oldId]);
+  assert.equal((await sup("POST", "/api/admin/cleanup", { what: "nonsense" })).status, 400);
+  assert.equal((await sup("POST", "/api/admin/cleanup", { what: "blocked" })).body.removed, 2);
+  assert.equal((await sup("POST", "/api/admin/cleanup", { what: "stale-pending" })).body.removed, 1, "лише заявки старші за 30 днів");
+  const left = (await s.db.query("select email from users order by email")).rows.map((r) => r.email);
+  assert.deepEqual(left, ["admin@liga.ua", "fresh@liga.ua", "ok@liga.ua"]);
+  const log = (await sup("GET", "/api/admin/audit")).body.entries;
+  assert.equal(log[0].action, "cleanup:stale-pending");
+  assert.equal(log[0].details, "1 видалено");
 });

@@ -18,7 +18,8 @@ services:
       # DATABASE_URL — рядок підключення Neon Postgres (postgres://…?sslmode=require).
       - key: DATABASE_URL
         sync: false
-      - key: ADMIN_EMAIL
+      # Суперадмін (один): керує адмінами й суддями. Забули пароль — задайте тут новий і перезапустіть.
+      - key: SUPERADMIN_EMAIL
         sync: false
-      - key: ADMIN_PASSWORD
+      - key: SUPERADMIN_PASSWORD
         sync: false

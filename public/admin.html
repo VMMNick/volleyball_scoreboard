@@ -13,10 +13,31 @@
 <header class="top"><b>Адмін-панель</b><a href="./account.html">← Акаунт</a></header>
 <main class="wide">
   <p class="msg err" id="aMsg" role="status"></p>
+  <section id="aDenied" hidden>
+    <h1>Немає доступу</h1>
+    <p class="hint">Керування користувачами — лише в суперадміна.</p>
+  </section>
   <section id="aBody" hidden>
-    <h1>Судді <span class="count" id="aPending"></span></h1>
+    <h1>Користувачі <span class="count" id="aPending"></span></h1>
     <div class="users" id="aUsers"></div>
-    <p class="hint">Нові судді реєструються самі й чекають на підтвердження. Заблокований суддя одразу втрачає доступ.</p>
+    <div class="card reset-box" id="aReset" hidden>
+      <div>Посилання для скидання пароля <b id="aResetWho" translate="no"></b> — діє 24 години й лише раз. Надішліть його цій людині:</div>
+      <a class="reset-url" id="aResetUrl" target="_blank" rel="noopener" translate="no"></a>
+      <div class="actions"><button class="ghost" id="aResetCopy">Копіювати</button><button class="ghost" id="aResetHide">Сховати</button></div>
+    </div>
+    <p class="hint">Нові судді реєструються самі й чекають на підтвердження. Користувачами керує лише суперадмін: адміни отримують інші можливості (окремі матчі), а не владу над людьми. Кожна зміна потрапляє в журнал.</p>
+
+    <h2>Прибирання</h2>
+    <div class="card">
+      <div class="actions">
+        <button class="ghost" id="aCleanBlocked">Видалити заблокованих суддів</button>
+        <button class="ghost" id="aCleanStale">Видалити заявки, старші за 30 днів</button>
+      </div>
+      <p class="msg" id="aCleanMsg" role="status"></p>
+    </div>
+
+    <h2>Журнал дій</h2>
+    <div class="card"><div class="audit" id="aAudit"></div></div>
   </section>
 </main>
 <script src="./js/config.js"></script>

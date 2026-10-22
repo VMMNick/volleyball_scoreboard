@@ -50,3 +50,11 @@ h2{margin:26px 0 12px;font-size:21px;font-weight:600;letter-spacing:.04em}
 .user .u-btns button{height:40px;padding:0 16px;font-size:16px}
 .empty{color:var(--slate);font-size:17px;padding:6px 0}
 .count{color:var(--team-b);font-weight:600}
+.badge.superadmin{color:#FF9C92}
+.reset-box{margin-top:14px;border-color:var(--team-b)}
+.reset-url{display:block;margin:10px 0 4px;color:var(--chalk);word-break:break-all;font-size:15px}
+.audit{display:flex;flex-direction:column;gap:6px;font-size:15px;max-height:50vh;overflow:auto}
+.audit .row{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;padding:6px 0;border-bottom:1px solid rgba(143,166,184,.15)}
+.audit time{color:var(--slate);font-variant-numeric:tabular-nums;white-space:nowrap}
+.audit .by{color:var(--slate)}
+.danger{color:#FF9C92 !important;border-color:rgba(255,156,146,.5) !important}

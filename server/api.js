@@ -6,8 +6,19 @@
  *   POST /api/register            { email, name, password } → суддя зі статусом «очікує»
  *   POST /api/login               { email, password } → cookie сесії
  *   POST /api/logout
- *   GET  /api/admin/users         (адмін) усі користувачі, спершу ті, що очікують
- *   POST /api/admin/users/:id     (адмін) { status: "active" | "blocked" | "pending" }
+ *   POST /api/me/password         { old, password } — змінити свій пароль
+ *   POST /api/reset               { token, password } — новий пароль за посиланням від адміна
+ *
+ * Керування користувачами — ЛИШЕ суперадмін (адміни й судді отримують 403):
+ *   GET    /api/admin/users              усі користувачі, спершу ті, що очікують
+ *   POST   /api/admin/users/:id          { status: "active" | "blocked" | "pending" }
+ *   POST   /api/admin/users/:id/reset    → { url } — одноразове посилання на 24 години
+ *   POST   /api/admin/users/:id/role     { role: "admin" | "referee" }
+ *   DELETE /api/admin/users/:id          видалити користувача
+ *   POST   /api/admin/cleanup            { what: "blocked" | "stale-pending" }
+ *   GET    /api/admin/audit              журнал дій
+ *
+ * Хто що може з ким — server/auth.js (can).
  *
  * Захист: змінювати дані можна лише JSON-запитом із того самого сайту (Origin = Host) —
  * інший сайт не зробить це від імені судді; ліміти спроб входу й реєстрації на IP;
@@ -103,6 +114,25 @@ function createApi(opts) {
         json(res, 200, { user: A.publicUser(r.user) }, { "Set-Cookie": A.sessionCookie(r.token, secure(req), sessionMax) });
         return true;
       }
+      if (route === "POST /api/reset") {
+        if (tooMany("reset", ip, limits.loginPerWindow)) { json(res, 429, { error: "too-many" }); return true; }
+        const b = (await readJson(req)) || {};
+        const r = await auth.useReset(b.token, b.password);
+        if (r.error) { if (r.error === "bad-reset") note("reset", ip); json(res, 400, { error: r.error }); return true; }
+        log("пароль скинуто за посиланням: " + r.user.email);
+        json(res, 200, { ok: true });
+        return true;
+      }
+      if (route === "POST /api/me/password") {
+        const u = await auth.userFromRequest(req);
+        if (!u) { json(res, 401, { error: "unauthorized" }); return true; }
+        if (tooMany("password", u.id, limits.loginPerWindow)) { json(res, 429, { error: "too-many" }); return true; }
+        const b = (await readJson(req)) || {};
+        const r = await auth.changePassword(u, b.old, b.password, auth.sessionHash(req));
+        if (r.error) { if (r.error === "bad-old-password") note("password", u.id); json(res, 400, { error: r.error }); return true; }
+        json(res, 200, { ok: true });
+        return true;
+      }
       if (route === "POST /api/logout") {
         await auth.destroySession(req);
         json(res, 200, { ok: true }, { "Set-Cookie": A.sessionCookie("", secure(req), 0) });
@@ -113,16 +143,36 @@ function createApi(opts) {
       if (url.pathname.startsWith("/api/admin/")) {
         const u = await auth.userFromRequest(req);
         if (!u) { json(res, 401, { error: "unauthorized" }); return true; }
-        if (u.role !== "admin") { json(res, 403, { error: "forbidden" }); return true; }
-        if (route === "GET /api/admin/users") { json(res, 200, { users: await auth.listUsers() }); return true; }
-        const m = /^\/api\/admin\/users\/(\d+)$/.exec(url.pathname);
-        if (m && req.method === "POST") {
-          const b = (await readJson(req)) || {};
-          const r = await auth.setStatus(m[1], b.status);
-          if (r.error) { json(res, r.error === "not-found" ? 404 : 400, { error: r.error }); return true; }
-          log("адмін: " + r.user.email + " → " + r.user.status);
-          json(res, 200, { user: r.user });
+        if (u.role !== "superadmin") { json(res, 403, { error: "forbidden" }); return true; }   // людьми керує лише суперадмін
+        const fail = (r) => json(res, r.error === "not-found" ? 404 : r.error === "forbidden" ? 403 : 400, { error: r.error });
+        if (route === "GET /api/admin/users") { json(res, 200, { users: await auth.listUsers(u), me: A.publicUser(u) }); return true; }
+        if (route === "GET /api/admin/audit") {
+          const r = await auth.auditLog(u, url.searchParams.get("limit"));
+          if (r.error) fail(r); else json(res, 200, r);
           return true;
+        }
+        if (route === "POST /api/admin/cleanup") {
+          const b = (await readJson(req)) || {};
+          const r = await auth.cleanup(u, b.what, b.days);
+          if (r.error) fail(r); else { log("прибирання (" + b.what + "): " + r.removed); json(res, 200, r); }
+          return true;
+        }
+        const m = /^\/api\/admin\/users\/(\d+)(?:\/(reset|role))?$/.exec(url.pathname);
+        if (m) {
+          const b = req.method === "POST" || req.method === "DELETE" ? (await readJson(req)) || {} : {};
+          let r = null;
+          if (req.method === "POST" && !m[2]) r = await auth.setStatus(u, m[1], b.status);
+          else if (req.method === "POST" && m[2] === "role") r = await auth.setRole(u, m[1], b.role);
+          else if (req.method === "POST" && m[2] === "reset") {
+            r = await auth.createReset(u, m[1]);
+            // Токен — лише в частині після «#»: вона не йде на сервер і в журнали проксі.
+            if (!r.error) r = { url: "/account.html#reset=" + r.token, hours: r.hours, user: r.user };
+          } else if (req.method === "DELETE" && !m[2]) r = await auth.removeUser(u, m[1]);
+          if (r) {
+            if (r.error) fail(r);
+            else { log("адмін " + u.email + ": " + req.method + " " + url.pathname); json(res, 200, r); }
+            return true;
+          }
         }
       }
       json(res, 404, { error: "not-found" });

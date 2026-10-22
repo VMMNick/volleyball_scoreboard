@@ -28,6 +28,7 @@
       <label class="field"><span>Пароль</span><input id="lPass" type="password" autocomplete="current-password" required></label>
       <button class="primary wide-btn" id="lBtn" type="submit">Увійти</button>
       <p class="msg" id="lMsg" role="status"></p>
+      <p class="hint">Забули пароль? Попросіть суперадміна надіслати посилання для скидання.</p>
     </form>
     <form class="card" id="regForm" hidden autocomplete="on">
       <label class="field"><span>Імʼя й прізвище</span><input id="rName" type="text" maxlength="80" autocomplete="name" required></label>
@@ -35,7 +36,17 @@
       <label class="field"><span>Пароль (щонайменше 8 символів)</span><input id="rPass" type="password" minlength="8" autocomplete="new-password" required></label>
       <button class="primary wide-btn" id="rBtn" type="submit">Надіслати заявку</button>
       <p class="msg" id="rMsg" role="status"></p>
-      <p class="hint">Після реєстрації адмін має підтвердити ваш акаунт. Тоді ви зможете ввійти й вести призначені вам матчі.</p>
+      <p class="hint">Після реєстрації суперадмін має підтвердити ваш акаунт. Тоді ви зможете ввійти й вести призначені вам матчі.</p>
+    </form>
+  </section>
+
+  <section id="reset" hidden>
+    <h1>Новий пароль</h1>
+    <form class="card" id="resetForm">
+      <label class="field"><span>Новий пароль (щонайменше 8 символів)</span><input id="nPass" type="password" minlength="8" autocomplete="new-password" required></label>
+      <label class="field"><span>Ще раз</span><input id="nPass2" type="password" minlength="8" autocomplete="new-password" required></label>
+      <button class="primary wide-btn" id="nBtn" type="submit">Зберегти пароль</button>
+      <p class="msg" id="nMsg" role="status"></p>
     </form>
   </section>
 
@@ -51,8 +62,18 @@
         <button class="ghost" id="uLogout">Вийти</button>
       </div>
     </div>
+    <p class="hint" id="uAdminNote" hidden>Ви — адмін. Тут зʼявляться ваші можливості: створення окремих матчів-табло, які не перетинаються з іншими.</p>
     <h2>Мої матчі</h2>
-    <div class="card"><p class="empty" id="uMatches">Поки немає призначених матчів. Їх призначає адмін.</p></div>
+    <div class="card"><p class="empty" id="uMatches">Поки немає призначених матчів.</p></div>
+
+    <h2>Змінити пароль</h2>
+    <form class="card" id="pwForm">
+      <label class="field"><span>Поточний пароль</span><input id="pOld" type="password" autocomplete="current-password" required></label>
+      <label class="field"><span>Новий пароль (щонайменше 8 символів)</span><input id="pNew" type="password" minlength="8" autocomplete="new-password" required></label>
+      <button class="ghost" id="pBtn" type="submit">Змінити пароль</button>
+      <p class="msg" id="pMsg" role="status"></p>
+      <p class="hint">Після зміни на інших пристроях доведеться ввійти знову. Забули пароль — попросіть суперадміна надіслати посилання для скидання.</p>
+    </form>
   </section>
 </main>
 <script src="./js/config.js"></script>

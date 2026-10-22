@@ -37,8 +37,10 @@ a mini scoreboard for live streams — synced in real time, working offline, in 
 - **Offline-first PWA.** Installs on a phone or tablet, keeps the score across reloads, keeps
   the screen awake.
 - **Ukrainian and English.** Switch in settings; spectators' boards accept `?lang=en`.
-- **Referee accounts (optional).** With a Postgres database referees register, an admin approves them
-  in the admin panel; without a database everything works as before, offline and account-free.
+- **Referee accounts (optional).** With a Postgres database referees register and a single superadmin
+  approves them. Only the superadmin manages people (roles, blocking, one-time password reset links,
+  cleanup), and every action goes to an audit log; admins get delegated abilities instead.
+  Without a database everything works as before, offline and account-free.
 
 ## How it works
 
@@ -84,9 +86,9 @@ The server is ~400 lines on top of `ws`: it serves `public/` and keeps match roo
 ## Tests
 
 ```bash
-npm test                          # ~240 unit and DOM tests (node:test + jsdom), ~15 s
+npm test                          # ~250 unit and DOM tests (node:test + jsdom), ~15 s
 npx playwright install chromium   # once
-npm run e2e                       # 14 end-to-end scenarios in real Chromium, ~25 s
+npm run e2e                       # 18 end-to-end scenarios in real Chromium, ~1 min
 ```
 
 The end-to-end suite starts a real server and opens every device in its own browser context:
