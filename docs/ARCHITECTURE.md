@@ -32,7 +32,7 @@ volleyball_scoreboard/
 ```
 js/pages/    pult.js   display.js   live.js   mini.js        ← екран, жести, DOM
                 │          │          │         │
-js/shared/   ui-common · scorebug · remote · feed · sounds    ← спільні модулі сторінок
+js/shared/   ui-common · scorebug · remote · link · feed · sounds    ← спільні модулі сторінок
                 │
 js/core/     match.js · palettes.js                           ← ядро без DOM
 ```
@@ -52,6 +52,10 @@ js/core/     match.js · palettes.js                           ← ядро бе
     вибір і показ емблем ліги (`logoPick`, `paintLogos`).
   - `scorebug.js` — малює таблицю міні-табла (спільна для `live` і `mini`, стилі — `css/scorebug.css`).
   - `remote.js` — WebSocket до сервера, перепідключення, коди кімнат і ключі судді.
+  - `link.js` — «Посилання на матч» без DOM: збереження (`volleyball:link`), адреса пульта
+    другого судді, адреси міні-табла, відлік часу без звʼязку (`lossTracker`), перевірка
+    `/healthz` і причини збою (`reasons`). `pult.js` лише малює й тримає зʼєднання;
+    тести — `tests/link.test.js`, без браузера.
   - `feed.js` — звідки табло бере рахунок: цей пристрій або кімната на сервері.
   - `sounds.js` — звуки великого табло (Web Audio).
 - **`js/pages/`** — по одному файлу на сторінку. Тут лише робота з екраном.

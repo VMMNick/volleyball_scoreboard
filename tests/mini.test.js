@@ -102,7 +102,7 @@ function boot(html, files, opts = {}) {
 }
 
 const mini = (opts) => boot(miniHtml, ["scorebug.js", "remote.js", "mini.js"], opts);
-const control = (opts) => boot(read("index.html"), ["remote.js", "pult.js"], Object.assign({ url: "https://tablo.example/index.html" }, opts));
+const control = (opts) => boot(read("index.html"), ["remote.js", "link.js", "pult.js"], Object.assign({ url: "https://tablo.example/index.html" }, opts));
 const stored = (ui) => Match.reduce(Match.deserialize(ui.win.localStorage.getItem("volleyball:match")));
 
 suite("міні-пульт сам по собі: очки, зняти очко, тайм-аут, скасування", (t) => {
