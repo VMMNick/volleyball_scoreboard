@@ -41,3 +41,42 @@ test("закінчений матч потрапляє в архів, прото
   await expect(pult.locator(".arch-empty")).toBeVisible();
   expect(pult.errors).toEqual([]);
 });
+
+test("пошук в архіві: за командою й турніром, лічильник, нічого не знайдено", async ({ browser }) => {
+  const pult = await (await browser.newContext()).newPage();
+  await pult.goto(server.url + "/index.html");
+  await pult.evaluate(() => {
+    const M = window.Match, A = window.Archive;
+    const play = (names, title, seq, start) => {
+      let m = M.createMatch({ names, title, rules: { bestOf: 1, target: 3, winBy: 1 } });
+      let ts = start;
+      for (const c of seq) m = M.addPoint(m, c === "A" ? 0 : 1, ts += 1000);
+      return m;
+    };
+    let list = [];
+    list = A.put(list, play(["Імідж", "Ліцей"], "Кубок міста", "AAA", Date.now() - 7200e3));
+    list = A.put(list, play(["Спартак", "Динамо"], "Шкільна ліга", "BBB", Date.now() - 3600e3));
+    list = A.put(list, play(["Імідж", "Динамо"], "", "ABBB", Date.now() - 600e3));
+    A.save(localStorage, list);
+  });
+  await pult.reload();
+  await pult.click("#menuBtn");
+  await pult.click("#mArchive");
+  const items = pult.locator(".arch-item");
+  await expect(items).toHaveCount(3);
+
+  await pult.fill("#archiveSearch", "імідж");
+  await expect(items).toHaveCount(2);
+  await expect(pult.locator("#archiveCount")).toHaveText("Знайдено: 2 з 3");
+  await pult.fill("#archiveSearch", "Імідж динамо");
+  await expect(items).toHaveCount(1);
+  await pult.fill("#archiveSearch", "шкільна");
+  await expect(items).toHaveCount(1);
+  await expect(items.first()).toContainText("Спартак — Динамо");
+  await pult.fill("#archiveSearch", "волейбол");
+  await expect(items).toHaveCount(0);
+  await expect(pult.locator(".arch-empty")).toContainText("Нічого не знайдено");
+  await pult.fill("#archiveSearch", "");
+  await expect(items).toHaveCount(3);
+  await expect(pult.locator("#archiveCount")).toHaveText("");
+});

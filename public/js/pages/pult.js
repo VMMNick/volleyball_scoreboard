@@ -699,21 +699,23 @@
     try { A.save(localStorage, A.put(A.load(localStorage), m)); } catch (e) {}
   }
 
-  function fmtDate(ts) {
-    if (!ts) return "";
-    var d = new Date(ts), p = function (n) { return (n < 10 ? "0" : "") + n; };
-    return p(d.getDate()) + "." + p(d.getMonth() + 1) + "." + d.getFullYear() + " " + p(d.getHours()) + ":" + p(d.getMinutes());
-  }
-
   function renderArchive() {
-    var list = A.load(localStorage);
-    $("archiveClear").disabled = !list.length;
-    if (!list.length) {
+    var all = A.load(localStorage);
+    var q = $("archiveSearch").value.trim();
+    var list = A.search(all, q);
+    $("archiveClear").disabled = !all.length;
+    $("archiveFind").hidden = all.length < 2;                // пошук має сенс, коли є з чого вибирати
+    $("archiveCount").textContent = q && all.length ? "Знайдено: " + list.length + " з " + all.length : "";
+    if (!all.length) {
       $("archiveList").innerHTML = '<div class="arch-empty">Поки порожньо — тут зʼявляться завершені матчі.</div>';
       return;
     }
+    if (!list.length) {
+      $("archiveList").innerHTML = '<div class="arch-empty">Нічого не знайдено за «' + U.esc(q) + '».</div>';
+      return;
+    }
     $("archiveList").innerHTML = list.map(function (e) {
-      var meta = [fmtDate(e.startedAt || e.savedAt), e.title, e.done ? "" : "не дограний"].filter(Boolean).join(" · ");
+      var meta = [A.dateText(e.startedAt || e.savedAt), e.title, e.done ? "" : "не дограний"].filter(Boolean).join(" · ");
       return '<div class="arch-item" data-mid="' + U.esc(e.mid) + '">' +
         '<div class="arch-teams"><span>' + U.esc(e.names[0]) + " — " + U.esc(e.names[1]) + "</span><b>" +
           e.sets[0] + ":" + e.sets[1] + "</b></div>" +
@@ -1084,7 +1086,12 @@
   $("toStop").addEventListener("click", function () { stopTimeoutClock(); });
 
   $("mProto").addEventListener("click", function () { showProtocol(null); });
-  $("mArchive").addEventListener("click", function () { renderArchive(); openSheet("archiveSheet"); });
+  $("mArchive").addEventListener("click", function () {
+    $("archiveSearch").value = "";                          // щоразу — увесь архів
+    renderArchive();
+    openSheet("archiveSheet");
+  });
+  $("archiveSearch").addEventListener("input", renderArchive);
   $("archiveList").addEventListener("click", function (e) {
     var b = e.target.closest("button[data-act]");
     var item = b && b.closest(".arch-item");

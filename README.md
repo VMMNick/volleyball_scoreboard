@@ -30,7 +30,8 @@ a mini scoreboard for live streams — synced in real time, working offline, in 
 - **Match link.** One click gives a view-only mini scoreboard for any phone, TV or streaming app
   (Prism Live, OBS) and a separate link for the second referee to keep score from another phone.
 - **Scoresheet and archive.** Per-set score and duration, rally trail, stats, CSV/JSON export;
-  the last 30 matches are kept on the device with their full scoresheets.
+  the last 30 matches are kept on the device with their full scoresheets and can be searched by
+  team, tournament, date or score.
 - **Offline-first PWA.** Installs on a phone or tablet, keeps the score across reloads, keeps
   the screen awake.
 - **Ukrainian and English.** Switch in settings; spectators' boards accept `?lang=en`.

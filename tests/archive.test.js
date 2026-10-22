@@ -174,3 +174,69 @@ suite("пульт: протокол перерваного матчу з арх�
   assert.doesNotMatch(ui.$("protoSets").textContent, /триває/);
   assert.match(ui.$("protoHead").textContent, /1:30$/, "1:30 гри, а не година від початку");
 });
+
+/* ---------- пошук в архіві ---------- */
+
+function archived(names, title, startTs, seq) {
+  let m = M.createMatch({ names, rules: QUICK, title });
+  let ts = startTs;
+  for (const ch of seq) { m = M.addPoint(m, ch === "A" ? 0 : 1, ts); ts += 1000; }
+  return m;
+}
+
+test("пошук: кожне слово — в командах, турнірі, даті чи рахунку; регістр і апостроф не важать", () => {
+  const d1 = new Date(2026, 9, 18, 15, 0).getTime(), d2 = new Date(2026, 9, 22, 16, 10).getTime();
+  let list = [];
+  list = A.put(list, archived(["Імідж", "Ліцей №5"], "Кубок Ужгорода", d1, "AAA"), d1);
+  list = A.put(list, archived(["Мʼячик", "Спартак"], "Шкільна ліга", d2, "BBAB"), d2);
+  list = A.put(list, archived(["Імідж", "Спартак"], "", d2 + 3600e3, "ABA"), d2 + 3600e3);
+  const names = (r) => r.map((e) => e.names.join("—"));
+
+  assert.equal(A.search(list, "").length, 3, "порожній запит — увесь архів");
+  assert.equal(A.search(list, "   ").length, 3);
+  assert.deepEqual(names(A.search(list, "імідж")).sort(), ["Імідж—Ліцей №5", "Імідж—Спартак"]);
+  assert.deepEqual(names(A.search(list, "ІМІДЖ спартак")), ["Імідж—Спартак"], "усі слова мають знайтися");
+  assert.deepEqual(names(A.search(list, "м'ячик")), ["Мʼячик—Спартак"], "' і ʼ — одне й те саме");
+  assert.deepEqual(names(A.search(list, "ліцей 5")), ["Імідж—Ліцей №5"], "№ не заважає");
+  assert.deepEqual(names(A.search(list, "кубок")), ["Імідж—Ліцей №5"], "за турніром");
+  assert.equal(A.search(list, "22.10.2026").length, 2, "за датою");
+  assert.deepEqual(names(A.search(list, "18.10")), ["Імідж—Ліцей №5"]);
+  assert.deepEqual(names(A.search(list, "3:0")), ["Імідж—Ліцей №5"], "за рахунком сету");
+  assert.deepEqual(A.search(list, "волейбол"), []);
+  assert.equal(A.dateText(d2), "22.10.2026 16:10");
+});
+
+suite("пульт: пошук в архіві — фільтр, лічильник, «нічого не знайдено», щоразу з чистого поля", (t) => {
+  let list = [];
+  const now = Date.now();
+  list = A.put(list, archived(["Імідж", "Ліцей"], "Кубок міста", now - 7200e3, "AAA"), now - 7200e3);
+  list = A.put(list, archived(["Спартак", "Динамо"], "", now - 3600e3, "BBB"), now - 3600e3);
+  const ui = boot({ "volleyball:archive": JSON.stringify(list) });
+  t.after(ui.close);
+  const items = () => ui.$("archiveList").querySelectorAll(".arch-item").length;
+  const type = (v) => { ui.$("archiveSearch").value = v; ui.$("archiveSearch").dispatchEvent(new ui.win.Event("input")); };
+
+  ui.tap("mArchive");
+  assert.equal(ui.$("archiveFind").hidden, false);
+  assert.equal(items(), 2);
+  assert.equal(ui.$("archiveCount").textContent, "");
+  type("спартак");
+  assert.equal(items(), 1);
+  assert.match(ui.$("archiveList").textContent, /Спартак — Динамо/);
+  assert.equal(ui.$("archiveCount").textContent, "Знайдено: 1 з 2");
+  type("волейбол");
+  assert.equal(items(), 0);
+  assert.match(ui.$("archiveList").textContent, /Нічого не знайдено за «волейбол»/);
+  assert.equal(ui.$("archiveClear").disabled, false, "очистити можна весь архів, навіть коли нічого не знайдено");
+
+  type("кубок");
+  ui.tap(ui.$("archiveList").querySelector('[data-act="del"]'));   // видалення — і список лишається відфільтрованим
+  assert.equal(ui.archive().length, 1);
+  assert.match(ui.$("archiveList").textContent, /Нічого не знайдено/);
+
+  ui.tap("mArchive");                                                // відкрили знову — поле порожнє, увесь архів
+  assert.equal(ui.$("archiveSearch").value, "");
+  assert.equal(items(), 1);
+  assert.equal(ui.$("archiveFind").hidden, true, "один матч — шукати нема з чого");
+  assert.deepEqual(ui.errors, []);
+});

@@ -87,6 +87,35 @@
     return e.scores.map(function (p) { return p[0] + ":" + p[1]; }).join(", ");
   }
 
+  /* «22.10.2026 16:10» — коли почався матч (або коли збережено). */
+  function dateText(ts) {
+    if (!ts) return "";
+    var d = new Date(ts), p = function (n) { return (n < 10 ? "0" : "") + n; };
+    return p(d.getDate()) + "." + p(d.getMonth() + 1) + "." + d.getFullYear() + " " + p(d.getHours()) + ":" + p(d.getMinutes());
+  }
+
+  /*
+   * Пошук: кожне слово запиту має знайтися в назвах команд, турнірі, даті чи рахунку.
+   * Без огляду на регістр і вид апострофа («Мʼяч» = «М'яч»), «№» і зайві пробіли.
+   */
+  function norm(s) {
+    return String(s || "").toLowerCase().replace(/[ʼ’'`]/g, "'").replace(/№/g, " ").replace(/\s+/g, " ").trim();
+  }
+
+  function haystack(e) {
+    return norm([e.names[0], e.names[1], e.title, dateText(e.startedAt || e.savedAt),
+                 e.sets[0] + ":" + e.sets[1], scoreLine(e)].join(" "));
+  }
+
+  function search(list, query) {
+    var words = norm(query).split(" ").filter(Boolean);
+    if (!words.length) return list;
+    return list.filter(function (e) {
+      var h = haystack(e);
+      return words.every(function (w) { return h.indexOf(w) >= 0; });
+    });
+  }
+
   return { KEY: KEY, MAX: MAX, summarize: summarize, load: load, save: save, put: put,
-           remove: remove, open: open, scoreLine: scoreLine };
+           remove: remove, open: open, scoreLine: scoreLine, dateText: dateText, search: search };
 });

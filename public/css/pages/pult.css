@@ -159,10 +159,13 @@ body{
 .arch-item .row{margin-top:10px}
 .arch-item .row button{height:40px;font-size:15px;padding:0 12px}
 .arch-empty{color:var(--slate);font-size:17px;padding:8px 0}
+.arch-find{margin-bottom:10px}
+.arch-find[hidden]{display:none}
+.arch-count{display:block;margin-top:6px;font-size:14px;color:var(--slate);letter-spacing:.04em;min-height:1em}
 
 .field{margin-bottom:14px}
 .field span{display:block;font-size:15px;color:var(--slate);letter-spacing:.06em;margin-bottom:6px}
-.field input[type=text],.field input[type=number]{
+.field input[type=text],.field input[type=number],.field input[type=search]{
   width:100%;height:48px;padding:0 12px;border-radius:10px;background:var(--court-deep);color:var(--chalk);
   border:1px solid rgba(143,166,184,.3);font:inherit;font-size:19px;
 }
