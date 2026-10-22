@@ -185,3 +185,34 @@ test("скасування без звʼязку не воскресає, а о�
   }
   await expectBoard(viewer, 1, 1, 20000);
 });
+
+test("новий ключ судді: старий суддя відключений із поясненням, новий працює, глядачі не помітили", async ({ browser }) => {
+  const pult = await device(browser, server.url + "/index.html");
+  pult.on("dialog", (d) => d.accept());
+  const { judge, board: boardUrl, link } = await createLink(pult);
+  expect(judge).not.toContain(link.key);                         // ключ власника — не в посиланні судді
+  const oldJudge = await device(browser, judge);
+  await expect(oldJudge.locator("#linkDot")).toHaveText(/на звʼязку/);
+  await oldJudge.click("#sideA");
+  await expect(pult.locator("#scoreA")).toHaveText("1");
+  const viewer = await device(browser, boardUrl);
+  await expectBoard(viewer, 1, 0);
+
+  await pult.click("#linkJudgeNew");
+  const judge2 = (await pult.textContent("#linkJudge")).trim();
+  expect(judge2).not.toBe(judge);
+  await expect(oldJudge.locator("#linkDot")).toHaveText(/немає звʼязку/);
+  await oldJudge.click("#linkDot");
+  await expect(oldJudge.locator("#linkTroubleWhy")).toContainText("Ключ судді не підходить");
+
+  const newJudge = await device(browser, judge2);
+  await expect(newJudge.locator("#scoreA")).toHaveText("1");
+  await newJudge.click("#sideB");
+  await expect(pult.locator("#scoreB")).toHaveText("1");
+  await expectBoard(viewer, 1, 1);
+  await closeSheets(oldJudge);
+  await oldJudge.click("#sideA");                                   // старий суддя рахує лише в себе
+  await pult.waitForTimeout(500);
+  await expect(pult.locator("#scoreA")).toHaveText("1");
+  [pult, newJudge, viewer].forEach((p) => expect(p.errors).toEqual([]));
+});

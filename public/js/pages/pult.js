@@ -429,7 +429,9 @@
 
   function loadLink() {
     var l = L.load(localStorage);
-    if (l) link = l;
+    if (!l) return;
+    link = l;
+    if (L.withJudgeKey(link)) saveLink();               // посилання зі старої версії — окремий ключ судді
   }
   function saveLink() { L.save(localStorage, link); }
 
@@ -444,6 +446,7 @@
    * рахунком інакше затер би справжній матч як «новіший».
    */
   function linkSendAll() {
+    if (!link.guest && link.judgeKey) linkSend({ type: "judge-key", key: link.judgeKey });   // хто може бути суддею
     if (link.guest && link.mid !== match.mid) return;
     linkSend({ type: "state", match: M.serialize(match) });
     if (!link.guest) linkSend({ type: "prefs", prefs: prefs });
@@ -619,6 +622,8 @@
     $("linkJudge").textContent = j;
     $("linkJudge").href = j;
     $("linkStop").textContent = link.guest ? "Відʼєднатися від матчу" : "Закрити посилання";
+    $("linkJudgeNew").hidden = !!link.guest;            // ключ судді міняє лише власник
+    $("linkJudgeNewHint").hidden = !!link.guest;
     paintBoardPct();
     if (trouble) {
       $("linkTroubleTitle").textContent = status === "rejected" ? "Сервер не приймає це посилання" : "Немає звʼязку із сервером";
@@ -1165,6 +1170,14 @@
   $("inBoardLogoOld").addEventListener("change", function () { setBoardView({ logoOld: $("inBoardLogoOld").checked }); });
   $("linkBoardEmbed").addEventListener("click", function () { copyText($("linkBoardEmbed"), R.embedCode(boardUrl()), "Код для вставки"); });
   $("linkJudgeCopy").addEventListener("click", function () { copyText($("linkJudgeCopy"), judgeUrl(), "Копіювати"); });
+  $("linkJudgeNew").addEventListener("click", function () {
+    if (!link || link.guest) return;
+    if (!confirm("Створити нове посилання для судді? Старе одразу перестане діяти.")) return;
+    link.judgeKey = R.newKey();
+    saveLink();
+    linkSend({ type: "judge-key", key: link.judgeKey });   // сервер відключить пульти зі старим ключем
+    paintLink();
+  });
   $("segTeam").addEventListener("click", function (e) {
     var b = e.target.closest("button");
     if (!b) return;

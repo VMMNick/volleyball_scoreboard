@@ -472,3 +472,87 @@ suite("старий пульт (стан без id) — як і раніше «�
   assert.deepEqual(M.reduce(M.deserialize(got.match)).points, [1, 0]);
   [host, old].forEach((c) => c.close());
 });
+
+/* ---------- окремий ключ судді ---------- */
+
+const JUDGE = "j".repeat(24);
+const JUDGE2 = "q".repeat(24);
+
+suite("ключ судді: рахує, але не міняє налаштувань і ключа; новий ключ відключає старого суддю", async (t) => {
+  const s = await start(t, { secret: SECRET });
+  const owner = client(s.url("room=JDG234&role=control&key=" + KEY));
+  await owner.open(); await owner.wait("hello");
+  const early = client(s.url("room=JDG234&role=control&key=" + JUDGE));
+  assert.equal(await early.closed, 4003, "поки власник не призначив ключ судді — не пускаємо");
+
+  owner.send({ type: "judge-key", key: JUDGE });
+  await new Promise((r) => setTimeout(r, 50));
+  const judge = client(s.url("room=JDG234&role=control&key=" + JUDGE));
+  await judge.open();
+  const hello = await judge.wait("hello");
+  assert.equal(hello.judge, true);
+  assert.match(hello.proof, /^\d+\.[\w-]{43}$/);
+
+  const v = client(s.url("room=JDG234"));
+  await v.open(); await v.wait("hello");
+  judge.send({ type: "state", match: STATE });
+  assert.equal((await v.wait("state")).match, STATE, "суддя рахує");
+  judge.send({ type: "prefs", prefs: { palette: "neon" } });
+  judge.send({ type: "judge-key", key: JUDGE2 });
+  await assert.rejects(v.wait("prefs", 300), "налаштування показу — не від судді");
+
+  owner.send({ type: "judge-key", key: JUDGE2 });
+  assert.equal(await judge.closed, 4003, "новий ключ судді — старий суддя відключений");
+  assert.equal(judge.inbox.find((m) => m.type === "error").code, 4003);
+  const judge2 = client(s.url("room=JDG234&role=control&key=" + JUDGE2));
+  await judge2.open();
+  assert.equal((await judge2.wait("hello")).judge, true);
+  const old = client(s.url("room=JDG234&role=control&key=" + JUDGE));
+  assert.equal(await old.closed, 4003, "старе посилання судді більше не діє");
+  [owner, v, judge2].forEach((c) => c.close());
+});
+
+suite("після рестарту суддя з доказом приходить першим, власник потім повертає кімнату", async (t) => {
+  const a = await start(t, { secret: SECRET });
+  const owner = client(a.url("room=JRS234&role=control&key=" + KEY));
+  await owner.open();
+  const ownerProof = (await owner.wait("hello")).proof;
+  owner.send({ type: "judge-key", key: JUDGE });
+  await new Promise((r) => setTimeout(r, 50));
+  const judge = client(a.url("room=JRS234&role=control&key=" + JUDGE));
+  await judge.open();
+  const judgeProof = (await judge.wait("hello")).proof;
+  [owner, judge].forEach((c) => c.close());
+
+  const b = await start(t, { secret: SECRET });
+  const j = client(b.url("room=JRS234&role=control&key=" + JUDGE + "&proof=" + judgeProof));
+  await j.open();
+  assert.equal((await j.wait("hello")).judge, true, "суддя першим — його пускають як суддю");
+  j.send({ type: "state", match: STATE });
+
+  const thief = client(b.url("room=JRS234&role=control&key=" + OTHER));
+  await thief.open(); await thief.wait("hello");            // порожнє місце власника займає самозванець…
+  const o = client(b.url("room=JRS234&role=control&key=" + KEY + "&proof=" + ownerProof));
+  await o.open();
+  const oh = await o.wait("hello");
+  assert.equal(oh.role, "control");
+  assert.equal("judge" in oh, false, "…а справжній власник із доказом повертає кімнату");
+  assert.equal(await thief.closed, 4003);
+  o.send({ type: "state", match: STATE.replace("Імідж", "Повернувся") });
+  assert.match((await j.wait("state", 2000)).match, /Повернувся/, "справжній суддя лишився на звʼязку");
+  assert.equal(j.ws.readyState, 1);
+  o.close(); j.close();
+});
+
+suite("старе посилання судді зі спільним ключем власника працює як раніше", async (t) => {
+  const s = await start(t);
+  const owner = client(s.url("room=LEG234&role=control&key=" + KEY));
+  await owner.open(); await owner.wait("hello");
+  owner.send({ type: "judge-key", key: JUDGE });
+  const legacy = client(s.url("room=LEG234&role=control&key=" + KEY));
+  await legacy.open();
+  const h = await legacy.wait("hello");
+  assert.equal(h.role, "control");
+  assert.equal("judge" in h, false);
+  [owner, legacy].forEach((c) => c.close());
+});

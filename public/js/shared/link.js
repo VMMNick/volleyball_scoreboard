@@ -6,9 +6,12 @@
  * (Remote.connect). Усе тут працює і в браузері (window.Link), і в Node (require) —
  * тому тестується без браузера (tests/link.test.js).
  *
- * Посилання: { server, room, key, guest, proof? }
- *   guest — це пульт другого судді (прийшов за посиланням із ключем);
- *   proof — доказ власності кімнати від сервера (див. server/server.js).
+ * Посилання: { server, room, key, judgeKey?, guest, proof?, mid? }
+ *   key      — ключ цього пульта (у власника — ключ власника, у судді — ключ судді);
+ *   judgeKey — лише у власника: ключ для посилання судді (окремий, його можна замінити);
+ *   guest    — це пульт другого судді (прийшов за посиланням із ключем);
+ *   proof    — доказ власності кімнати (чи права судді) від сервера (див. server/server.js);
+ *   mid      — у судді: за яким матчем він стежить.
  */
 (function (root, factory) {
   if (typeof module === "object" && module.exports) module.exports = factory(require("./remote.js"));
@@ -53,7 +56,14 @@
 
   /* Нове посилання цього пульта (не другого судді). */
   function create(server) {
-    return { server: server, room: R.newRoom(), key: R.newKey(), guest: false };
+    return { server: server, room: R.newRoom(), key: R.newKey(), judgeKey: R.newKey(), guest: false };
+  }
+
+  /* Посилання власника зі старої версії (без окремого ключа судді) — додаємо ключ. true — додали. */
+  function withJudgeKey(link) {
+    if (!link || link.guest || link.judgeKey) return false;
+    link.judgeKey = R.newKey();
+    return true;
   }
 
   /* Відкрили «пульт для другого судді» (index.html?room=…&key=…) — посилання з адреси, інакше null. */
@@ -67,7 +77,10 @@
   }
 
   function boardUrl(link, view) { return R.viewerLink(link.server, "live.html", link.room) + (view || ""); }
-  function judgeUrl(link) { return R.viewerLink(link.server, "index.html", link.room, "key=" + encodeURIComponent(link.key)); }
+  /* Посилання судді — з ключем судді (у старих посиланнях його немає — тоді зі спільним). */
+  function judgeUrl(link) {
+    return R.viewerLink(link.server, "index.html", link.room, "key=" + encodeURIComponent(link.judgeKey || link.key));
+  }
 
   function statusText(status, link) {
     return (STATUS_TEXT[status] || "") + (link && link.guest ? " · ви — другий суддя" : "") + (link ? " · код " + link.room : "");
@@ -176,6 +189,6 @@
   }
 
   return { KEY: KEY, LONG_MS: LONG_MS, STATUS_TEXT: STATUS_TEXT, load: load, save: save, valid: valid,
-           normServer: normServer, create: create, fromUrl: fromUrl, boardUrl: boardUrl, judgeUrl: judgeUrl,
+           normServer: normServer, create: create, withJudgeKey: withJudgeKey, fromUrl: fromUrl, boardUrl: boardUrl, judgeUrl: judgeUrl,
            statusText: statusText, lossTracker: lossTracker, probe: probe, hostOf: hostOf, reasons: reasons };
 });

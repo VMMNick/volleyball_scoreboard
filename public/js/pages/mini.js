@@ -74,6 +74,7 @@
       onStatus: function (st) {
         // Як і основний пульт: після (пере)підключення — свій матч (сервер його зіллє).
         // Другий суддя — лише якщо вже бачив саме цей матч; налаштування — лише власник.
+        if (st === "live" && conn && !l.guest && l.judgeKey) conn.send({ type: "judge-key", key: l.judgeKey });
         if (st === "live" && conn && (!l.guest || l.mid === match.mid)) {
           conn.send({ type: "state", match: raw() });
           var p = !l.guest && pultPrefs();

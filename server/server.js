@@ -21,6 +21,13 @@
  * доказ виграє, а самозванця відключає. Без ROOM_SECRET секрет випадковий
  * на кожен запуск — тоді все працює як раніше, лише без цього захисту.
  *
+ * Ключ судді окремий від ключа власника: власник повідомляє його серверу
+ * ({type:"judge-key"}) і може будь-коли замінити — старі пульти судді відключаються,
+ * а код кімнати й посилання глядачів лишаються. Суддя рахує (state), але не міняє
+ * налаштувань показу й ключа. Доказ судді підписано для «j»+хеш його ключа і того
+ * самого часу, що й доказ власника, — тож після рестарту суддя може прийти першим.
+ * Старі посилання судді зі спільним ключем власника працюють, як і раніше, — як власник.
+ *
  * Захист від засмічення: кімната, яку створив глядач (без пульта), зникає,
  * щойно вийде останній глядач, а з однієї IP-адреси обмежено і кількість
  * зʼєднань, і кількість нових кімнат за хвилину.
@@ -212,35 +219,53 @@ function createServer(opts) {
     if (role === "control") {
       if (!KEY_RE.test(key)) { reject(ws, 4001, "bad key"); return; }
       const kh = sha256(key);
-      const since = proofSince(url.searchParams.get("proof"), code, kh);   // null — доказу немає
+      const proof = url.searchParams.get("proof");
+      const since = proofSince(proof, code, kh);                 // доказ власника; null — немає
+      const judgeSince = proofSince(proof, code, "j" + kh);      // доказ судді; null — немає
       if (!room) {
         if (rooms.size >= MAX_ROOMS) { reject(ws, 4029, "too many rooms"); return; }
         if (!takeRoomSlot(ip)) { reject(ws, TRY_LATER, "slow down"); return; }
-        room = { keyHash: kh, since: since !== null ? since : Date.now(), state: null, prefs: null,
-                 clients: new Set(), touched: Date.now() };
+        room = judgeSince !== null
+          // Після рестарту першим прийшов суддя з доказом — кімната чекає на власника.
+          ? { keyHash: null, judgeHash: kh, since: judgeSince, state: null, prefs: null, clients: new Set(), touched: Date.now() }
+          : { keyHash: kh, judgeHash: null, since: since !== null ? since : Date.now(), state: null, prefs: null,
+              clients: new Set(), touched: Date.now() };
         rooms.set(code, room);
-        log("кімната " + code + (since !== null ? " повернулась власнику" : " створена"));
+        if (judgeSince !== null) { ws.judge = true; ws.judgeHash = kh; ws.judgeSince = judgeSince; }
+        log("кімната " + code + (since !== null || judgeSince !== null ? " повернулась" : " створена"));
+      } else if (room.keyHash === kh) {
+        if (since !== null && since < room.since) room.since = since;   // той самий ключ, давніший доказ
+      } else if (room.judgeHash && room.judgeHash === kh) {
+        ws.judge = true; ws.judgeHash = kh; ws.judgeSince = judgeSince !== null ? judgeSince : room.since;
+      } else if (!room.judgeHash && judgeSince !== null && (room.keyHash === null || judgeSince === room.since)) {
+        // Суддя з доказом для цієї сесії власника, а власник ще не нагадав серверу ключ судді.
+        room.judgeHash = kh;
+        if (room.keyHash === null && !room.since) room.since = judgeSince;
+        ws.judge = true; ws.judgeHash = kh; ws.judgeSince = judgeSince;
       } else if (room.keyHash === null) {
         // Пульт прийшов у кімнату, створену глядачем, — закріплює ключ.
         room.keyHash = kh;
         room.since = since !== null ? since : Date.now();
-      } else if (room.keyHash !== kh) {
+      } else {
         if (since === null || since >= room.since) { reject(ws, 4003, "wrong key"); return; }   // кімната чужа
         // Давніший власник повертає кімнату, яку після рестарту зайняв хтось інший.
         room.keyHash = kh;
         room.since = since;
         room.state = null;
         room.prefs = null;
-        room.clients.forEach((c) => { if (c.role === "control") { room.clients.delete(c); reject(c, 4003, "wrong key"); } });
+        // Самозванець і судді, яких міг призначити він, — геть. Суддя з доказом саме цієї
+        // сесії власника (той самий час) лишається.
+        const ours = (c) => c.judge && c.judgeSince === since;
+        const keep = Array.from(room.clients).filter(ours);
+        room.judgeHash = keep.length ? keep[0].judgeHash : null;
+        room.clients.forEach((c) => { if (c.role === "control" && !ours(c)) { room.clients.delete(c); reject(c, 4003, "wrong key"); } });
         log("кімната " + code + " повернулась власнику, самозванця відключено");
-      } else if (since !== null && since < room.since) {
-        room.since = since;                       // той самий ключ, давніший доказ
       }
     } else if (!room) {
       // Глядач прийшов раніше за пульт — чекаємо в порожній кімнаті без ключа.
       if (rooms.size >= MAX_ROOMS) { reject(ws, 4029, "too many rooms"); return; }
       if (!takeRoomSlot(ip)) { reject(ws, TRY_LATER, "slow down"); return; }
-      room = { keyHash: null, state: null, prefs: null, clients: new Set(), touched: Date.now() };
+      room = { keyHash: null, judgeHash: null, state: null, prefs: null, clients: new Set(), touched: Date.now() };
       rooms.set(code, room);
     }
 
@@ -251,7 +276,8 @@ function createServer(opts) {
     room.touched = Date.now();
 
     const hello = { type: "hello", room: code, role: role };
-    if (role === "control") hello.proof = sign(code, room.keyHash, room.since);   // глядачам — ні
+    if (ws.judge) { hello.judge = true; hello.proof = sign(code, "j" + ws.judgeHash, ws.judgeSince); }
+    else if (role === "control") hello.proof = sign(code, room.keyHash, room.since);   // глядачам — ні
     send(ws, hello);
     if (room.state) send(ws, { type: "state", match: room.state });
     if (room.prefs) send(ws, { type: "prefs", prefs: room.prefs });
@@ -278,7 +304,17 @@ function createServer(opts) {
         broadcast(room, { type: "state", match: merged }, ws);
         // У сервера були події, яких цей пульт ще не бачив (від другого судді), — віддаємо злите й йому.
         if (merged !== st) send(ws, { type: "state", match: merged });
+      } else if (msg.type === "judge-key") {
+        // Лише власник призначає ключ судді; новий ключ — старі пульти судді відключаються.
+        if (ws.judge || typeof msg.key !== "string" || !KEY_RE.test(msg.key)) return;
+        const jh = sha256(msg.key);
+        if (jh === room.keyHash) return;                  // спільний ключ — це просто ще один власник
+        room.judgeHash = jh;
+        room.clients.forEach((c) => {
+          if (c.judge && c.judgeHash !== jh) { room.clients.delete(c); reject(c, 4003, "wrong key"); }
+        });
       } else if (msg.type === "prefs") {
+        if (ws.judge) return;                             // налаштування показу — справа власника
         const p = cleanPrefs(msg.prefs);
         if (!p) return;
         room.prefs = p;

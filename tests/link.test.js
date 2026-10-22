@@ -126,3 +126,19 @@ test("пульт підключає link.js після remote.js і перед p
   ["function troubleReasons", "function normServer", "LINK_TEXT", "linkLostAt"].forEach((s) =>
     assert.equal(pult.includes(s), false, "у pult.js лишилось: " + s));
 });
+
+test("окремий ключ судді: у новому посиланні — свій, старе посилання отримує його при завантаженні", () => {
+  const l = L.create("https://tablo.example");
+  assert.match(l.judgeKey, /^[\w-]{32}$/);
+  assert.notEqual(l.judgeKey, l.key);
+  assert.equal(L.judgeUrl(l), "https://tablo.example/index.html?room=" + l.room + "&key=" + l.judgeKey);
+  assert.equal(L.judgeUrl(l).includes(l.key), false, "ключ власника в посилання судді не потрапляє");
+
+  const old = { ...LINK };                               // посилання зі старої версії
+  assert.equal(L.judgeUrl(old).endsWith("key=" + KEY), true, "без ключа судді — як раніше, спільний");
+  assert.equal(L.withJudgeKey(old), true);
+  assert.notEqual(old.judgeKey, KEY);
+  assert.equal(L.withJudgeKey(old), false, "вдруге не міняє");
+  const guest = { ...LINK, guest: true };
+  assert.equal(L.withJudgeKey(guest), false, "у судді власного ключа судді немає");
+});

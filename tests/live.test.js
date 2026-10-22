@@ -191,7 +191,8 @@ test("ні QR-коду, ні OBS-накладки, ні «трансляції»
 
 const control = (opts) => boot(read("index.html"), [read("pult.js")],
   Object.assign({ url: "https://tablo.example/index.html" }, opts));
-const judgeKey = (c) => JSON.parse(c.win.localStorage.getItem("volleyball:link")).key;
+const judgeKey = (c) => JSON.parse(c.win.localStorage.getItem("volleyball:link")).judgeKey;
+const ownerKey = (c) => JSON.parse(c.win.localStorage.getItem("volleyball:link")).key;
 
 function createLink(c, server) {
   c.tap("menuBtn");
@@ -219,8 +220,11 @@ suite("пульт: посилання на міні-табло й пульт д�
   assert.match(c.text("linkStatus"), new RegExp("код " + code));
 
   WS.open(ws, "control");
-  assert.deepEqual(ws.sent.map((m) => m.type), ["state", "prefs"], "одразу весь стан");
-  assert.equal(JSON.stringify(ws.sent).includes(judgeKey(c)), false, "ключ не їде в стані й налаштуваннях");
+  assert.deepEqual(ws.sent.map((m) => m.type), ["judge-key", "state", "prefs"], "ключ судді й одразу весь стан");
+  assert.equal(ws.sent[0].key, judgeKey(c));
+  assert.notEqual(judgeKey(c), ownerKey(c), "у судді свій ключ, не ключ власника");
+  assert.equal(JSON.stringify(ws.sent.slice(1)).includes(judgeKey(c)), false, "ключ не їде в стані й налаштуваннях");
+  assert.equal(JSON.stringify(ws.sent).includes(ownerKey(c)), false, "ключ власника — лише в адресі зʼєднання");
   assert.match(c.text("linkDot"), /на звʼязку/);
 
   c.tap("sideA");
@@ -666,4 +670,40 @@ suite("пульт зберігає доказ власності кімнати 
   t.after(again.close);
   assert.match(WS2.last().url, new RegExp("&proof=" + encodeURIComponent(PROOF).replace(/\./g, "\\.") + "$"),
     "після перезавантаження пульт показує доказ серверу");
+});
+
+suite("пульт: «Новий ключ судді» — нове посилання, сервер дізнається одразу; у судді кнопки немає", (t) => {
+  const WS = fakeSockets();
+  const c = control({ WebSocket: WS });
+  t.after(c.close);
+  createLink(c);
+  const ws = WS.last();
+  WS.open(ws, "control");
+  const before = c.text("linkJudge");
+  const oldKey = judgeKey(c);
+  assert.equal(c.$("linkJudgeNew").hidden, false);
+  c.tap("linkJudgeNew");
+  const newKey = judgeKey(c);
+  assert.notEqual(newKey, oldKey);
+  assert.notEqual(c.text("linkJudge"), before);
+  assert.ok(c.text("linkJudge").endsWith("key=" + newKey));
+  assert.deepEqual(ws.sent[ws.sent.length - 1], { type: "judge-key", key: newKey });
+
+  const WS2 = fakeSockets();
+  const g = control({ WebSocket: WS2, url: "https://tablo.example/index.html?room=ABC234&key=" + "j".repeat(32) });
+  t.after(g.close);
+  WS2.open(WS2.last(), "control");
+  assert.equal(g.$("linkJudgeNew").hidden, true, "ключ судді міняє лише власник");
+  assert.equal(WS2.last().sent.some((m) => m.type === "judge-key"), false);
+});
+
+suite("пульт: посилання зі старої версії отримує окремий ключ судді, ключ власника лишається", (t) => {
+  const old = { server: "https://tablo.example", room: "ABC234", key: "k".repeat(32), guest: false };
+  const WS = fakeSockets();
+  const c = control({ WebSocket: WS, seed: { "volleyball:link": JSON.stringify(old) } });
+  t.after(c.close);
+  assert.match(WS.last().url, new RegExp("&key=" + "k".repeat(32)), "кімната й ключ власника ті самі");
+  const saved = JSON.parse(c.win.localStorage.getItem("volleyball:link"));
+  assert.match(saved.judgeKey, /^[\w-]{32}$/);
+  assert.notEqual(saved.judgeKey, old.key);
 });
