@@ -1,298 +1,131 @@
-# Табло — волейбол
+# Volleyball Scoreboard
 
-Лічильник рахунку для волейбольних матчів. Веде очки, сети, подачу, тайм-аути й протокол,
-працює офлайн і ставиться на телефон чи планшет як застосунок. Без збірки — статика,
-яку можна покласти на будь-який хостинг.
+[![tests](https://github.com/VMMNick/volleyball_scoreboard/actions/workflows/deploy.yml/badge.svg)](https://github.com/VMMNick/volleyball_scoreboard/actions/workflows/deploy.yml)
+[![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-**Як користуватися — [docs/INSTRUCTION.md](docs/INSTRUCTION.md)** (покрокова інструкція для суддів).
+A referee's scoreboard for volleyball matches: a control on the phone, a big screen for the gym,
+a mini scoreboard for live streams — synced in real time, working offline, in Ukrainian and English.
 
-## Можливості
+**Live demo:** <https://volleyball-scoreboard.onrender.com> (free tier — the first load may take up to a minute)
+· **Українською:** [README.uk.md](README.uk.md) · **Referee guide (UA):** [docs/INSTRUCTION.md](docs/INSTRUCTION.md)
 
-**Рахунок**
-- Тап по половині екрана — очко команді. Половини великі, щоб влучати не дивлячись.
-- Сети: 25 очок, різниця у два, вирішальний до 15. Формат — один сет, до двох
-  або до трьох перемог. Опційна стеля очок (27 — і рахунок 27:26 уже дає перемогу).
-- Подача переходить сама; при переході коротко зʼявляється «ротація».
-  Першого подавача можна задати вручну на початку сету.
-- Підказки в сітці: сетбол, матчбол, нагадування про зміну сторін на 8 очках у вирішальному.
-
-**Виправлення помилок**
-- Скасування й повтор будь-якої дії — уся історія матчу, а не лише останнє очко.
-- Кнопка «−» знімає останній розіграш саме цієї команди, навіть якщо після нього
-  суперник уже набрав свої.
-- Помилкове останнє очко можна зняти навіть після кінця матчу — табло повернеться в гру.
-
-**Заміни й картки**
-- Меню → «Заміни й картки»: заміна за номерами (до 6 на команду в сеті),
-  картки жовта / червона / вилучення / дискваліфікація — гравцю чи команді.
-- Червона картка — штраф: очко й подача суперникові. Скасовується, як і все, кнопкою ⟲.
-- Табло показує банер заміни й картки, протокол і CSV містять журнал.
-
-**Правила**
-- Пресети: **зала** (до 3 перемог, 25/15, зміна сторін на 8 у вирішальному),
-  **пляж** (до 2 перемог, 21/15, один тайм-аут, зміна сторін кожні 7 очок,
-  у вирішальному — кожні 5), **шкільний** (до 2 перемог, 25/15).
-- Пресет лише заповнює поля — числа можна підправити вручну.
-
-**Матч**
-- Тайм-аути: по два на команду в сеті, з відліком 30 секунд на весь екран.
-- Годинник матчу в шапці, тривалість кожного сету — у протоколі.
-- Зміна сторін між сетами: рахунок їде за командами, не за половинами екрана.
-
-**Протокол**
-- Рахунок і тривалість по сетах, перебіг поточного сету по очках.
-- Статистика: виграні очки, найдовша серія, найбільший відрив, узяті тайм-аути.
-- Вивантаження CSV і копіювання JSON.
-
-**Кольори**
-- Половини залиті кольорами команд на весь екран — видно з іншого кінця залу,
-  кому належить рахунок, навіть якщо не читати назви.
-- Чотири палітри під форму команд: синій/бурштин, червоний/бірюза, фіолет/лайм,
-  малина/трава. Колір змінюється одразу при виборі, а закриття налаштувань
-  без збереження відкочує його назад.
-- Колір тексту прорахований під кожен фон, щоб цифри лишались контрастними.
-- Протокол, сети в шапці та підпис переможця пофарбовані в ті самі кольори.
-
-**Дрібниці, які видно в залі**
-- Рахунок переживає перезавантаження і закриття вкладки.
-- Екран не гасне під час матчу (Screen Wake Lock).
-- Вібрація на очко, окремий сигнал на кінець сету й матчу — вимикається в налаштуваннях.
-- Повний екран для планшета на штативі чи проєктора.
-
-**Табло для глядачів**
-- Окрема сторінка `display.html` — лише показ, без кнопок. Відкривається з меню
-  пульта («Табло для глядачів») в окремому вікні, яке перетягується на проєктор,
-  ТБ чи другий монітор.
-- Оновлюється наживо з пульта на цьому ж пристрої — без сервера й інтернету:
-  стан іде через `localStorage` (подія `storage`) і `BroadcastChannel`.
-- Два макети: **арена** — великі очки в кольорах команд, рахунок у сетах, історія
-  сетів, сетбол/матчбол; **смуга** — компактний рядок для кута екрана чи стріму.
-- Тайм-аут із відліком і переможець на весь екран — синхронно з пультом.
-- Подвійний клік або `F` — повний екран, `L` — змінити макет. Курсор і підказка
-  ховаються за 3 секунди. Екран не гасне.
-- Адреса задає макет: `display.html?layout=arena` / `?layout=strip`.
-- Назва турніру чи матчу з налаштувань пульта — у шапці табло, у протоколі
-  й в імені CSV-файлу.
-- Подачу можна сховати з табло (налаштування → «Показувати подачу на табло»).
-- Стиль, шрифт і палітри ті самі, що на пульті (`css/theme.css` і `js/core/palettes.js` спільні).
-- Встановлений застосунок має ярлики «Табло» і «Смуга» — довге натискання на іконку.
-- Якщо підключено проєктор чи другий монітор, пульт відкриває табло одразу на ньому
-  (Window Management API у Chrome/Edge; браузер один раз спитає дозвіл). Інакше —
-  звичайне вікно, яке можна перетягнути.
-- Звуки без аудіофайлів (Web Audio): свисток на тайм-аут, сигнал кінця тайм-ауту,
-  сету й матчу. Браузер вмикає звук лише після кліку — табло про це підкаже.
-  Вимикаються в налаштуваннях пульта.
-- Анімації: спалах очка, «ротація» при переході подачі, банер «Сет виграла…» між
-  сетами. З увімкненим «зменшенням руху» в системі анімації вимикаються.
-
-**Міні-табло з керуванням (міні-пульт)**
-- Меню → «Міні-табло з керуванням» відкриває маленьке окреме вікно `mini.html`:
-  зверху міні-табло (назви команд, подача, сети, очки), під ним кнопки
-  **+1 / −1** для кожної команди, **тайм-аут**, **⟲ Скасувати / ⟳ Повторити** і
-  вибір першого подавача.
-- Веде той самий матч, що й основний пульт: очко з будь-якого з них одразу видно
-  в іншому, на великому табло й — якщо створено «Посилання на матч» — у другого
-  судді та на міні-табло глядачів.
-- Зручно тримати поруч з іншою програмою чи в окремій вкладці телефона. Клавіші:
-  `1` / `2` — очко, `Q` / `P` — тайм-аут, `Backspace` — скасувати.
-- Заміни, картки, налаштування й протокол — в основному пульті (посилання
-  «Повний пульт ↗» внизу).
-- **Табло й керування можна розвести по різних вікнах чи екранах**, і вони лишаються
-  звʼязаними:
-  - «Табло окремо ↗» у міні-пульті або «Міні-табло окремо» в меню пульта — лише
-    міні-табло (`live.html`) у своєму вікні;
-  - «Сховати табло» (або `mini.html?view=controls`) — лише кнопки, з рахунком у
-    картках команд; вибір запамʼятовується;
-  - на окремому табло є «Керування ↗» — відкриває кнопки того ж матчу (лише на цьому
-    ж пристрої: у глядачів за посиланням на матч його немає).
-
-**Міні-табло для інших додатків і сайтів**
-- `live.html?room=…` — лише назви команд і лічильник; усі розміри рахуються від розміру
-  таблиці, тож її можна вставити будь-куди й масштабувати.
-- За замовчуванням — маленька таблиця (30 % ширини), решта прозора; з `&fit=fill` — на все вікно; в `<iframe>`
-  або з `&fit=keep` — тримає пропорції 3,2 : 1, а поля довкола прозорі.
-- «Код для вставки» в пульті й міні-пульті копіює готовий `<iframe>`
-  (`Remote.embedCode`). Детально — [INSTRUCTION.md](INSTRUCTION.md#міні-табло-в-іншому-додатку-чи-на-сайті).
-- Макет задає адреса: типово — назви й очки; `&layout=sets` додає колонку виграних сетів;
-  `&layout=bug` — один рядок (назви по краях, очки до центру, рахунок за сетами посередині);
-  `&layout=table` — як у волейбольних таблицях: рахунок кожного сету окремою колонкою;
-  `&title=1` — смуга з назвою турніру. Вигляд обирається в пульті («Посилання на матч» →
-  кнопки під «Розмір») і пишеться в адресу, а не в матч: одна кімната може світитися
-  смугою в стрімі й табло з сетами в глядачів. Пропорції таблиці для кожного макета —
-  `--ratio` у `css/pages/live.css` і `RATIO` у `js/pages/live.js` (однакові числа).
-- **Чіткість у стрім-додатках.** Сторінка малюється в розмірі віджета, тож при 30 % ширини
-  таблиця отримує ≈ втричі менше пікселів, ніж могла б, а додаток потім розтягує кадр. Прапорець
-  «На весь віджет» у пульті додає `&fit=fill`: табло займає всю сторінку, а зменшує його вже сам
-  віджет. Відсотки (`boardPct`) у цьому режимі не діють, кнопки − / + вимикаються.
-
-**Міні-табло одразу маленьке**
-- `live.html?room=…` за замовчуванням — лише маленька таблиця (30 % ширини екрана),
-  поля прозорі: у будь-якому додатку, зокрема в Prism Live на телефоні, табло невелике
-  без зменшування віджета.
-- Ширина (10–100 %) — кнопками − / + у пульті чи міні-пульті; летить через сервер
-  (`boardPct` у налаштуваннях) і змінюється просто під час ефіру. Адреса може її
-  зафіксувати: `&size=20`. Інші режими: `&fit=fill` (на все вікно), `&fit=keep` / `<iframe>`.
-
-**Посилання на матч**
-- Меню → «Посилання на матч» → «Створити посилання». Пульт дає два посилання:
-  - **Міні-табло** `live.html?room=…` — назви команд, хто подає, і лічильник.
-    Відкривається на будь-якому телефоні, ТБ чи в іншому додатку, лише перегляд.
-  - **Пульт для другого судді** `index.html?room=…&key=…` — той самий матч з іншого
-    телефона: очки, тайм-аути, заміни, картки, скасування. Обидва пульти
-    синхронізуються; діє зміна того, хто натиснув останнім.
-- У посиланні на міні-табло ключа судді немає — змінювати рахунок за ним неможливо.
-  Посилання для судді надсилайте лише судді.
-- Зник інтернет чи перезапустився сервер — усі перепідключаються самі, а пульт
-  повторно надсилає стан. Посилання переживають перезавантаження пульта.
-- Потрібен сервер (`server/server.js`, див. «Деплой»). Без нього все працює як раніше:
-  офлайн, на одному пристрої.
-
-## Пристрої
-
-| Пристрій | Що показує |
+| Referee control | Spectator screen |
 |---|---|
-| Телефон, портрет | Половини одна над одною, сітка поперек екрана |
-| Телефон/планшет, альбом | Половини поруч, сітка вертикальна посередині |
-| Планшет на штативі, ноутбук | Той самий альбомний розклад, цифри більші |
-| Проєктор, ТБ у залі | Повний екран, розмір цифр тягнеться за висотою |
+| ![Referee control](docs/screenshots/en-pult.webp) | ![Spectator screen](docs/screenshots/en-display.webp) |
 
-Розкладка перемикається за співвідношенням сторін (`min-aspect-ratio: 1/1`), а не за
-шириною — планшет у портреті поводиться як великий телефон, а не як десктоп.
-Розміри тексту й кнопок задані через `clamp()` у `vmin`, тож цифри лишаються
-читабельними і на 5", і на 13".
-
-## Керування
-
-| Дія | Жест | Клавіатура |
+| Phone | Stream overlay | Scoresheet |
 |---|---|---|
-| Очко | тап по половині | `1` / `2` |
-| Тайм-аут | пігулка «тайм-аут» у куті | `Q` / `P` |
-| Зняти очко | кружечок «−» у куті половини | — |
-| Скасувати / повторити | `⟲` / `⟳` у сітці | `Backspace` / `Shift+Backspace` |
-| Закрити вікно | тап повз вікно | `Esc` |
-| Меню, протокол, налаштування | `⋯` у шапці | — |
-| Кольори команд | налаштування → палітра | — |
-| Свої кольори (команди, фон, рамка, текст таблиці) | налаштування → «Свої кольори» | — |
+| <img src="docs/screenshots/en-phone.webp" alt="Phone" width="260"> | ![Mini scoreboard for a stream](docs/screenshots/en-live.webp) | ![Scoresheet](docs/screenshots/en-protocol.webp) |
 
-## Запуск
+## What it does
+
+- **Scoring built for a gym floor.** Tap a half of the screen to score. Sets, deciding set,
+  point cap, serve rotation, timeouts with a countdown, substitutions (6 per set) and cards
+  (a red card gives the opponent a point and the serve). Presets: indoor, beach, school.
+- **Undo anything.** The whole match history, not just the last point; remove the last point of
+  a specific team even after the opponent scored; reopen a finished match.
+- **Big screen for spectators.** Projector or TV, arena or strip layout, set banners, timeout
+  countdown, sounds synthesised with Web Audio — synced from the control on the same device
+  without a server (`BroadcastChannel` + `storage` events).
+- **Match link.** One click gives a view-only mini scoreboard for any phone, TV or streaming app
+  (Prism Live, OBS) and a separate link for the second referee to keep score from another phone.
+- **Scoresheet and archive.** Per-set score and duration, rally trail, stats, CSV/JSON export;
+  the last 30 matches are kept on the device with their full scoresheets.
+- **Offline-first PWA.** Installs on a phone or tablet, keeps the score across reloads, keeps
+  the screen awake.
+- **Ukrainian and English.** Switch in settings; spectators' boards accept `?lang=en`.
+
+## How it works
+
+```mermaid
+flowchart LR
+  P["Referee control<br/>index.html"] -- "localStorage +<br/>BroadcastChannel" --> D["Big screen<br/>display.html"]
+  P -- "WebSocket" --> S[("Node server<br/>match rooms")]
+  J["Second referee<br/>index.html?room&key"] -- "WebSocket" --> S
+  S -- "view only" --> L["Mini scoreboards<br/>live.html × N"]
+```
+
+The site is plain HTML/CSS/JS with no framework and no build step; the same modules run in the
+browser and in Node, so the rules and the sync logic are tested without a browser.
+The server is ~400 lines on top of `ws`: it serves `public/` and keeps match rooms in memory.
+
+## Engineering highlights
+
+- **Event-sourced match.** A match is a list of events (`point`, `timeout`, `sub`, `card`, …);
+  the state is always recomputed by a pure `reduce`. Undo/redo, the scoresheet, statistics and
+  sync come out of that for free.
+- **Two referees without lost points.** Every event has an id; undo and removal are tombstones.
+  `Match.merge` unions both devices' events (ordered by time, ties by id) and is idempotent and
+  commutative, so the server and every client converge. A Lamport-style clock never falls behind
+  any time it has seen, so phones with skewed clocks still order new events correctly.
+  `syncKey` compares content only, so converged devices stop talking — no ping-pong.
+  A state from an older cached client (no ids) is never merged, to avoid double-counting during a rollout.
+- **Rooms survive a server restart.** On a free host the process restarts and memory is gone.
+  The server hands each control an HMAC-signed proof of ownership (`ROOM_SECRET`); after a restart
+  the oldest valid proof wins the room back and an impostor who grabbed it is kicked.
+  The second referee has a separate, rotatable key with its own proof tied to the owner's session.
+- **A hosting quirk, found on production.** Render's proxy drops WebSocket close codes (the browser
+  only sees `1006` after ~20 s), so rejections arrive as an explicit `{type:"error"}` message and
+  clients say `{type:"bye"}` when leaving.
+- **Hardened server.** The same `Match.validate` the browser uses rejects malformed events before
+  they reach spectators; per-IP connection and room-creation limits; rooms opened only by viewers
+  are freed immediately.
+- **Cache version = content hash.** `npm run build` stamps the service worker with a hash of every
+  cached file, so installed apps always update and nobody has to bump a version by hand.
+- **Translation without touching the logic.** `i18n.js` translates the rendered page (and
+  everything added later via `MutationObserver`, before paint), including phrases with numbers
+  and team names; team names themselves stay untouched (`translate="no"`).
+
+## Tests
 
 ```bash
-npm install            # ws для сервера посилань, jsdom для тестів
-npm start              # сервер: сайт з public/ + посилання на матч, http://localhost:3000
-npm run build          # перевірка перед деплоєм: офлайн-кеш збігається з public/
+npm test                          # ~240 unit and DOM tests (node:test + jsdom), ~15 s
+npx playwright install chromium   # once
+npm run e2e                       # 12 end-to-end scenarios in real Chromium, ~20 s
 ```
 
-Service worker і встановлення застосунку працюють лише з `https://` або `localhost`.
-Просто відкритий `file://…/public/index.html` теж працює — без офлайн-кешу, встановлення й посилань на матч.
+The end-to-end suite starts a real server and opens every device in its own browser context:
+a spectator follows the score live; a second referee scores from another "phone";
+**the server restarts mid-match** while an impostor grabs the room; **both referees keep scoring
+while the server is down** and no point is lost after reconnecting; an undo made offline does not
+come back; rotating the referee key disconnects the old referee; a finished match lands in the
+archive; the whole match is played in English with no Ukrainian text left on any page.
+GitHub Actions runs both suites on every push.
 
-## Тести
+## Run locally
 
 ```bash
-npm test               # 180 тестів (1 пропущено й 1 todo — пляжний волейбол відкладено)
-npm run check          # синтаксис усіх скриптів
+npm install
+npm start          # http://localhost:3000 — the site plus the match-link server
 ```
 
-Набори (детально й чекліст ручної перевірки — у [docs/TESTING.md](docs/TESTING.md)):
+Requires Node 20+. Opening `public/index.html` directly also works, without offline cache and match links.
 
-- `tests/match.test.js` — правила: сети, баланс, вирішальний, тайм-аути, заміни, картки,
-  скасування, статистика, протокол, CSV. Без залежностей.
-- `tests/markup.test.js` — звʼязки між файлами: id, порядок скриптів, офлайн-кеш,
-  шрифти, маніфест, збирання для хостингу. Без залежностей.
-- `tests/ui.test.js` — справжні тапи на пульті в jsdom.
-- `tests/display.test.js` — велике табло: синхронізація, банери, тайм-аут, фінал, звуки.
-- `tests/mini.test.js` — міні-пульт: кнопки, синхронізація з пультом в обидва боки, пересилання на сервер.
-- `tests/live.test.js` — міні-табло й «Посилання на матч»: другий суддя, синхронізація (фальшиві сокети).
-- `tests/server.test.js` — сервер на справжніх сокетах: кімнати, ключ судді, глядачі,
-  пізні підключення, сміття, статика, захист від `../`.
-- `tests/flow.test.js` — повний матч 3:2 через інтерфейс пульта з підключеним табло.
+## Deploy
 
-Логіка матчу навмисно не знає про DOM — тому правила тестуються без браузера.
+**Render** — `render.yaml` is a ready Blueprint: Dashboard → New → Blueprint → this repository.
+It creates a Node web service with a generated `ROOM_SECRET`; `/healthz` is the health check.
 
-## Структура
+**GitHub Pages** (optional) — `.github/workflows/pages.yml` publishes `public/`; set the repository
+variable `SYNC_SERVER` to the Render URL so match links go through the server.
 
-Докладно, з потоками даних і правилами «що куди класти» — [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+## Project structure
 
 ```
-public/                     — САЙТ: усе, що отримує браузер (роздається як є, без збирання)
-├── index.html              — пульт судді
-├── display.html            — велике табло для глядачів (ТБ, проєктор)
-├── live.html               — міні-табло: для стріму (Prism Live) і телефонів глядачів
-├── mini.html               — міні-пульт: міні-табло + кнопки в окремому вікні
-├── sw.js                   — офлайн-кеш (лежить у корені сайту, щоб діяти на всі сторінки)
-├── js/config.js            — налаштування хостингу: адреса сервера посилань (для GitHub Pages)
-├── manifest.webmanifest    — встановлення як застосунку
-├── css/
-│   ├── theme.css           — спільна тема: кольори, шрифти
-│   ├── scorebug.css        — спільна таблиця міні-табла (live + mini)
-│   └── pages/              — стилі кожної сторінки: pult, display, live, mini
-├── js/
-│   ├── core/               — ЯДРО без DOM (працює і в Node): match.js — правила, palettes.js — кольори
-│   ├── shared/             — спільні модулі сторінок: ui-common, scorebug, remote, feed, sounds
-│   └── pages/              — логіка сторінок: pult.js, display.js, live.js, mini.js
-└── assets/
-    ├── fonts/              — Barlow Condensed + Roboto Condensed (OFL)
-    ├── icons/              — іконки застосунку
-    └── logos/              — емблеми ліги: uvl-new.webp, uvl-old.webp
-server/server.js            — сервер: роздає public/ + WebSocket /ws (кімнати матчів)
-scripts/build.js            — перевірка: кожен файл public/ є в офлайн-кеші й навпаки
-scripts/pages-config.js     — вписує SYNC_SERVER у js/config.js під час деплою на GitHub Pages
-tests/                      — node:test (+ helpers/site.js — де лежать файли)
-docs/                       — INSTRUCTION (для суддів), TESTING, ARCHITECTURE
-render.yaml                 — деплой на Render
+public/            the site, served as is
+  index.html       referee control        display.html   spectator screen
+  live.html        mini scoreboard        mini.html      compact control
+  js/core/         match.js (rules, merge, validation), palettes.js — no DOM
+  js/shared/       remote (WebSocket), link, archive, i18n, feed, scorebug, sounds
+  js/pages/        one script per page
+server/server.js   static files + WebSocket rooms, ownership proofs, limits
+scripts/build.js   checks the offline cache and stamps its version
+tests/             unit and DOM tests; tests/e2e — Playwright
+docs/              ARCHITECTURE, TESTING, INSTRUCTION (referee guide)
 ```
 
-Матч зберігається як список подій (`point`, `timeout`, `swap`, `serve`, `sub`, `card`),
-а стан завжди рахується з нуля. Звідси безкоштовно виходять скасування, повтор,
-протокол і статистика. Посилання на матч передають той самий список подій — міні-табло
-й другий пульт рахують стан тим самим ядром.
+Details, data flow and "where does new code go": [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) (Ukrainian).
 
-## Деплой
+## License
 
-Деплой — лише на Render. `render.yaml` уже в проєкті: Node-сервіс, який роздає табло
-й тримає посилання на матч.
-
-1. dashboard.render.com → **New** → **Blueprint** → репозиторій `volleyball_scoreboard` → **Apply**.
-2. Через 2–3 хвилини — `https://volleyball-scoreboard.onrender.com` (назва може відрізнятись).
-
-Або вручну: **New** → **Web Service** (не Static Site!) → репозиторій, далі:
-
-| Поле | Значення |
-|---|---|
-| Runtime | Node |
-| Build Command | `npm install --omit=dev --no-audit --no-fund && npm run build` |
-| Start Command | `npm start` |
-| Health Check Path | `/healthz` |
-
-Перевірка: `https://…onrender.com/healthz` має відповісти `{"ok":true,"rooms":0}`.
-Якщо там «Not Found» — розгорнуто **Static Site**: сайт відкривається, але посилань на
-матч і синхронізації між пристроями немає (пульт так і напише в поясненні «немає звʼязку»).
-
-На безкоштовному плані сервіс засинає без відвідувачів і прокидається ~30–60 с.
-Перед матчем відкрийте пульт заздалегідь — далі все працює без затримок.
-
-### GitHub Pages
-
-Сайт можна викласти й на GitHub Pages — `https://<користувач>.github.io/volleyball_scoreboard/`.
-Workflow `.github/workflows/pages.yml` на кожен пуш у `main` проганяє тести й публікує папку `public/`.
-
-1. GitHub → репозиторій → **Settings → Pages → Build and deployment → Source: GitHub Actions**.
-2. **Settings → Secrets and variables → Actions → Variables → New repository variable**:
-   `SYNC_SERVER` = адреса сервісу на Render (напр. `https://volleyball-scoreboard.onrender.com`).
-3. Пуш у `main` (або **Actions → pages → Run workflow**). Адреса сайту — у підсумку запуску.
-
-GitHub Pages віддає лише статичні файли, тому синхронізація між пристроями («Посилання на
-матч») іде через сервер на Render: workflow вписує `SYNC_SERVER` у `public/js/config.js`.
-Посилання для стріму й другого судді тоді ведуть на Render. Без `SYNC_SERVER` на Pages працює
-все, крім посилань: пульт, велике табло й міні-табло на одному пристрої, офлайн, встановлення.
-
-GitHub Actions (`.github/workflows/deploy.yml`) на кожен пуш перевіряє синтаксис, офлайн-кеш
-й тести. Render деплоїть пуш у `main` сам.
-
-Версію офлайн-кешу (`CACHE` у `public/sw.js`) вручну піднімати не треба: `npm run build`
-рахує її з вмісту файлів і вписує сама, а Render і GitHub Pages запускають його перед кожним деплоєм.
-
-## Далі
-
-- Пляжний волейбол (технічний тайм-аут, тести) — відкладено.
-- Архів матчів із пошуком по командах.
-- Англійська версія інтерфейсу.
+[MIT](LICENSE)
